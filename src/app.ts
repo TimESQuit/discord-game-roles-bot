@@ -26,6 +26,10 @@ export interface ReadyDeps {
   registerCommands: () => Promise<void>;
   fetchMembers: () => Promise<void>;
   isConnected: () => boolean;
+  /** True once shutdown has begun; startup then skips the timers. */
+  isStopping: () => boolean;
+  /** Called once the member fetch has finished (also when it failed). */
+  onMembersReady?: () => void;
   version: string;
 }
 
@@ -35,19 +39,21 @@ const messageOf = (error: unknown): string =>
 /** Runs the startup steps and returns a function that stops the backup and heartbeat timers. */
 export async function onReady(ctx: AppContext, deps: ReadyDeps): Promise<() => void> {
   try {
-    await deps.registerCommands();
-  } catch (error) {
-    console.error("Registering commands failed", error);
-    await ctx.audit.notifyAdmins(`Registering commands failed: ${messageOf(error)}`);
-  }
-  try {
     await deps.fetchMembers();
   } catch (error) {
     console.error("Fetching members failed", error);
     await ctx.audit.notifyAdmins(`Fetching guild members failed: ${messageOf(error)}`);
   }
+  deps.onMembersReady?.();
+  try {
+    await deps.registerCommands();
+  } catch (error) {
+    console.error("Registering commands failed", error);
+    await ctx.audit.notifyAdmins(`Registering commands failed: ${messageOf(error)}`);
+  }
   await ctx.audit.notifyAdmins(`Bot started (version ${deps.version}).`);
 
+  if (deps.isStopping()) return () => {};
   const stopBackups = scheduleNightlyBackups(ctx, ctx.db);
   const stopHeartbeat = startHeartbeat({
     url: ctx.config.healthcheckUrl,
@@ -57,5 +63,63 @@ export async function onReady(ctx: AppContext, deps: ReadyDeps): Promise<() => v
   return () => {
     stopBackups();
     stopHeartbeat();
+  };
+}
+
+/** Reports a problem to the console and the admins. A failing or re-entrant notify cannot loop. */
+export function createErrorReporter(
+  getNotify: () => ((text: string) => Promise<void>) | undefined,
+): (label: string, error: unknown) => Promise<void> {
+  let reporting = false;
+  return async (label, error) => {
+    console.error(label, error);
+    const notify = getNotify();
+    if (reporting || notify === undefined) return;
+    reporting = true;
+    try {
+      await notify(`${label}: ${messageOf(error)}`);
+    } catch (notifyError) {
+      console.error("Could not notify admins", notifyError);
+    } finally {
+      reporting = false;
+    }
+  };
+}
+
+export interface ShutdownDeps {
+  stopTimers: () => (() => void) | undefined;
+  destroyClient: () => Promise<void>;
+  closeDb: () => Promise<void>;
+  exit: (code: number) => void;
+}
+
+/** Stops everything once. Each step is isolated so one failure cannot prevent the exit. */
+export function createShutdown(deps: ShutdownDeps): {
+  run: () => Promise<void>;
+  isStopping: () => boolean;
+} {
+  let stopping = false;
+  return {
+    isStopping: () => stopping,
+    run: async () => {
+      if (stopping) return;
+      stopping = true;
+      let failed = false;
+      const step = async (name: string, fn: () => void | Promise<void>): Promise<void> => {
+        try {
+          await fn();
+        } catch (error) {
+          failed = true;
+          console.error(`Shutdown step failed: ${name}`, error);
+        }
+      };
+      try {
+        await step("timers", () => deps.stopTimers()?.());
+        await step("client", deps.destroyClient);
+        await step("database", deps.closeDb);
+      } finally {
+        deps.exit(failed ? 1 : 0);
+      }
+    },
   };
 }

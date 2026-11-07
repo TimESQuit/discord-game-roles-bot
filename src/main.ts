@@ -1,14 +1,21 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
-import { Client, Events, GatewayIntentBits, REST } from "discord.js";
-import { buildHandlers, onReady } from "./app.ts";
+import {
+  Client,
+  Events,
+  GatewayIntentBits,
+  MessageFlags,
+  REST,
+  type Interaction,
+} from "discord.js";
+import { buildHandlers, createErrorReporter, createShutdown, onReady } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { closeDatabase, openDatabase } from "./db/database.ts";
 import { createRepos } from "./db/repos/index.ts";
 import { createDiscordGateway } from "./discord/discord-gateway.ts";
 import { registerCommands } from "./interactions/commands.ts";
 import { handleInteraction } from "./interactions/router.ts";
-import { createAudit, type Audit } from "./services/audit.ts";
+import { createAudit } from "./services/audit.ts";
 import type { AppContext } from "./services/context.ts";
 
 function readVersion(): string {
@@ -32,30 +39,42 @@ const client = new Client({
 
 let ctx: AppContext | undefined;
 let stopTimers: (() => void) | undefined;
-let reporting = false;
+let membersReady = false;
 
-/** Logs the problem and tells the admins. A failure to notify is only logged, so it cannot loop. */
-async function report(label: string, error: unknown): Promise<void> {
-  console.error(label, error);
-  if (reporting || ctx === undefined) return;
-  reporting = true;
-  try {
-    const audit: Audit = ctx.audit;
-    const reason = error instanceof Error ? error.message : String(error);
-    await audit.notifyAdmins(`${label}: ${reason}`);
-  } catch (notifyError) {
-    console.error("Could not notify admins", notifyError);
-  } finally {
-    reporting = false;
-  }
-}
+const report = createErrorReporter(() => {
+  const audit = ctx?.audit;
+  return audit ? (text) => audit.notifyAdmins(text) : undefined;
+});
+const shutdown = createShutdown({
+  stopTimers: () => stopTimers,
+  destroyClient: () => client.destroy(),
+  closeDb: () => closeDatabase(db),
+  exit: (code) => process.exit(code),
+});
 
 process.on("unhandledRejection", (reason) => void report("Unhandled rejection", reason));
 client.on(Events.Error, (error) => void report("Discord client error", error));
 
+async function tellStarting(interaction: Interaction): Promise<void> {
+  try {
+    if (interaction.isAutocomplete()) await interaction.respond([]);
+    else if (interaction.isRepliable())
+      await interaction.reply({
+        content: "The bot is still starting. Try again in a moment.",
+        flags: MessageFlags.Ephemeral,
+      });
+  } catch (error) {
+    console.error("Could not answer an interaction during startup", error);
+  }
+}
+
 client.on(Events.InteractionCreate, (interaction) => {
-  if (ctx === undefined) return;
+  if (ctx === undefined || shutdown.isStopping()) return;
   if (interaction.guildId !== config.guildId) return;
+  if (!membersReady) {
+    void tellStarting(interaction);
+    return;
+  }
   void handleInteraction(ctx, handlers, interaction).catch((error) =>
     report("Interaction failed", error),
   );
@@ -64,7 +83,7 @@ client.on(Events.InteractionCreate, (interaction) => {
 client.once(Events.ClientReady, (ready) => {
   const repos = createRepos(db.kysely);
   const gateway = createDiscordGateway(ready, config.guildId);
-  ctx = {
+  const readyCtx: AppContext = {
     config,
     db,
     repos,
@@ -72,34 +91,37 @@ client.once(Events.ClientReady, (ready) => {
     audit: createAudit(repos, gateway),
     now: () => new Date(),
   };
+  ctx = readyCtx;
   console.log("Logged in to Discord.");
   const rest = new REST().setToken(config.token);
-  void onReady(ctx, {
+  void onReady(readyCtx, {
     registerCommands: () => registerCommands(rest, config),
     fetchMembers: async () => {
       const guild = ready.guilds.cache.get(config.guildId);
       if (!guild) throw new Error("The configured server is not available");
       await guild.members.fetch();
     },
+    onMembersReady: () => {
+      membersReady = true;
+    },
     isConnected: () => client.isReady(),
+    isStopping: () => shutdown.isStopping(),
     version,
   })
     .then((stop) => {
       stopTimers = stop;
+      if (shutdown.isStopping()) stop();
     })
     .catch((error) => report("Startup failed", error));
 });
 
-let shuttingDown = false;
-async function shutdown(): Promise<void> {
-  if (shuttingDown) return;
-  shuttingDown = true;
-  stopTimers?.();
-  await client.destroy();
-  await closeDatabase(db);
-  process.exit(0);
-}
-process.on("SIGTERM", () => void shutdown());
-process.on("SIGINT", () => void shutdown());
+process.on("SIGTERM", () => void shutdown.run());
+process.on("SIGINT", () => void shutdown.run());
 
-await client.login(config.token);
+try {
+  await client.login(config.token);
+} catch {
+  console.error("Could not log in to Discord. Check DISCORD_TOKEN and the network.");
+  await closeDatabase(db).catch(() => {});
+  process.exit(1);
+}

@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { buildHandlers, onReady, type ReadyDeps } from "../src/app.ts";
+import {
+  buildHandlers,
+  createErrorReporter,
+  createShutdown,
+  onReady,
+  type ReadyDeps,
+} from "../src/app.ts";
 import { HANDLER_NAMES } from "../src/interactions/router.ts";
 import { makeContext } from "./fakes/context.ts";
 
@@ -33,6 +39,7 @@ describe("onReady", () => {
       calls.push("fetch");
     },
     isConnected: () => true,
+    isStopping: () => false,
     version: "1.2.3",
     ...over,
   });
@@ -44,7 +51,7 @@ describe("onReady", () => {
       calls.push(`notify:${t}`);
     });
     const stop = await onReady(ctx, deps(calls));
-    expect(calls).toEqual(["register", "fetch", "notify:Bot started (version 1.2.3)."]);
+    expect(calls).toEqual(["fetch", "register", "notify:Bot started (version 1.2.3)."]);
     expect(notify).toHaveBeenCalledTimes(1);
     stop();
   });
@@ -87,4 +94,123 @@ describe("onReady", () => {
     expect(vi.getTimerCount()).toBe(0);
     vi.unstubAllGlobals();
   });
+});
+
+describe("onReady and shutdown", () => {
+  test("members-ready callback fires after the member fetch, before registering", async () => {
+    const ctx = await makeContext();
+    vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
+    const calls: string[] = [];
+    const stop = await onReady(ctx, {
+      ...deps0(calls),
+      onMembersReady: () => calls.push("members-ready"),
+    });
+    expect(calls).toEqual(["fetch", "members-ready", "register"]);
+    stop();
+  });
+
+  test("no timers start when shutdown began during startup", async () => {
+    vi.useFakeTimers();
+    const ctx = await makeContext();
+    vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
+    let stopping = false;
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const pending = onReady(ctx, {
+      ...deps0([]),
+      registerCommands: () => gate,
+      isStopping: () => stopping,
+    });
+    stopping = true;
+    release();
+    const stop = await pending;
+    expect(vi.getTimerCount()).toBe(0);
+    stop();
+    vi.useRealTimers();
+  });
+
+  const makeShutdown = (over: Partial<Parameters<typeof createShutdown>[0]> = {}) => {
+    const calls: string[] = [];
+    const exit = vi.fn<(code: number) => void>();
+    const shutdown = createShutdown({
+      stopTimers: () => () => calls.push("timers"),
+      destroyClient: async () => {
+        calls.push("destroy");
+      },
+      closeDb: async () => {
+        calls.push("db");
+      },
+      exit,
+      ...over,
+    });
+    return { calls, exit, shutdown };
+  };
+
+  test("shutdown stops timers, destroys, closes, exits 0", async () => {
+    const { calls, exit, shutdown } = makeShutdown();
+    await shutdown.run();
+    expect(calls).toEqual(["timers", "destroy", "db"]);
+    expect(exit).toHaveBeenCalledExactlyOnceWith(0);
+    expect(shutdown.isStopping()).toBe(true);
+  });
+
+  test("a rejecting destroy still closes the database and exits 1", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { calls, exit, shutdown } = makeShutdown({
+      destroyClient: async () => {
+        throw new Error("nope");
+      },
+    });
+    await shutdown.run();
+    expect(calls).toContain("db");
+    expect(exit).toHaveBeenCalledExactlyOnceWith(1);
+  });
+
+  test("a second signal is a no-op", async () => {
+    const { exit, shutdown } = makeShutdown();
+    await Promise.all([shutdown.run(), shutdown.run()]);
+    expect(exit).toHaveBeenCalledTimes(1);
+  });
+
+  test("a signal before ready works (no stop function yet)", async () => {
+    const { exit, shutdown } = makeShutdown({ stopTimers: () => undefined });
+    await shutdown.run();
+    expect(exit).toHaveBeenCalledExactlyOnceWith(0);
+  });
+
+  test("the error reporter notifies once and cannot loop", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const notify = vi.fn<(text: string) => Promise<void>>();
+    const report = createErrorReporter(() => notify);
+    notify.mockImplementationOnce(async () => {
+      await report("inner", new Error("again"));
+      throw new Error("notify broke");
+    });
+    await report("Oops", new Error("bad"));
+    expect(notify).toHaveBeenCalledTimes(1);
+    expect(notify).toHaveBeenCalledWith("Oops: bad");
+    await report("Later", "x");
+    expect(notify).toHaveBeenCalledTimes(2);
+  });
+
+  test("the error reporter only logs before a notifier exists", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    await expect(createErrorReporter(() => undefined)("Early", new Error("x"))).resolves.toBe(
+      undefined,
+    );
+  });
+});
+
+const deps0 = (calls: string[]): ReadyDeps => ({
+  registerCommands: async () => {
+    calls.push("register");
+  },
+  fetchMembers: async () => {
+    calls.push("fetch");
+  },
+  isConnected: () => true,
+  isStopping: () => false,
+  version: "1.2.3",
 });
