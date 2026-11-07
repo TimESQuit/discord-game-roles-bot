@@ -52,6 +52,7 @@ export const suggestions = sqliteTable(
     createdAt: text("created_at").notNull(),
     reviewMessageId: text("review_message_id"),
     gameId: integer("game_id").references(() => games.id, { onDelete: "set null" }),
+    aliases: text("aliases"),
   },
   (t) => [
     check(

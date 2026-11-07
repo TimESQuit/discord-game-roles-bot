@@ -1,0 +1,1 @@
+ALTER TABLE `suggestions` ADD `aliases` text;

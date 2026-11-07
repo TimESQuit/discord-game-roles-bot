@@ -35,6 +35,7 @@ export type Suggestion = {
   createdAt: string;
   reviewMessageId: string | null;
   gameId: number | null;
+  aliases: string | null;
 };
 
 export type LfgPost = {

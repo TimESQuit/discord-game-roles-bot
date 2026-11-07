@@ -21,7 +21,7 @@ export type SuggestionsRepo = {
   undoDecision(id: number): Promise<void>;
   update(
     id: number,
-    patch: Partial<Pick<Suggestion, "name" | "categoryId" | "note">>,
+    patch: Partial<Pick<Suggestion, "name" | "categoryId" | "note" | "aliases">>,
   ): Promise<void>;
   setReviewMessage(id: number, messageId: string): Promise<void>;
   setGame(id: number, gameId: number | null): Promise<void>;
@@ -41,6 +41,7 @@ function toSuggestion(row: Selectable<DB["suggestions"]>): Suggestion {
     createdAt: row.created_at,
     reviewMessageId: row.review_message_id,
     gameId: row.game_id,
+    aliases: row.aliases,
   };
 }
 
@@ -125,10 +126,16 @@ export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
         .execute();
     },
     async update(id, patch) {
-      const set: { name?: string; category_id?: number; note?: string | null } = {};
+      const set: {
+        name?: string;
+        category_id?: number;
+        note?: string | null;
+        aliases?: string | null;
+      } = {};
       if (patch.name !== undefined) set.name = patch.name;
       if (patch.categoryId !== undefined) set.category_id = patch.categoryId;
       if (patch.note !== undefined) set.note = patch.note;
+      if (patch.aliases !== undefined) set.aliases = patch.aliases;
       if (Object.keys(set).length === 0) return;
       await kysely.updateTable("suggestions").set(set).where("id", "=", id).execute();
     },
