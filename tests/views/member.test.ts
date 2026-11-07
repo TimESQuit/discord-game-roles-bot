@@ -6,6 +6,8 @@ import { countComponents, truncate } from "../../src/views/limits.ts";
 import {
   addGamesPageCount,
   addGamesView,
+  changedOptionIds,
+  pickGamePageCount,
   gameListView,
   menuView,
   myGamesView,
@@ -131,6 +133,9 @@ test("labels and option text are truncated to 100 chars", () => {
   expect(opt.label.endsWith("…")).toBe(true);
   expect(truncate("short", 100)).toBe("short");
   expect(truncate("abcdef", 4)).toBe("abc…");
+  const emoji = "ab😀😀😀";
+  expect(truncate(emoji, 4)).toBe("ab😀…");
+  expect(truncate(emoji, 5)).toBe(emoji);
 });
 
 test("remove view: nothing pre-ticked, chunks of 25; empty shows text", () => {
@@ -182,20 +187,61 @@ test("game list view shows names or the empty text", () => {
   );
 });
 
-test("pick view: single-select per chunk with pick IDs, cancel, within 40 components", () => {
-  const categories = Array.from({ length: 12 }, (_, i) => cat(i + 1, `C${String(i + 1)}`));
-  const games = categories.flatMap((c) =>
-    Array.from({ length: 30 }, (_, i) => game(c.id * 100 + i, `G${String(i)}`, c.id)),
+const manyCategories = Array.from({ length: 12 }, (_, i) => cat(i + 1, `C${String(i + 1)}`));
+const manyGames = manyCategories.flatMap((c) =>
+  Array.from({ length: 50 }, (_, i) => game(c.id * 100 + i, `G${String(i)}`, c.id)),
+);
+
+test("pick view pages: 24 chunks give 2+ pages, each within 40, every game reachable", () => {
+  const count = pickGamePageCount(manyCategories, manyGames);
+  expect(count).toBeGreaterThanOrEqual(2);
+  const pages = Array.from({ length: count }, (_, i) =>
+    pickGameView("who", manyCategories, manyGames, i),
   );
-  const p = pickGameView("who", categories, games);
-  expect(countComponents(p)).toBeLessThanOrEqual(40);
-  const s = allSelects(p)[0]!;
-  expect(s.max_values).toBe(1);
-  expect(parseId(String(s.custom_id))).toEqual({
+  for (const p of pages) expect(countComponents(p)).toBeLessThanOrEqual(40);
+  const values = pages.flatMap(allSelects).flatMap((s) => s.options as { value: string }[]);
+  expect(new Set(values.map((o) => o.value)).size).toBe(manyGames.length);
+  const first = allSelects(pages[0]!)[0]!;
+  expect(first.max_values).toBe(1);
+  expect(parseId(String(first.custom_id))).toEqual({
     kind: "pick",
     purpose: "who",
     categoryId: 1,
     chunk: 0,
   });
-  expect(buttons(p).map((b) => parseId(String(b.custom_id)))).toContainEqual({ kind: "cancel" });
+  const ids0 = buttons(pages[0]!).map((b) => parseId(String(b.custom_id)));
+  expect(ids0).toContainEqual({ kind: "pick-page", purpose: "who", page: 1 });
+  expect(ids0).toContainEqual({ kind: "cancel" });
+  const last = buttons(pages[count - 1]!).map((b) => parseId(String(b.custom_id)));
+  expect(last).toContainEqual({ kind: "pick-page", purpose: "who", page: count - 2 });
+});
+
+test("pick view with one page has a cancel button and no pager", () => {
+  const p = pickGameView("lfg", [chill], [game(1, "Minecraft", 1)], 0);
+  expect(buttons(p).map((b) => parseId(String(b.custom_id)))).toEqual([{ kind: "cancel" }]);
+});
+
+test("remove view with 60 games: three dropdowns, all games, within 40", () => {
+  const games = Array.from({ length: 60 }, (_, i) => game(i + 1, `G${String(i + 100)}`, 1));
+  const p = removeGamesView(games, "Removed X.");
+  expect(allSelects(p).map((s) => (s.options as unknown[]).length)).toEqual([25, 25, 10]);
+  expect(countComponents(p)).toBeLessThanOrEqual(40);
+});
+
+test("panel does not claim picks are private", () => {
+  expect(texts(panelView())).toContain("Your menu is only visible to you.");
+  expect(texts(panelView())).not.toContain("picks are private");
+});
+
+test("changedOptionIds: only options whose tick differs from what was rendered", () => {
+  const rendered = [
+    { value: "1", default: true },
+    { value: "2", default: true },
+    { value: "3" },
+    { value: "4" },
+  ];
+  // 1 untouched (owned), 2 unticked, 3 ticked, 4 untouched (unowned)
+  expect(changedOptionIds(rendered, ["1", "3"])).toEqual([2, 3]);
+  expect(changedOptionIds(rendered, ["1", "2"])).toEqual([]);
+  expect(changedOptionIds(rendered, [])).toEqual([1, 2]);
 });

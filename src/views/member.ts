@@ -13,9 +13,10 @@ import {
 import { COMPONENT_LIMIT, SELECT_OPTION_LIMIT, TEXT_LIMIT } from "../constants.ts";
 import type { Category, Game } from "../db/types.ts";
 import type { Payload } from "../discord/gateway.ts";
-import { normalize } from "../domain/search.ts";
+import { byName } from "../domain/search.ts";
 import {
   encodeId,
+  type PickPurpose,
   type AdminAction,
   type CustomId,
   type MenuAction,
@@ -80,7 +81,7 @@ export function panelView(): Payload {
   return payload(
     container(
       display(
-        "### Game roles\nPick the games you play to get their roles. Your picks are private.",
+        "### Game roles\nPick the games you play to get their roles. Your menu is only visible to you.",
       ),
       buttonRow(button({ kind: "panel-open" }, "Open game roles", ButtonStyle.Primary)),
     ),
@@ -128,9 +129,6 @@ export function menuView({ isAdmin }: { isAdmin: boolean }): Payload {
   return payload(container(...parts), true);
 }
 
-const byName = (a: Game, b: Game): number =>
-  normalize(a.name).localeCompare(normalize(b.name), "en") || a.id - b.id;
-
 function chunked<T>(items: readonly T[], size = SELECT_OPTION_LIMIT): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
@@ -173,6 +171,35 @@ function selectRow(
       },
     ],
   };
+}
+
+/** Previous and Next buttons shared by the add and pick views. */
+function pagerButtons(
+  idFor: (page: number) => CustomId,
+  current: number,
+  total: number,
+): APIButtonComponent[] {
+  return [
+    button(idFor(Math.max(0, current - 1)), "‹ Previous", ButtonStyle.Secondary, current === 0),
+    button(
+      idFor(Math.min(total - 1, current + 1)),
+      "Next ›",
+      ButtonStyle.Secondary,
+      current === total - 1,
+    ),
+  ];
+}
+
+/** The options whose tick differs from what was rendered: the only ones a submit may change. */
+export function changedOptionIds(
+  rendered: readonly { value: string; default?: boolean | null }[],
+  values: readonly string[],
+): number[] {
+  const selected = new Set(values);
+  return rendered
+    .filter((o) => (o.default === true) !== selected.has(o.value))
+    .map((o) => Number(o.value))
+    .filter((id) => Number.isInteger(id));
 }
 
 type Unit = { category: Category; index: number; count: number; games: Game[] };
@@ -265,20 +292,7 @@ export function addGamesView(
   }
   if (pages.length > 1) {
     parts.push(
-      buttonRow(
-        button(
-          { kind: "add-page", page: Math.max(0, current - 1) },
-          "‹ Previous",
-          ButtonStyle.Secondary,
-          current === 0,
-        ),
-        button(
-          { kind: "add-page", page: Math.min(pages.length - 1, current + 1) },
-          "Next ›",
-          ButtonStyle.Secondary,
-          current === pages.length - 1,
-        ),
-      ),
+      buttonRow(...pagerButtons((page) => ({ kind: "add-page", page }), current, pages.length)),
     );
   }
   return payload(container(...parts), true);
@@ -293,7 +307,8 @@ export function removeGamesView(ownedGames: readonly Game[], notice?: string): P
   } else {
     parts.push(display("### Remove games\nTick the games you want to leave."));
     // container + notice + header leave room for 18 dropdowns of two components each
-    for (const [index, chunk] of chunks.slice(0, 18).entries()) {
+    const shown = chunks.slice(0, 18);
+    for (const [index, chunk] of shown.entries()) {
       const label =
         chunks.length > 1
           ? `Your games (${String(index + 1)}/${String(chunks.length)})`
@@ -303,49 +318,58 @@ export function removeGamesView(ownedGames: readonly Game[], notice?: string): P
       );
     }
   }
+  if (chunks.length > 18) {
+    parts.push(display("Only the first 450 of your games are listed here."));
+  }
   return payload(container(...parts), true);
 }
 
-/** Single-choice game pickers, one per category chunk. Shows what fits in 40 components. */
+// container + header + the row of Previous, Next and Cancel buttons (4)
+const PICK_PER_PAGE = Math.floor((COMPONENT_LIMIT - 1 - 1 - 4) / 2);
+
+type PickUnit = { category: Category; index: number; count: number; games: Game[] };
+
+function pickUnits(categories: readonly Category[], games: readonly Game[]): PickUnit[] {
+  return categories.flatMap((category) => {
+    const chunks = categoryChunks(games, category.id);
+    return chunks.map((chunk, index) => ({ category, index, count: chunks.length, games: chunk }));
+  });
+}
+
+export function pickGamePageCount(categories: readonly Category[], games: readonly Game[]): number {
+  return Math.max(1, Math.ceil(pickUnits(categories, games).length / PICK_PER_PAGE));
+}
+
+/** Single-choice game pickers, one per category chunk, paged to stay within 40 components. */
 export function pickGameView(
-  purpose: "who" | "lfg" | "edit" | "remove",
+  purpose: PickPurpose,
   categories: readonly Category[],
   games: readonly Game[],
+  page = 0,
 ): Payload {
-  // container + header + cut-off note + cancel row with its button leave room for 17 dropdowns
-  const maxChunks = Math.floor((COMPONENT_LIMIT - 5) / 2);
-  const rows: Row[] = [];
-  let total = 0;
-  for (const category of categories) {
-    const chunks = categoryChunks(games, category.id);
-    for (const [index, chunk] of chunks.entries()) {
-      total += 1;
-      if (rows.length >= maxChunks) continue;
-      const label =
-        chunks.length > 1
-          ? `${category.name} (${String(index + 1)}/${String(chunks.length)})`
-          : category.name;
-      rows.push(
-        selectRow(
-          { kind: "pick", purpose, categoryId: category.id, chunk: index },
-          label,
-          options(chunk, null),
-          false,
-        ),
-      );
-    }
-  }
-  const parts: (APIComponentInContainer | Row)[] = [
-    display(rows.length === 0 ? "There are no games yet." : "### Pick a game"),
-    ...rows,
-  ];
-  if (total > rows.length) {
-    parts.push(
-      display("There are too many games to list here. Use `/games who` and type the name."),
+  const units = pickUnits(categories, games);
+  const total = pickGamePageCount(categories, games);
+  const current = Math.min(Math.max(0, page), total - 1);
+  const rows = units.slice(current * PICK_PER_PAGE, (current + 1) * PICK_PER_PAGE).map((u) => {
+    const label =
+      u.count > 1
+        ? `${u.category.name} (${String(u.index + 1)}/${String(u.count)})`
+        : u.category.name;
+    return selectRow(
+      { kind: "pick", purpose, categoryId: u.category.id, chunk: u.index },
+      label,
+      options(u.games, null),
+      false,
     );
-  }
-  parts.push(buttonRow(button({ kind: "cancel" }, "Cancel")));
-  return payload(container(...parts), true);
+  });
+  const title = units.length === 0 ? "There are no games yet." : "### Pick a game";
+  const header = total > 1 ? `${title}\n(Page ${String(current + 1)} of ${String(total)})` : title;
+  const nav =
+    total > 1 ? pagerButtons((p) => ({ kind: "pick-page", purpose, page: p }), current, total) : [];
+  return payload(
+    container(display(header), ...rows, buttonRow(...nav, button({ kind: "cancel" }, "Cancel"))),
+    true,
+  );
 }
 
 function listBody(lines: readonly string[], empty: string): string {

@@ -20,6 +20,7 @@ export type CustomId =
   | { kind: "add-page"; page: number }
   | { kind: "remove-select"; chunk: number }
   | { kind: "pick"; purpose: PickPurpose; categoryId: number; chunk: number }
+  | { kind: "pick-page"; purpose: PickPurpose; page: number }
   | { kind: "suggest-modal" }
   | { kind: "dup-submit" }
   | { kind: "dup-join"; gameId: number }
@@ -73,6 +74,7 @@ const SPECS: Record<CustomIdKind, readonly ArgSpec[]> = {
   "add-page": [int("page")],
   "remove-select": [int("chunk")],
   pick: [word("purpose", PURPOSES), int("categoryId"), int("chunk")],
+  "pick-page": [word("purpose", PURPOSES), int("page")],
   "suggest-modal": [],
   "dup-submit": [],
   "dup-join": [int("gameId")],
@@ -150,6 +152,7 @@ export function parseId(raw: string): CustomId | null {
 }
 
 export function isAdminId(id: CustomId): boolean {
-  if (id.kind === "pick") return id.purpose === "edit" || id.purpose === "remove";
+  if (id.kind === "pick" || id.kind === "pick-page")
+    return id.purpose === "edit" || id.purpose === "remove";
   return ADMIN_KINDS.has(id.kind);
 }

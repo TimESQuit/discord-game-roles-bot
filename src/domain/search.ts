@@ -115,3 +115,8 @@ export function parseAliases(raw: string): string[] {
   }
   return [...seen];
 }
+
+/** Alphabetical by normalized name, then ID, so every list shows the same order. */
+export function byName(a: { id: number; name: string }, b: { id: number; name: string }): number {
+  return normalize(a.name).localeCompare(normalize(b.name), "en") || a.id - b.id;
+}

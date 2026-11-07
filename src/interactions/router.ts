@@ -50,6 +50,10 @@ export const HANDLER_NAMES = [
   "admin-setup",
   "pick-who",
   "pick-lfg",
+  "pick-page-who",
+  "pick-page-lfg",
+  "pick-page-edit",
+  "pick-page-remove",
   "pick-edit",
   "pick-remove",
   "games-menu",
@@ -128,6 +132,8 @@ function idHandlerName(id: CustomId): string {
       return `${id.kind}-${id.action}`;
     case "pick":
       return `pick-${id.purpose}`;
+    case "pick-page":
+      return `pick-page-${id.purpose}`;
     default:
       return id.kind;
   }
@@ -171,6 +177,8 @@ function isAdminHandler(name: string): boolean {
     name.startsWith("admin-") ||
     name === "pick-edit" ||
     name === "pick-remove" ||
+    name === "pick-page-edit" ||
+    name === "pick-page-remove" ||
     ADMIN_HANDLER_KINDS.has(name)
   );
 }

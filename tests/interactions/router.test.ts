@@ -42,6 +42,19 @@ describe("route", () => {
     expect(
       r(encodeId({ kind: "pick", purpose: "edit", categoryId: 1, chunk: 0 }), "select"),
     ).toEqual({ denied: true });
+    expect(r(encodeId({ kind: "pick-page", purpose: "who", page: 1 }))).toEqual({
+      handler: "pick-page-who",
+    });
+    expect(r(encodeId({ kind: "pick-page", purpose: "lfg", page: 1 }))).toEqual({
+      handler: "pick-page-lfg",
+    });
+    for (const purpose of ["edit", "remove"] as const) {
+      const customId = encodeId({ kind: "pick-page", purpose, page: 1 });
+      expect(r(customId)).toEqual({ denied: true });
+      expect(route({ type: "button", customId, memberRoleIds: admins }, ADMIN)).toEqual({
+        handler: `pick-page-${purpose}`,
+      });
+    }
     expect(r(encodeId({ kind: "admin", action: "reapply" }))).toEqual({ denied: true });
     expect(
       route(

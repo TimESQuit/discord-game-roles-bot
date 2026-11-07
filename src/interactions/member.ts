@@ -5,6 +5,7 @@ import {
   type ChatInputCommandInteraction,
   type Interaction,
   type InteractionEditReplyOptions,
+  type InteractionReplyOptions,
   type StringSelectMenuInteraction,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
@@ -24,13 +25,12 @@ import type { Payload } from "../discord/gateway.ts";
 import { truncate } from "../views/limits.ts";
 import {
   addGamesPageOf,
+  changedOptionIds,
   addGamesView,
-  categoryChunks,
   gameListView,
   menuView,
   myGamesView,
   noticeView,
-  ownedChunks,
   peopleListView,
   pickGameView,
   removeGamesView,
@@ -46,6 +46,13 @@ const forEdit = (view: Payload): InteractionEditReplyOptions =>
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: view.allowedMentions,
   }) as InteractionEditReplyOptions;
+
+const forReply = (view: Payload): InteractionReplyOptions =>
+  ({
+    components: view.components,
+    flags: view.flags,
+    allowedMentions: view.allowedMentions,
+  }) as InteractionReplyOptions;
 
 const joinNames = (games: readonly { name: string }[]): string =>
   games.map((g) => text(g.name)).join(", ");
@@ -67,7 +74,7 @@ function summary(result: {
 
 function openMenu(ctx: AppContext, interaction: Interaction): Promise<unknown> {
   const admin = isAdmin(memberRoleIds(interaction), ctx.config.adminRoleId);
-  return (interaction as ButtonInteraction).reply(menuView({ isAdmin: admin }) as never);
+  return (interaction as ButtonInteraction).reply(forReply(menuView({ isAdmin: admin })));
 }
 
 async function showAddGames(
@@ -118,7 +125,7 @@ async function commandJoinLeave(
   action: "join" | "leave",
 ): Promise<void> {
   const gameId = gameIdOption(interaction);
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 });
   const name = await gameName(ctx, gameId);
   let reply: string;
   if (action === "join") {
@@ -128,7 +135,19 @@ async function commandJoinLeave(
     const result = await leave(ctx, interaction.user.id, gameId, "command");
     reply = result === "left" ? `You've left ${name}.` : `You don't have ${name}.`;
   }
-  await interaction.editReply({ content: reply });
+  await interaction.editReply(forEdit(noticeView(reply)));
+}
+
+/** Shared by all four pick-page-* handlers; the router already checked admin rights. */
+async function pickPage(ctx: AppContext, interaction: ButtonInteraction): Promise<void> {
+  const id = parseId(interaction.customId);
+  if (id?.kind !== "pick-page") throw new UserFacingError("That menu has expired. Open it again.");
+  await interaction.deferUpdate();
+  const [categories, games] = await Promise.all([
+    ctx.repos.categories.list(),
+    ctx.repos.games.list(),
+  ]);
+  await interaction.editReply(forEdit(pickGameView(id.purpose, categories, games, id.page)));
 }
 
 export const memberHandlers: Handlers = {
@@ -169,12 +188,15 @@ export const memberHandlers: Handlers = {
       ctx.repos.categories.list(),
       ctx.repos.games.list(),
     ]);
-    const shown = categoryChunks(games, id.categoryId)[id.chunk] ?? [];
+    // Only options whose tick differs from what this menu showed may change, so a stale menu
+    // can never touch a role the person did not tick or untick.
+    const rendered = interaction.component?.options;
+    if (rendered === undefined) throw new UserFacingError("That menu has expired. Open it again.");
     const userId = interaction.user.id;
     const result = await applySelection(
       ctx,
       userId,
-      shown.map((g) => g.id),
+      changedOptionIds(rendered, interaction.values),
       interaction.values,
       "panel",
     );
@@ -199,14 +221,10 @@ export const memberHandlers: Handlers = {
     }
     await interaction.deferUpdate();
     const userId = interaction.user.id;
-    const shown = ownedChunks(await gamesOf(ctx, userId))[id.chunk] ?? [];
-    const selected = new Set(interaction.values);
     const removed = [];
-    for (const game of shown) {
-      if (
-        selected.has(String(game.id)) &&
-        (await leave(ctx, userId, game.id, "panel")) === "left"
-      ) {
+    for (const value of interaction.values) {
+      const game = await ctx.repos.games.get(Number(value));
+      if (game !== undefined && (await leave(ctx, userId, game.id, "panel")) === "left") {
         removed.push(game);
       }
     }
@@ -219,6 +237,10 @@ export const memberHandlers: Handlers = {
     if (!Number.isInteger(gameId)) throw new UserFacingError("Pick a game from the list.");
     await interaction.editReply(forEdit(await showWho(ctx, gameId)));
   },
+  "pick-page-who": pickPage,
+  "pick-page-lfg": pickPage,
+  "pick-page-edit": pickPage,
+  "pick-page-remove": pickPage,
   cancel: async (_ctx, interaction: ButtonInteraction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(noticeView("Cancelled.")));
@@ -229,11 +251,11 @@ export const memberHandlers: Handlers = {
   "games-remove": (ctx, interaction: ChatInputCommandInteraction) =>
     commandJoinLeave(ctx, interaction, "leave"),
   "games-mine": async (ctx, interaction: ChatInputCommandInteraction) => {
-    await interaction.reply(myGamesView(await gamesOf(ctx, interaction.user.id)) as never);
+    await interaction.reply(forReply(myGamesView(await gamesOf(ctx, interaction.user.id))));
   },
   "games-who": async (ctx, interaction: ChatInputCommandInteraction) => {
     const gameId = gameIdOption(interaction);
-    await interaction.reply((await showWho(ctx, gameId)) as never);
+    await interaction.reply(forReply(await showWho(ctx, gameId)));
   },
 
   "autocomplete-games": async (ctx, interaction: AutocompleteInteraction) => {
@@ -249,21 +271,25 @@ export const memberHandlers: Handlers = {
   "ctx-see-games": async (ctx, interaction: UserContextMenuCommandInteraction) => {
     const games = await gamesOf(ctx, interaction.targetId);
     await interaction.reply(
-      gameListView(
-        `Games <@${interaction.targetId}> plays`,
-        games,
-        "They haven't picked any games.",
-      ) as never,
+      forReply(
+        gameListView(
+          `Games <@${interaction.targetId}> plays`,
+          games,
+          "They haven't picked any games.",
+        ),
+      ),
     );
   },
   "ctx-in-common": async (ctx, interaction: UserContextMenuCommandInteraction) => {
     const games = await gamesInCommon(ctx, interaction.user.id, interaction.targetId);
     await interaction.reply(
-      gameListView(
-        `Games you share with <@${interaction.targetId}>`,
-        games,
-        "You have no games in common.",
-      ) as never,
+      forReply(
+        gameListView(
+          `Games you share with <@${interaction.targetId}>`,
+          games,
+          "You have no games in common.",
+        ),
+      ),
     );
   },
 };

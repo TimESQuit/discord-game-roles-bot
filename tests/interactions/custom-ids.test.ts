@@ -17,6 +17,10 @@ const samples: CustomId[] = [
   { kind: "pick", purpose: "lfg", categoryId: 4, chunk: 0 },
   { kind: "pick", purpose: "edit", categoryId: 4, chunk: 0 },
   { kind: "pick", purpose: "remove", categoryId: 4, chunk: 0 },
+  { kind: "pick-page", purpose: "who", page: 1 },
+  { kind: "pick-page", purpose: "lfg", page: 1 },
+  { kind: "pick-page", purpose: "edit", page: 1 },
+  { kind: "pick-page", purpose: "remove", page: 1 },
   { kind: "suggest-modal" },
   { kind: "dup-submit" },
   { kind: "dup-join", gameId: 7 },
@@ -106,7 +110,9 @@ describe("custom IDs", () => {
     ]);
     for (const id of samples) {
       const expected =
-        admin.has(id.kind) || (id.kind === "pick" && ["edit", "remove"].includes(id.purpose));
+        admin.has(id.kind) ||
+        ((id.kind === "pick" || id.kind === "pick-page") &&
+          ["edit", "remove"].includes(id.purpose));
       expect(isAdminId(id)).toBe(expected);
     }
   });

@@ -17,7 +17,8 @@ export function countComponents(payload: { components?: unknown }): number {
   return top.reduce((sum: number, child) => sum + countNode(child), 0);
 }
 
-/** Cuts to at most `max` characters, ending in "…" when it cut. */
+/** Cuts to at most `max` characters (code points), ending in "…" when it cut. */
 export function truncate(value: string, max: number): string {
-  return value.length <= max ? value : `${value.slice(0, Math.max(0, max - 1))}…`;
+  const chars = Array.from(value);
+  return chars.length <= max ? value : `${chars.slice(0, Math.max(0, max - 1)).join("")}…`;
 }

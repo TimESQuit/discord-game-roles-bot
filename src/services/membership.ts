@@ -1,13 +1,10 @@
 import { SELECT_OPTION_LIMIT } from "../constants.ts";
 import type { Game } from "../db/types.ts";
 import { diffSelection } from "../domain/roles.ts";
-import { normalize, rankGames } from "../domain/search.ts";
+import { byName, rankGames } from "../domain/search.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "./context.ts";
 import type { Source } from "./audit.ts";
-
-const byName = (a: Game, b: Game): number =>
-  normalize(a.name).localeCompare(normalize(b.name), "en") || a.id - b.id;
 
 async function requireGame(ctx: AppContext, gameId: number): Promise<Game> {
   const game = await ctx.repos.games.get(gameId);
