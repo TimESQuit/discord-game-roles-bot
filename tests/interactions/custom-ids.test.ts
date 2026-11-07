@@ -79,6 +79,8 @@ describe("custom IDs", () => {
       "gr:category-move:1:sideways",
       "gr:lfg-modal:1:elsewhere",
       "gr:panel-open:extra",
+      `gr:menu:add${"x".repeat(100)}`,
+      `gr:add-page:${"1".repeat(100)}`,
     ]) {
       expect(parseId(raw)).toBeNull();
     }

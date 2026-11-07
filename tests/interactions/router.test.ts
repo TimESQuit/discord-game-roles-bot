@@ -4,6 +4,7 @@ import { encodeId } from "../../src/interactions/custom-ids.ts";
 import { handleInteraction, route } from "../../src/interactions/router.ts";
 import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../fakes/context.ts";
 
+type RouteInputType = Parameters<typeof route>[0]["type"];
 const none = new Set<string>();
 const admins = new Set([ADMIN]);
 
@@ -77,6 +78,63 @@ describe("route", () => {
     expect(c("user-context", "Games in common")).toEqual({ handler: "ctx-in-common" });
   });
 
+  test("command names cannot spell admin or custom-ID handlers", () => {
+    const roles = none;
+    const cases: [RouteInputType, string, string][] = [
+      ["command", "admin", "setup"],
+      ["command", "review", "approve"],
+      ["command", "pick", "edit"],
+      ["command", "confirm", "setup"],
+      ["command", "menu", "add"],
+      ["autocomplete", "pick", "edit"],
+      ["autocomplete", "other", "x"],
+    ];
+    for (const [type, command, subcommand] of cases) {
+      expect(route({ type, command, subcommand, memberRoleIds: roles }, ADMIN)).toEqual({
+        unknown: true,
+      });
+      expect(route({ type, command, subcommand, memberRoleIds: admins }, ADMIN)).toEqual({
+        unknown: true,
+      });
+    }
+    expect(
+      route(
+        { type: "command", command: "games", subcommand: "setup", memberRoleIds: admins },
+        ADMIN,
+      ),
+    ).toEqual({ unknown: true });
+    expect(
+      route(
+        { type: "command", command: "gameadmin", subcommand: "bogus", memberRoleIds: admins },
+        ADMIN,
+      ),
+    ).toEqual({ unknown: true });
+    expect(
+      route(
+        {
+          type: "command",
+          command: "gameadmin",
+          subcommandGroup: "category",
+          subcommand: "rename",
+          memberRoleIds: none,
+        },
+        ADMIN,
+      ),
+    ).toEqual({ denied: true });
+    expect(
+      route({ type: "autocomplete", command: "gameadmin", memberRoleIds: none }, ADMIN),
+    ).toEqual({ denied: true });
+  });
+
+  test("IDs longer than 100 characters are unknown", () => {
+    expect(
+      route(
+        { type: "button", customId: `gr:cancel${"x".repeat(100)}`, memberRoleIds: admins },
+        ADMIN,
+      ),
+    ).toEqual({ unknown: true });
+  });
+
   test("unknown things", () => {
     expect(route({ type: "button", customId: "gr:nope", memberRoleIds: admins }, ADMIN)).toEqual({
       unknown: true,
@@ -95,7 +153,10 @@ describe("route", () => {
 });
 
 type FakeOpts = {
-  type: "button" | "command" | "autocomplete";
+  type: "button" | "select" | "modal" | "command" | "autocomplete" | "other";
+  subcommand?: string;
+  subcommandGroup?: string;
+  log?: string[];
   customId?: string;
   commandName?: string;
   roles?: string[];
@@ -107,6 +168,7 @@ function fake(o: FakeOpts) {
   const calls: { method: string; arg: unknown }[] = [];
   const record = (method: string) => async (arg?: unknown) => {
     calls.push({ method, arg });
+    o.log?.push(method);
     if (o.failReplies && method !== "respond") throw new Error("discord down");
   };
   const i = {
@@ -114,12 +176,16 @@ function fake(o: FakeOpts) {
     replied: false,
     customId: o.customId,
     commandName: o.commandName,
+    type: 0,
     member: { roles: o.roles ?? [] },
-    options: { getSubcommand: () => null, getSubcommandGroup: () => null },
+    options: {
+      getSubcommand: () => o.subcommand ?? null,
+      getSubcommandGroup: () => o.subcommandGroup ?? null,
+    },
     isRepliable: () => o.type !== "autocomplete",
     isButton: () => o.type === "button",
-    isAnySelectMenu: () => false,
-    isModalSubmit: () => false,
+    isAnySelectMenu: () => o.type === "select",
+    isModalSubmit: () => o.type === "modal",
     isAutocomplete: () => o.type === "autocomplete",
     isUserContextMenuCommand: () => false,
     isChatInputCommand: () => o.type === "command",
@@ -247,6 +313,74 @@ describe("handleInteraction", () => {
     );
     expect(calls).toEqual([{ method: "respond", arg: [] }]);
     expect(ctx.adminNotices).toEqual([]);
+  });
+
+  test("select and modal paths reach their handlers", async () => {
+    const ctx = await makeContext();
+    const sel = vi.fn<() => Promise<void>>(async () => {});
+    const mod = vi.fn<() => Promise<void>>(async () => {});
+    const a = fake({
+      type: "select",
+      customId: encodeId({ kind: "add-select", categoryId: 1, chunk: 0 }),
+    });
+    await handleInteraction(ctx, { "add-select": sel }, a.i);
+    const b = fake({ type: "modal", customId: encodeId({ kind: "suggest-modal" }) });
+    await handleInteraction(ctx, { "suggest-modal": mod }, b.i);
+    expect(sel).toHaveBeenCalledTimes(1);
+    expect(mod).toHaveBeenCalledTimes(1);
+  });
+
+  test("non-admin /gameadmin category rename is denied", async () => {
+    const ctx = await makeContext();
+    const handler = vi.fn<() => Promise<void>>();
+    const { i, calls } = fake({
+      type: "command",
+      commandName: "gameadmin",
+      subcommandGroup: "category",
+      subcommand: "rename",
+    });
+    await handleInteraction(ctx, { "gameadmin-category-rename": handler }, i);
+    expect(handler).not.toHaveBeenCalled();
+    expect(calls).toEqual([{ method: "reply", arg: reply("Only admins can do that.") }]);
+  });
+
+  test("a fake command named like an admin handler is unknown, not run", async () => {
+    const ctx = await makeContext();
+    const handler = vi.fn<() => Promise<void>>();
+    const { i, calls } = fake({ type: "command", commandName: "admin", subcommand: "setup" });
+    await handleInteraction(ctx, { "admin-setup": handler }, i);
+    expect(handler).not.toHaveBeenCalled();
+    expect(calls[0]?.arg).toEqual(reply("That button has expired. Open the menu again."));
+  });
+
+  test("the generic reply is sent before the admins are notified, and the notice is truncated", async () => {
+    const ctx = await makeContext({ setup: true });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log: string[] = [];
+    vi.spyOn(ctx.audit, "notifyAdmins").mockImplementation(async (text) => {
+      log.push(`notify:${text.length}`);
+    });
+    const { i } = fake({ type: "button", customId: encodeId({ kind: "cancel" }), log });
+    await handleInteraction(
+      ctx,
+      {
+        cancel: async () => {
+          throw new Error("x".repeat(5000));
+        },
+      },
+      i,
+    );
+    expect(log[0]).toBe("reply");
+    expect(log[1]).toBe("notify:1500");
+  });
+
+  test("an unhandled interaction kind is warned about", async () => {
+    const ctx = await makeContext();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { i, calls } = fake({ type: "other" });
+    await handleInteraction(ctx, {}, i);
+    expect(calls).toEqual([]);
+    expect(warn).toHaveBeenCalled();
   });
 
   test("a failing error reply does not throw", async () => {

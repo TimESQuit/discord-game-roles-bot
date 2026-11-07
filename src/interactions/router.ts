@@ -99,6 +99,23 @@ export type RouteResult = { handler: HandlerName } | { denied: true } | { unknow
 const HANDLER_SET: ReadonlySet<string> = new Set(HANDLER_NAMES);
 const isHandlerName = (value: string): value is HandlerName => HANDLER_SET.has(value);
 
+const ADMIN_HANDLER_KINDS: ReadonlySet<string> = new Set([
+  "review-approve",
+  "review-edit",
+  "review-reject",
+  "review-edit-modal",
+  "review-reject-modal",
+  "game-add-modal",
+  "game-edit-modal",
+  "confirm-remove",
+  "confirm-setup",
+  "category-add-modal",
+  "category-rename-modal",
+  "category-move",
+  "category-add",
+  "category-rename",
+]);
+
 const CONTEXT_MENUS: Record<string, HandlerName> = {
   "See their games": "ctx-see-games",
   "Games in common": "ctx-in-common",
@@ -116,20 +133,49 @@ function idHandlerName(id: CustomId): string {
   }
 }
 
+const COMMAND_SUBCOMMANDS: Record<string, readonly string[]> = {
+  games: ["menu", "add", "remove", "suggest", "mine", "who", "suggestions"],
+  lfg: [],
+  gameadmin: [
+    "setup",
+    "backup",
+    "review",
+    "add",
+    "edit",
+    "remove",
+    "reapply-template",
+    "refresh-panel",
+  ],
+};
+const CATEGORY_SUBCOMMANDS = ["add", "rename", "move"];
+
 function commandHandlerName(input: RouteInput): string | null {
   const { command, subcommand, subcommandGroup } = input;
-  if (command === undefined) return null;
+  if (command === undefined || !Object.hasOwn(COMMAND_SUBCOMMANDS, command)) return null;
   if (input.type === "autocomplete") return `autocomplete-${command}`;
   if (command === "lfg") return "lfg";
   if (subcommand === undefined || subcommand === null) return null;
   if (command === "gameadmin" && subcommandGroup) {
-    return `gameadmin-${subcommandGroup}-${subcommand}`;
+    if (subcommandGroup !== "category" || !CATEGORY_SUBCOMMANDS.includes(subcommand)) return null;
+    return `gameadmin-category-${subcommand}`;
   }
+  if (subcommandGroup || !COMMAND_SUBCOMMANDS[command]?.includes(subcommand)) return null;
   return `${command}-${subcommand}`;
 }
 
+/** Decided from the resolved handler name, so the spelling of the input cannot dodge it. */
+function isAdminHandler(name: string): boolean {
+  return (
+    name.startsWith("gameadmin-") ||
+    name === "autocomplete-gameadmin" ||
+    name.startsWith("admin-") ||
+    name === "pick-edit" ||
+    name === "pick-remove" ||
+    ADMIN_HANDLER_KINDS.has(name)
+  );
+}
+
 export function route(input: RouteInput, adminRoleId: string): RouteResult {
-  const admin = isAdmin(input.memberRoleIds, adminRoleId);
   let name: string | null;
   let adminOnly = false;
 
@@ -137,6 +183,7 @@ export function route(input: RouteInput, adminRoleId: string): RouteResult {
     name = CONTEXT_MENUS[input.command ?? ""] ?? null;
   } else if (input.type === "command" || input.type === "autocomplete") {
     name = commandHandlerName(input);
+    // Any /gameadmin spelling is admin-only, even one that resolves to no handler.
     adminOnly = input.command === "gameadmin";
   } else {
     const id = input.customId === undefined ? null : parseId(input.customId);
@@ -145,9 +192,13 @@ export function route(input: RouteInput, adminRoleId: string): RouteResult {
     adminOnly = isAdminId(id);
   }
 
-  if (adminOnly && !admin) return { denied: true };
-  if (name === null || !isHandlerName(name)) return { unknown: true };
-  return { handler: name };
+  if (
+    (adminOnly || (name !== null && isAdminHandler(name))) &&
+    !isAdmin(input.memberRoleIds, adminRoleId)
+  ) {
+    return { denied: true };
+  }
+  return name !== null && isHandlerName(name) ? { handler: name } : { unknown: true };
 }
 
 const PRIVATE = MessageFlags.Ephemeral as const;
@@ -205,7 +256,10 @@ export async function handleInteraction(
   interaction: Interaction,
 ): Promise<void> {
   const input = routeInput(interaction, memberRoleIds(interaction));
-  if (input === null) return;
+  if (input === null) {
+    console.warn(`Ignoring an unhandled interaction type (${interaction.type})`);
+    return;
+  }
   const result = route(input, ctx.config.adminRoleId);
   const autocomplete = input.type === "autocomplete";
 
@@ -233,8 +287,8 @@ export async function handleInteraction(
       } else {
         console.error(`Handler ${result.handler} failed`, error);
         const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
-        await ctx.audit.notifyAdmins(`Error in ${result.handler}:\n${detail}`.slice(0, 1500));
         await sayPrivately(interaction, GENERIC_ERROR);
+        await ctx.audit.notifyAdmins(`Error in ${result.handler}:\n${detail}`.slice(0, 1500));
       }
     }
   } catch (error) {
