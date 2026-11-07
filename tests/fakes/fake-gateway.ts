@@ -209,6 +209,7 @@ export class FakeGateway implements Gateway {
     this.#begin("setChannelParent", [channelId, parentId]);
   }
   async messageExists(channelId: string, messageId: string): Promise<boolean> {
+    this.#begin("messageExists", [channelId, messageId]);
     return (this.messages.get(channelId) ?? []).some((m) => m.id === messageId);
   }
   async send(channelId: string, payload: Payload): Promise<string> {

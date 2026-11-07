@@ -193,4 +193,14 @@ describe("FakeGateway setup helpers", () => {
       { method: "setChannelParent", args: ["100000000000000010", "100000000000000011"] },
     ]);
   });
+
+  test("messageExists is recorded and honours failNext", async () => {
+    const gw = new FakeGateway({});
+    gw.failNext("messageExists", new Error("Missing Access"));
+    await expect(gw.messageExists("100000000000000010", "100000000000000011")).rejects.toThrow(
+      "Missing Access",
+    );
+    expect(await gw.messageExists("100000000000000010", "100000000000000011")).toBe(false);
+    expect(gw.calls.map((c) => c.method)).toEqual(["messageExists"]);
+  });
 });

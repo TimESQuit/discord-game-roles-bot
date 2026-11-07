@@ -44,12 +44,12 @@ export async function checkSetup(ctx: AppContext): Promise<string[]> {
   const id = await ctx.repos.setup.get("templateRoleId");
   const template = id === undefined ? undefined : ctx.gateway.role(id);
   if (template && ctx.gateway.botTopRolePosition() <= template.position) {
-    problems.push("Move the bot's role above Game role template in Server Settings → Roles");
+    problems.push(`Move the bot's role above ${TEMPLATE_ROLE_NAME} in Server Settings → Roles`);
   }
   return problems;
 }
 
-async function planFor(ctx: AppContext) {
+async function planFor(ctx: AppContext, lookUpMessage: boolean) {
   const recorded = await ctx.repos.setup.all();
   const exists = (key: SetupKey): boolean => {
     const id = recorded[key];
@@ -61,7 +61,7 @@ async function planFor(ctx: AppContext) {
   const channelId = recorded.panelChannelId;
   const messageId = recorded.panelMessageId;
   const panelMessageExists =
-    channelId !== undefined && messageId !== undefined && exists("panelChannelId")
+    lookUpMessage && channelId !== undefined && messageId !== undefined && exists("panelChannelId")
       ? await ctx.gateway.messageExists(channelId, messageId)
       : false;
   const categoryCount = (await ctx.repos.categories.list()).length;
@@ -71,18 +71,18 @@ async function planFor(ctx: AppContext) {
 export async function previewSetup(
   ctx: AppContext,
 ): Promise<{ problems: string[]; plan: ReturnType<typeof planSetup> }> {
-  return {
-    problems: await checkSetup(ctx),
-    plan: await planFor(ctx),
-  };
+  const problems = await checkSetup(ctx);
+  // With problems the bot may not be able to read the panel message; it is shown as needing a repost.
+  return { problems, plan: await planFor(ctx, problems.length === 0) };
 }
 
 export async function applySetup(
   ctx: AppContext,
   actorId: string,
 ): Promise<{ created: SetupItem[]; fine: SetupItem[] }> {
-  const { problems, plan } = await previewSetup(ctx);
+  const problems = await checkSetup(ctx);
   if (problems.length > 0) throw new UserFacingError(problems.join("\n"));
+  const plan = await planFor(ctx, true);
 
   const { gateway, repos } = ctx;
   const bot = gateway.botUserId;
@@ -134,7 +134,6 @@ export async function applySetup(
         break;
       case "adminCategory": {
         const id = await gateway.createCategory(ADMIN_CATEGORY_NAME, adminOnly);
-        await repos.setup.set("adminCategoryId", id);
         // Admin channels that survived the old category move under the new one.
         for (const c of adminChannels) {
           if (plan.fine.includes(c.item)) {
@@ -142,6 +141,8 @@ export async function applySetup(
             if (channelId !== undefined) await gateway.setChannelParent(channelId, id);
           }
         }
+        // Recorded only after the moves, so a failed move is retried on the next run.
+        await repos.setup.set("adminCategoryId", id);
         break;
       }
       case "adminChannel":
@@ -175,13 +176,24 @@ export async function applySetup(
   return { created: plan.create, fine: plan.fine };
 }
 
-export async function refreshPanel(ctx: AppContext): Promise<"updated" | "reposted"> {
+export async function refreshPanel(
+  ctx: AppContext,
+  actorId: string,
+): Promise<"updated" | "reposted"> {
   const channelId = await ctx.repos.setup.get("panelChannelId");
-  if (channelId === undefined) throw new UserFacingError("Run /gameadmin setup first.");
+  if (channelId === undefined || !ctx.gateway.channelExists(channelId))
+    throw new UserFacingError("Run /gameadmin setup first.");
   const messageId = await ctx.repos.setup.get("panelMessageId");
+  let result: "updated" | "reposted" = "reposted";
   if (messageId !== undefined && (await ctx.gateway.edit(channelId, messageId, panelView()))) {
-    return "updated";
+    result = "updated";
+  } else {
+    await ctx.repos.setup.set("panelMessageId", await ctx.gateway.send(channelId, panelView()));
   }
-  await ctx.repos.setup.set("panelMessageId", await ctx.gateway.send(channelId, panelView()));
-  return "reposted";
+  await ctx.audit.log({
+    kind: "setup",
+    userId: actorId,
+    detail: `refreshed the panel (${result})`,
+  });
+  return result;
 }
