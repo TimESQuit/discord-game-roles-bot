@@ -172,3 +172,25 @@ describe("FakeGateway", () => {
     expect(gw.messages.get("100000000000000010")?.[0]?.hasAttachment).toBe(true);
   });
 });
+
+describe("FakeGateway setup helpers", () => {
+  test("messageExists is true only for a sent, undeleted message", async () => {
+    const gw = new FakeGateway({});
+    const ch = "100000000000000010";
+    gw.addChannel(ch);
+    const id = await gw.send(ch, { content: "x" });
+    expect(await gw.messageExists(ch, id)).toBe(true);
+    expect(await gw.messageExists(ch, "100000000000000404")).toBe(false);
+    expect(await gw.messageExists("100000000000000405", id)).toBe(false);
+    gw.deleteMessageBehindBotsBack(ch, id);
+    expect(await gw.messageExists(ch, id)).toBe(false);
+  });
+
+  test("setChannelParent records the call", async () => {
+    const gw = new FakeGateway({});
+    await gw.setChannelParent("100000000000000010", "100000000000000011");
+    expect(gw.calls).toEqual([
+      { method: "setChannelParent", args: ["100000000000000010", "100000000000000011"] },
+    ]);
+  });
+});

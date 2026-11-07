@@ -10,6 +10,7 @@ import type {
 import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "./gateway.ts";
 
 const UNKNOWN_MESSAGE = 10008;
+const UNKNOWN_CHANNEL = 10003;
 
 function snapshot(role: Role): RoleSnapshot {
   return {
@@ -106,6 +107,26 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
         permissionOverwrites: resolveOverwrites(overwrites),
       });
       return ch.id;
+    },
+    async setChannelParent(channelId, parentId) {
+      const ch = guild().channels.cache.get(channelId) ?? (await client.channels.fetch(channelId));
+      if (!ch || !("setParent" in ch)) throw new Error(`Channel ${channelId} cannot be moved`);
+      await ch.setParent(parentId, { lockPermissions: false });
+    },
+    async messageExists(channelId, messageId) {
+      try {
+        const ch = await textChannel(channelId);
+        await ch.messages.fetch(messageId);
+        return true;
+      } catch (error) {
+        if (
+          error instanceof DiscordAPIError &&
+          (error.code === UNKNOWN_MESSAGE || error.code === UNKNOWN_CHANNEL)
+        ) {
+          return false;
+        }
+        throw error;
+      }
     },
     async send(channelId, payload: Payload) {
       const ch = await textChannel(channelId);

@@ -205,6 +205,12 @@ export class FakeGateway implements Gateway {
     this.#channels.add(id);
     return id;
   }
+  async setChannelParent(channelId: string, parentId: string): Promise<void> {
+    this.#begin("setChannelParent", [channelId, parentId]);
+  }
+  async messageExists(channelId: string, messageId: string): Promise<boolean> {
+    return (this.messages.get(channelId) ?? []).some((m) => m.id === messageId);
+  }
   async send(channelId: string, payload: Payload): Promise<string> {
     if (!this.#channels.has(channelId)) throw new Error(`Unknown channel ${channelId}`);
     this.#begin("send", [channelId, payload]);

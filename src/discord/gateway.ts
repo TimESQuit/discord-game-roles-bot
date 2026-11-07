@@ -52,6 +52,10 @@ export interface Gateway {
     parentId: string | null,
     overwrites: readonly Overwrite[],
   ): Promise<string>;
+  /** Moves a channel under a category without copying the category's permissions. */
+  setChannelParent(channelId: string, parentId: string): Promise<void>;
+  /** False if the message or its channel is gone. */
+  messageExists(channelId: string, messageId: string): Promise<boolean>;
   /** Resolves to the new message ID. */
   send(channelId: string, payload: Payload): Promise<string>;
   /** Resolves to false if the message is gone. */
