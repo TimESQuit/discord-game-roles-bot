@@ -1,0 +1,14 @@
+export const PANEL_CHANNEL_NAME = "game-roles";
+export const NEWS_CHANNEL_NAME = "game-news";
+export const ADMIN_CATEGORY_NAME = "Bot admin";
+export const ADMIN_CHANNEL_NAME = "bot-admin";
+export const LOG_CHANNEL_NAME = "bot-log";
+export const BACKUPS_CHANNEL_NAME = "bot-backups";
+export const TEMPLATE_ROLE_NAME = "Game role template";
+export const STARTING_CATEGORIES = ["Competitive", "Chill", "IRL activities"] as const;
+export const MAX_PENDING_SUGGESTIONS = 10;
+export const BACKUP_RETENTION_DAYS = 30;
+export const HEARTBEAT_INTERVAL_MS = 300_000;
+export const SELECT_OPTION_LIMIT = 25;
+export const COMPONENT_LIMIT = 40;
+export const TEXT_LIMIT = 100;
