@@ -11,8 +11,7 @@ import {
   leave,
   whoPlays,
 } from "./membership.ts";
-import { A1, U1, U2, U3, makeContext } from "../testing/index.ts";
-import type { TestContext } from "../testing/index.ts";
+import { A1, U1, U2, U3, makeContext, type TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let valheim: Game;

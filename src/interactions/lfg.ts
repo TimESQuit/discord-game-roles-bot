@@ -9,16 +9,17 @@ import {
 } from "discord.js";
 import type { Game } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
-import type { AppContext } from "../services/index.ts";
-import { createLfgPost, joinFromLfg, respondToLfg } from "../services/index.ts";
-import { autocompleteGames } from "../services/index.ts";
-import { LFG_FIELD, lfgModal } from "../views/index.ts";
-import { truncate } from "../views/index.ts";
-import { noticeView, pickGameView } from "../views/index.ts";
-import { text } from "../domain/index.ts";
-import { parseId } from "../domain/index.ts";
+import {
+  createLfgPost,
+  joinFromLfg,
+  respondToLfg,
+  autocompleteGames,
+  type AppContext,
+} from "../services/index.ts";
+import { LFG_FIELD, lfgModal, truncate, noticeView, pickGameView } from "../views/index.ts";
+import { text, parseId } from "../domain/index.ts";
 import { parsePositiveId } from "./parse.ts";
-import { forEdit, forReply } from "./member.ts";
+import { forEdit, forReply } from "./replies.ts";
 import type { Handlers } from "./router.ts";
 
 const MISSING_ACCESS = 50001;

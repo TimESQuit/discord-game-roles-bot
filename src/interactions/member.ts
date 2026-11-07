@@ -4,12 +4,10 @@ import {
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type Interaction,
-  type InteractionEditReplyOptions,
-  type InteractionReplyOptions,
   type StringSelectMenuInteraction,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
-import { isAdmin } from "../domain/index.ts";
+import { isAdmin, text, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   applySelection,
@@ -19,11 +17,11 @@ import {
   join,
   leave,
   whoPlays,
+  type AppContext,
 } from "../services/index.ts";
-import type { AppContext } from "../services/index.ts";
 import type { Payload } from "../discord/index.ts";
-import { truncate } from "../views/index.ts";
 import {
+  truncate,
   addGamesPageOf,
   changedOptionIds,
   addGamesView,
@@ -35,24 +33,8 @@ import {
   pickGameView,
   removeGamesView,
 } from "../views/index.ts";
-import { text } from "../domain/index.ts";
-import { parseId } from "../domain/index.ts";
+import { forEdit, forReply } from "./replies.ts";
 import { memberRoleIds, type Handlers } from "./router.ts";
-
-/** Edits keep the layout flag and never resend the ephemeral flag. */
-export const forEdit = (view: Payload): InteractionEditReplyOptions =>
-  ({
-    components: view.components,
-    flags: MessageFlags.IsComponentsV2,
-    allowedMentions: view.allowedMentions,
-  }) as InteractionEditReplyOptions;
-
-export const forReply = (view: Payload): InteractionReplyOptions =>
-  ({
-    components: view.components,
-    flags: view.flags,
-    allowedMentions: view.allowedMentions,
-  }) as InteractionReplyOptions;
 
 const joinNames = (games: readonly { name: string }[]): string =>
   games.map((g) => text(g.name)).join(", ");

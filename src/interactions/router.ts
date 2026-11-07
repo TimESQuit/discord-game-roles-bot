@@ -1,10 +1,9 @@
-import { type Interaction } from "discord.js";
-import { isAdmin } from "../domain/index.ts";
+import type { Interaction } from "discord.js";
+import { isAdmin, isAdminId, parseId, type CustomId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "../services/index.ts";
 import { noticeView } from "../views/index.ts";
-import { forReply } from "./member.ts";
-import { isAdminId, parseId, type CustomId } from "../domain/index.ts";
+import { forReply } from "./replies.ts";
 
 export const HANDLER_NAMES = [
   "panel-open",

@@ -10,13 +10,10 @@ import {
 } from "discord.js";
 import { buildHandlers, createErrorReporter, createShutdown, onReady } from "./app.ts";
 import { loadConfig } from "./config.ts";
-import { closeDatabase, openDatabase } from "./db/index.ts";
-import { createRepos } from "./db/index.ts";
+import { closeDatabase, openDatabase, createRepos } from "./db/index.ts";
 import { createDiscordGateway } from "./discord/index.ts";
-import { registerCommands } from "./interactions/index.ts";
-import { handleInteraction } from "./interactions/index.ts";
-import { createAudit } from "./services/index.ts";
-import type { AppContext } from "./services/index.ts";
+import { registerCommands, handleInteraction } from "./interactions/index.ts";
+import { createAudit, type AppContext } from "./services/index.ts";
 
 function readVersion(): string {
   const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {

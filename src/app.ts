@@ -1,12 +1,12 @@
 import { HEARTBEAT_INTERVAL_MS } from "./constants.ts";
-import { adminHandlers } from "./interactions/index.ts";
-import { lfgHandlers } from "./interactions/index.ts";
-import { memberHandlers } from "./interactions/index.ts";
-import type { Handlers } from "./interactions/index.ts";
-import { suggestHandlers } from "./interactions/index.ts";
-import { scheduleNightlyBackups } from "./services/index.ts";
-import type { AppContext } from "./services/index.ts";
-import { startHeartbeat } from "./services/index.ts";
+import {
+  adminHandlers,
+  lfgHandlers,
+  memberHandlers,
+  suggestHandlers,
+  type Handlers,
+} from "./interactions/index.ts";
+import { scheduleNightlyBackups, startHeartbeat, type AppContext } from "./services/index.ts";
 
 /** Merges the handler maps. A key defined twice is a programming error, so it throws. */
 export function buildHandlers(

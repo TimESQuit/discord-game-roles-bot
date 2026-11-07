@@ -3,8 +3,7 @@ import type { Game } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { addGame, removeGame } from "./games.ts";
 import { createLfgPost, joinFromLfg, respondToLfg } from "./lfg.ts";
-import { A1, U1, U2, U3, lastSend, makeContext } from "../testing/index.ts";
-import type { TestContext } from "../testing/index.ts";
+import { A1, U1, U2, U3, lastSend, makeContext, type TestContext } from "../testing/index.ts";
 
 const CH = "100000000000000900";
 let ctx: TestContext;

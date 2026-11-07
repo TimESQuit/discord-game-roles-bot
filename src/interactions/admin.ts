@@ -7,15 +7,20 @@ import {
   type StringSelectMenuInteraction,
 } from "discord.js";
 import type { Category, Game } from "../db/index.ts";
-import { validateCategoryName } from "../domain/index.ts";
-import { diffGameEdit } from "../domain/index.ts";
-import { normalize } from "../domain/index.ts";
+import { validateCategoryName, diffGameEdit, normalize, text, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { runBackup } from "../services/index.ts";
-import type { AppContext } from "../services/index.ts";
-import { addGame, editGame, reapplyTemplate, removeGame } from "../services/index.ts";
-import { autocompleteGames } from "../services/index.ts";
-import { applySetup, previewSetup, refreshPanel } from "../services/index.ts";
+import {
+  runBackup,
+  addGame,
+  editGame,
+  reapplyTemplate,
+  removeGame,
+  autocompleteGames,
+  applySetup,
+  previewSetup,
+  refreshPanel,
+  type AppContext,
+} from "../services/index.ts";
 import {
   categoriesView,
   categoryModal,
@@ -24,15 +29,14 @@ import {
   reviewListView,
   setupPreviewView,
   setupReportView,
+  truncate,
+  noticeView,
+  pickGameView,
+  FIELD,
 } from "../views/index.ts";
-import { truncate } from "../views/index.ts";
-import { noticeView, pickGameView } from "../views/index.ts";
-import { FIELD } from "../views/index.ts";
-import { text } from "../domain/index.ts";
-import { parseId } from "../domain/index.ts";
 import { parsePositiveId } from "./parse.ts";
 import { resolvePickedGame } from "./lfg.ts";
-import { forEdit, forReply } from "./member.ts";
+import { forEdit, forReply } from "./replies.ts";
 import type { Handlers } from "./router.ts";
 
 const PRIVATE_V2 = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;

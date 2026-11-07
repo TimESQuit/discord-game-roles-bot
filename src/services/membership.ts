@@ -1,7 +1,6 @@
 import { SELECT_OPTION_LIMIT } from "../constants.ts";
 import type { Game } from "../db/index.ts";
-import { diffSelection } from "../domain/index.ts";
-import { byName, rankGames } from "../domain/index.ts";
+import { diffSelection, byName, rankGames } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "./context.ts";
 import type { Source } from "./audit.ts";

@@ -1,5 +1,327 @@
 {
   "plugins": ["typescript", "unicorn", "import", "vitest"],
-  "categories": { "correctness": "error" },
-  "rules": { "typescript/no-floating-promises": "error" }
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "typescript/no-floating-promises": "error",
+    "import/no-cycle": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": ["**/db/**", "!**/db/index.ts"],
+            "message": "Import db only through its index.ts (../db/index.ts)."
+          },
+          {
+            "group": ["**/discord/**", "!**/discord/index.ts"],
+            "message": "Import discord only through its index.ts (../discord/index.ts)."
+          },
+          {
+            "group": ["**/domain/**", "!**/domain/index.ts"],
+            "message": "Import domain only through its index.ts (../domain/index.ts)."
+          },
+          {
+            "group": ["**/services/**", "!**/services/index.ts"],
+            "message": "Import services only through its index.ts (../services/index.ts)."
+          },
+          {
+            "group": ["**/interactions/**", "!**/interactions/index.ts"],
+            "message": "Import interactions only through its index.ts (../interactions/index.ts)."
+          },
+          {
+            "group": ["**/views/**", "!**/views/index.ts"],
+            "message": "Import views only through its index.ts (../views/index.ts)."
+          },
+          {
+            "group": ["**/testing/**", "!**/testing/index.ts"],
+            "message": "Import testing only through its index.ts (../testing/index.ts)."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/db/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/discord/**", "!**/discord/index.ts"],
+                "message": "Import discord only through its index.ts (../discord/index.ts)."
+              },
+              {
+                "group": ["**/domain/**", "!**/domain/index.ts"],
+                "message": "Import domain only through its index.ts (../domain/index.ts)."
+              },
+              {
+                "group": ["**/services/**", "!**/services/index.ts"],
+                "message": "Import services only through its index.ts (../services/index.ts)."
+              },
+              {
+                "group": ["**/interactions/**", "!**/interactions/index.ts"],
+                "message": "Import interactions only through its index.ts (../interactions/index.ts)."
+              },
+              {
+                "group": ["**/views/**", "!**/views/index.ts"],
+                "message": "Import views only through its index.ts (../views/index.ts)."
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.ts"],
+                "message": "Import testing only through its index.ts (../testing/index.ts)."
+              },
+              {
+                "group": ["./index.ts", "../index.ts"],
+                "message": "Do not import your own folder barrel; import the sibling file directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/discord/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/db/**", "!**/db/index.ts"],
+                "message": "Import db only through its index.ts (../db/index.ts)."
+              },
+              {
+                "group": ["**/domain/**", "!**/domain/index.ts"],
+                "message": "Import domain only through its index.ts (../domain/index.ts)."
+              },
+              {
+                "group": ["**/services/**", "!**/services/index.ts"],
+                "message": "Import services only through its index.ts (../services/index.ts)."
+              },
+              {
+                "group": ["**/interactions/**", "!**/interactions/index.ts"],
+                "message": "Import interactions only through its index.ts (../interactions/index.ts)."
+              },
+              {
+                "group": ["**/views/**", "!**/views/index.ts"],
+                "message": "Import views only through its index.ts (../views/index.ts)."
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.ts"],
+                "message": "Import testing only through its index.ts (../testing/index.ts)."
+              },
+              {
+                "group": ["./index.ts", "../index.ts"],
+                "message": "Do not import your own folder barrel; import the sibling file directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/domain/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/db/**", "!**/db/index.ts"],
+                "message": "Import db only through its index.ts (../db/index.ts)."
+              },
+              {
+                "group": ["**/discord/**", "!**/discord/index.ts"],
+                "message": "Import discord only through its index.ts (../discord/index.ts)."
+              },
+              {
+                "group": ["**/services/**", "!**/services/index.ts"],
+                "message": "Import services only through its index.ts (../services/index.ts)."
+              },
+              {
+                "group": ["**/interactions/**", "!**/interactions/index.ts"],
+                "message": "Import interactions only through its index.ts (../interactions/index.ts)."
+              },
+              {
+                "group": ["**/views/**", "!**/views/index.ts"],
+                "message": "Import views only through its index.ts (../views/index.ts)."
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.ts"],
+                "message": "Import testing only through its index.ts (../testing/index.ts)."
+              },
+              {
+                "group": ["./index.ts", "../index.ts"],
+                "message": "Do not import your own folder barrel; import the sibling file directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/services/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/db/**", "!**/db/index.ts"],
+                "message": "Import db only through its index.ts (../db/index.ts)."
+              },
+              {
+                "group": ["**/discord/**", "!**/discord/index.ts"],
+                "message": "Import discord only through its index.ts (../discord/index.ts)."
+              },
+              {
+                "group": ["**/domain/**", "!**/domain/index.ts"],
+                "message": "Import domain only through its index.ts (../domain/index.ts)."
+              },
+              {
+                "group": ["**/interactions/**", "!**/interactions/index.ts"],
+                "message": "Import interactions only through its index.ts (../interactions/index.ts)."
+              },
+              {
+                "group": ["**/views/**", "!**/views/index.ts"],
+                "message": "Import views only through its index.ts (../views/index.ts)."
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.ts"],
+                "message": "Import testing only through its index.ts (../testing/index.ts)."
+              },
+              {
+                "group": ["./index.ts", "../index.ts"],
+                "message": "Do not import your own folder barrel; import the sibling file directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/interactions/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/db/**", "!**/db/index.ts"],
+                "message": "Import db only through its index.ts (../db/index.ts)."
+              },
+              {
+                "group": ["**/discord/**", "!**/discord/index.ts"],
+                "message": "Import discord only through its index.ts (../discord/index.ts)."
+              },
+              {
+                "group": ["**/domain/**", "!**/domain/index.ts"],
+                "message": "Import domain only through its index.ts (../domain/index.ts)."
+              },
+              {
+                "group": ["**/services/**", "!**/services/index.ts"],
+                "message": "Import services only through its index.ts (../services/index.ts)."
+              },
+              {
+                "group": ["**/views/**", "!**/views/index.ts"],
+                "message": "Import views only through its index.ts (../views/index.ts)."
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.ts"],
+                "message": "Import testing only through its index.ts (../testing/index.ts)."
+              },
+              {
+                "group": ["./index.ts", "../index.ts"],
+                "message": "Do not import your own folder barrel; import the sibling file directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/views/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/db/**", "!**/db/index.ts"],
+                "message": "Import db only through its index.ts (../db/index.ts)."
+              },
+              {
+                "group": ["**/discord/**", "!**/discord/index.ts"],
+                "message": "Import discord only through its index.ts (../discord/index.ts)."
+              },
+              {
+                "group": ["**/domain/**", "!**/domain/index.ts"],
+                "message": "Import domain only through its index.ts (../domain/index.ts)."
+              },
+              {
+                "group": ["**/services/**", "!**/services/index.ts"],
+                "message": "Import services only through its index.ts (../services/index.ts)."
+              },
+              {
+                "group": ["**/interactions/**", "!**/interactions/index.ts"],
+                "message": "Import interactions only through its index.ts (../interactions/index.ts)."
+              },
+              {
+                "group": ["**/testing/**", "!**/testing/index.ts"],
+                "message": "Import testing only through its index.ts (../testing/index.ts)."
+              },
+              {
+                "group": ["./index.ts", "../index.ts"],
+                "message": "Do not import your own folder barrel; import the sibling file directly."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/testing/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/db/**", "!**/db/index.ts"],
+                "message": "Import db only through its index.ts (../db/index.ts)."
+              },
+              {
+                "group": ["**/discord/**", "!**/discord/index.ts"],
+                "message": "Import discord only through its index.ts (../discord/index.ts)."
+              },
+              {
+                "group": ["**/domain/**", "!**/domain/index.ts"],
+                "message": "Import domain only through its index.ts (../domain/index.ts)."
+              },
+              {
+                "group": ["**/services/**", "!**/services/index.ts"],
+                "message": "Import services only through its index.ts (../services/index.ts)."
+              },
+              {
+                "group": ["**/interactions/**", "!**/interactions/index.ts"],
+                "message": "Import interactions only through its index.ts (../interactions/index.ts)."
+              },
+              {
+                "group": ["**/views/**", "!**/views/index.ts"],
+                "message": "Import views only through its index.ts (../views/index.ts)."
+              },
+              {
+                "group": ["./index.ts", "../index.ts"],
+                "message": "Do not import your own folder barrel; import the sibling file directly."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

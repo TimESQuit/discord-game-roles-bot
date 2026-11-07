@@ -6,18 +6,18 @@ import {
 } from "discord.js";
 import type { Category, Suggestion } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
-import type { AppContext } from "../services/index.ts";
-import { join } from "../services/index.ts";
 import {
+  join,
   approveSuggestion,
   closeMatches,
   editSuggestion,
   rejectSuggestion,
   submitSuggestion,
   withdrawSuggestion,
+  type AppContext,
 } from "../services/index.ts";
-import { noticeView } from "../views/index.ts";
 import {
+  noticeView,
   FIELD,
   duplicatePromptView,
   mySuggestionsView,
@@ -25,9 +25,8 @@ import {
   reviewEditModal,
   suggestModal,
 } from "../views/index.ts";
-import { text } from "../domain/index.ts";
-import { parseId } from "../domain/index.ts";
-import { forEdit, forReply } from "./member.ts";
+import { text, parseId } from "../domain/index.ts";
+import { forEdit, forReply } from "./replies.ts";
 import type { Handlers } from "./router.ts";
 
 export type Draft = { name: string; categoryId: number; note: string | null };

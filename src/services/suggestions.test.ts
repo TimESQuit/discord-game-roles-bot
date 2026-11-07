@@ -10,8 +10,7 @@ import {
   withdrawSuggestion,
 } from "./suggestions.ts";
 import { addGame } from "./games.ts";
-import { A1, A2, U1, U2, makeContext, sentTo } from "../testing/index.ts";
-import type { TestContext } from "../testing/index.ts";
+import { A1, A2, U1, U2, makeContext, sentTo, type TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let chill: { id: number; name: string };
