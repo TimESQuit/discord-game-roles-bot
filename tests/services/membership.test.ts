@@ -96,6 +96,13 @@ describe("applySelection", () => {
   });
 });
 
+test("an uncached member submitting an empty selection removes nothing and logs nothing", async () => {
+  const r = await applySelection(ctx, U1, [valheim.id, minecraft.id], [], "panel");
+  expect(r.removed).toEqual([]);
+  expect(r.added).toEqual([]);
+  expect(ctx.logLines).toEqual([]);
+});
+
 describe("join and leave", () => {
   test("join twice gives 'already' and one log line", async () => {
     ctx.gateway.addMember(U1, []);
@@ -162,17 +169,23 @@ describe("lookups", () => {
     ]);
   });
 
+  test("empty add query orders by member count, not by name", async () => {
+    // Valheim sorts last alphabetically but is the most popular; Minecraft and Chess tie lower.
+    ctx.gateway.addMember(U2, [valheim.roleId, minecraft.roleId]);
+    ctx.gateway.addMember(U3, [valheim.roleId]);
+    ctx.gateway.addMember(U1, [valheim.roleId]);
+    const outsider = "100000000000000098";
+    expect(names(await autocompleteGames(ctx, outsider, "", "add"))).toEqual([
+      "Valheim",
+      "Minecraft",
+      "Chess",
+    ]);
+  });
+
   test("autocomplete returns at most 25", async () => {
     const cat = (await ctx.repos.categories.list())[0]!;
     for (let i = 0; i < 30; i++) {
-      await ctx.repos.games.add({
-        name: `Extra ${i}`,
-        categoryId: cat.id,
-        roleId: `3000000000000000${String(i).padStart(2, "0")}`,
-        aliases: [],
-        addedBy: A1,
-        addedAt: "2026-01-15T12:00:00.000Z",
-      });
+      await addGame(ctx, { name: `Extra ${i}`, categoryId: cat.id, aliases: "", actorId: A1 });
     }
     expect(await autocompleteGames(ctx, U1, "", "any")).toHaveLength(25);
   });

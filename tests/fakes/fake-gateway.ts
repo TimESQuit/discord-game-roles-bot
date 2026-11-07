@@ -129,6 +129,8 @@ export class FakeGateway implements Gateway {
   ): Promise<RoleSnapshot> {
     this.#begin("createRole", [o, reason]);
     for (const r of this.#roles.values()) if (r.position >= 1) r.position += 1;
+    // The bot's own role sits in the same list, so it shifts up too.
+    if (this.#botTop >= 1) this.#botTop += 1;
     const role: RoleSnapshot = { id: this.#newId(), position: 1, ...o };
     this.#roles.set(role.id, role);
     return { ...role };
@@ -145,6 +147,8 @@ export class FakeGateway implements Gateway {
   }
   async deleteRole(id: string, reason: string): Promise<void> {
     this.#begin("deleteRole", [id, reason]);
+    const gone = this.#roles.get(id);
+    if (gone && gone.position >= 1 && gone.position < this.#botTop) this.#botTop -= 1;
     this.#roles.delete(id);
     for (const roles of this.#members.values()) roles.delete(id);
   }

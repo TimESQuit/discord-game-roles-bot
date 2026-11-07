@@ -15,6 +15,23 @@ describe("FakeGateway", () => {
     expect(gw.calls.map((c) => c.method)).toEqual(["createRole", "createRole"]);
   });
 
+  test("createRole shifts the bot's own top role up with the others", async () => {
+    const gw = new FakeGateway({});
+    gw.setBotTopPosition(5);
+    await gw.createRole({ name: "a", ...opts }, "t");
+    await gw.createRole({ name: "b", ...opts }, "t");
+    expect(gw.botTopRolePosition()).toBe(7);
+  });
+
+  test("deleteRole of a role below the bot moves the bot's top role down", async () => {
+    const gw = new FakeGateway({});
+    gw.setBotTopPosition(5);
+    const a = await gw.createRole({ name: "a", ...opts }, "t");
+    expect(gw.botTopRolePosition()).toBe(6);
+    await gw.deleteRole(a.id, "t");
+    expect(gw.botTopRolePosition()).toBe(5);
+  });
+
   test("deleteRole removes it from every member", async () => {
     const gw = new FakeGateway({});
     const r = await gw.createRole({ name: "r", ...opts }, "t");
