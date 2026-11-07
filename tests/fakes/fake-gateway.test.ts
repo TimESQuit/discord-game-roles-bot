@@ -32,6 +32,32 @@ describe("FakeGateway", () => {
     expect(gw.botTopRolePosition()).toBe(5);
   });
 
+  test("deleteRole shifts roles above it down and keeps the bot gap", async () => {
+    const gw = new FakeGateway({});
+    gw.addRole({ id: "t", name: "template", position: 10, color: 0, mentionable: false });
+    gw.setBotTopPosition(15);
+    const a = await gw.createRole({ name: "a", ...opts }, "t");
+    const b = await gw.createRole({ name: "b", ...opts }, "t");
+    const tBefore = gw.role("t")!.position;
+    const aBefore = gw.role(a.id)!.position;
+    const gap = gw.botTopRolePosition() - tBefore;
+    await gw.deleteRole(b.id, "t");
+    expect(gw.role("t")!.position).toBe(tBefore - 1);
+    expect(gw.role(a.id)!.position).toBe(aBefore - 1);
+    expect(gw.botTopRolePosition() - gw.role("t")!.position).toBe(gap);
+    expect(gw.role(gw.guildId)!.position).toBe(0);
+  });
+
+  test("deleteRole leaves roles below it unchanged", async () => {
+    const gw = new FakeGateway({});
+    const a = await gw.createRole({ name: "a", ...opts }, "t");
+    const b = await gw.createRole({ name: "b", ...opts }, "t");
+    const aPos = gw.role(a.id)!.position;
+    await gw.deleteRole(a.id, "t");
+    expect(gw.role(b.id)!.position).toBe(1);
+    expect(aPos).toBe(2);
+  });
+
   test("deleteRole removes it from every member", async () => {
     const gw = new FakeGateway({});
     const r = await gw.createRole({ name: "r", ...opts }, "t");

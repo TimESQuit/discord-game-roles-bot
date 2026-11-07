@@ -26,6 +26,15 @@ const add = (name: string, aliases = ""): Promise<Game> =>
   addGame(ctx, { name, categoryId: chill.id, aliases, actorId: A1 });
 const calls = (method: string) => ctx.gateway.calls.filter((c) => c.method === method);
 
+describe("repeated add and remove", () => {
+  test("six games added then removed leaves addGame working", async () => {
+    const games: Game[] = [];
+    for (let i = 0; i < 6; i++) games.push(await add(`Game ${i}`));
+    for (const g of games) await removeGame(ctx, g.id, A1);
+    await expect(add("Again")).resolves.toMatchObject({ name: "Again" });
+  });
+});
+
 describe("addGame", () => {
   test("copies template color + mentionable, stores the role, sorts, logs", async () => {
     const game = await add("Valheim", "vh");

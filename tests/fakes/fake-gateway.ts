@@ -148,8 +148,12 @@ export class FakeGateway implements Gateway {
   async deleteRole(id: string, reason: string): Promise<void> {
     this.#begin("deleteRole", [id, reason]);
     const gone = this.#roles.get(id);
-    if (gone && gone.position >= 1 && gone.position < this.#botTop) this.#botTop -= 1;
     this.#roles.delete(id);
+    if (gone && gone.position >= 1) {
+      // Roles above the deleted one drop by one, the bot's own role included.
+      for (const r of this.#roles.values()) if (r.position > gone.position) r.position -= 1;
+      if (this.#botTop > gone.position) this.#botTop -= 1;
+    }
     for (const roles of this.#members.values()) roles.delete(id);
   }
   async setRolePositions(
