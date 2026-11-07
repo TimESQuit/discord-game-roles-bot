@@ -1,0 +1,145 @@
+import { DiscordAPIError, PermissionsBitField } from "discord.js";
+import type {
+  Client,
+  Guild,
+  MessageEditOptions,
+  OverwriteResolvable,
+  PermissionsString,
+  Role,
+} from "discord.js";
+import { ChannelType } from "discord.js";
+import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "./gateway.ts";
+
+const UNKNOWN_MESSAGE = 10008;
+
+function snapshot(role: Role): RoleSnapshot {
+  return {
+    id: role.id,
+    name: role.name,
+    position: role.position,
+    color: role.color,
+    mentionable: role.mentionable,
+  };
+}
+
+export function createDiscordGateway(client: Client<true>, guildId: string): Gateway {
+  const guild = (): Guild => {
+    const g = client.guilds.cache.get(guildId);
+    if (!g) throw new Error(`Guild ${guildId} is not available`);
+    return g;
+  };
+  const requireRole = (id: string): Role => {
+    const r = guild().roles.cache.get(id);
+    if (!r) throw new Error(`Unknown role ${id}`);
+    return r;
+  };
+  const textChannel = async (id: string) => {
+    const ch = guild().channels.cache.get(id) ?? (await client.channels.fetch(id));
+    if (!ch || !ch.isTextBased()) throw new Error(`Channel ${id} is not a text channel`);
+    return ch;
+  };
+  const resolveOverwrites = (list: readonly Overwrite[]): OverwriteResolvable[] =>
+    list.map((o) => ({
+      id: o.id === "everyone" ? guild().id : o.id,
+      allow: o.allow,
+      deny: o.deny,
+    }));
+
+  return {
+    guildId,
+    botUserId: client.user.id,
+
+    role: (id) => {
+      const r = guild().roles.cache.get(id);
+      return r ? snapshot(r) : undefined;
+    },
+    roles: () => [...guild().roles.cache.values()].map(snapshot),
+    async createRole(o, reason) {
+      const role = await guild().roles.create({
+        name: o.name,
+        color: o.color,
+        mentionable: o.mentionable,
+        permissions: [],
+        reason,
+      });
+      return snapshot(role);
+    },
+    async editRole(id, patch, reason) {
+      await requireRole(id).edit({ ...patch, reason });
+    },
+    async deleteRole(id, reason) {
+      await requireRole(id).delete(reason);
+    },
+    async setRolePositions(changes) {
+      // discord.js 14.28.1 setPositions has no audit-log reason parameter.
+      await guild().roles.setPositions(changes.map((c) => ({ role: c.id, position: c.position })));
+    },
+    botTopRolePosition: () => guild().members.me?.roles.highest.position ?? 0,
+    missingBotPermissions(required) {
+      const perms = guild().members.me?.permissions ?? new PermissionsBitField();
+      return required.filter((p): p is PermissionsString => !perms.has(p));
+    },
+    memberRoleIds(userId) {
+      const m = guild().members.cache.get(userId);
+      return new Set(m ? m.roles.cache.keys() : []);
+    },
+    roleMemberIds: (roleId) => [...(guild().roles.cache.get(roleId)?.members.keys() ?? [])],
+    async addMemberRole(userId, roleId, reason) {
+      await (await guild().members.fetch(userId)).roles.add(roleId, reason);
+    },
+    async removeMemberRole(userId, roleId, reason) {
+      await (await guild().members.fetch(userId)).roles.remove(roleId, reason);
+    },
+    channelExists: (id) => guild().channels.cache.has(id),
+    async createCategory(name, overwrites) {
+      const ch = await guild().channels.create({
+        name,
+        type: ChannelType.GuildCategory,
+        permissionOverwrites: resolveOverwrites(overwrites),
+      });
+      return ch.id;
+    },
+    async createTextChannel(name, parentId, overwrites) {
+      const ch = await guild().channels.create({
+        name,
+        type: ChannelType.GuildText,
+        parent: parentId,
+        permissionOverwrites: resolveOverwrites(overwrites),
+      });
+      return ch.id;
+    },
+    async send(channelId, payload: Payload) {
+      const ch = await textChannel(channelId);
+      if (!ch.isSendable()) throw new Error(`Channel ${channelId} is not sendable`);
+      return (await ch.send(payload)).id;
+    },
+    async edit(channelId, messageId, payload: Payload) {
+      const ch = await textChannel(channelId);
+      try {
+        // Create options carry the same V2 flags and components; edit rejects only
+        // fields such as reply/stickers that the bot never sets on these posts.
+        await ch.messages.edit(messageId, payload as MessageEditOptions);
+        return true;
+      } catch (error) {
+        if (error instanceof DiscordAPIError && error.code === UNKNOWN_MESSAGE) return false;
+        throw error;
+      }
+    },
+    async ownMessages(channelId, limit): Promise<OwnMessage[]> {
+      const ch = await textChannel(channelId);
+      const fetched = await ch.messages.fetch({ limit });
+      return [...fetched.values()]
+        .filter((m) => m.author.id === client.user.id)
+        .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
+        .map((m) => ({
+          id: m.id,
+          createdAt: m.createdAt,
+          hasAttachment: m.attachments.size > 0,
+        }));
+    },
+    async deleteMessage(channelId, messageId) {
+      const ch = await textChannel(channelId);
+      await ch.messages.delete(messageId);
+    },
+  };
+}
