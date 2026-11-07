@@ -31,7 +31,20 @@ beforeEach(async () => {
   ctx.gateway.messages.clear();
 });
 
-const content = (p: { content?: string | undefined }) => String(p.content ?? "");
+/** All text-display content of a layout-V2 payload, joined. */
+const content = (p: { components?: unknown }): string => {
+  const out: string[] = [];
+  const walk = (v: unknown): void => {
+    if (Array.isArray(v)) v.forEach(walk);
+    else if (v && typeof v === "object") {
+      const c = v as { type?: number; content?: string; components?: unknown };
+      if (c.type === 10) out.push(c.content ?? "");
+      walk(c.components);
+    }
+  };
+  walk(p.components);
+  return out.join("\n");
+};
 
 describe("createLfgPost", () => {
   test("pings only the game role and stores the post", async () => {
@@ -105,7 +118,7 @@ describe("respondToLfg", () => {
     const edit = ctx.gateway.calls.findLast((c) => c.method === "edit")!;
     expect(edit.args[0]).toBe(CH);
     expect(edit.args[1]).toBe(id);
-    const payload = edit.args[2] as { content?: string; allowedMentions?: unknown };
+    const payload = edit.args[2] as { components?: unknown; allowedMentions?: unknown };
     expect(payload.allowedMentions).toEqual({ parse: [] });
     expect(content(payload)).toContain(`In (1): <@${U2}>`);
     expect(content(payload)).toContain(`Maybe (1): <@${U3}>`);
@@ -127,7 +140,7 @@ describe("respondToLfg", () => {
   test("simultaneous clicks leave the visible lists complete", async () => {
     const originalEdit = ctx.gateway.edit.bind(ctx.gateway);
     const originalGet = ctx.repos.games.get.bind(ctx.repos.games);
-    let landedLast: { content?: string | undefined } = {};
+    let landedLast: { components?: unknown } = {};
     vi.spyOn(ctx.gateway, "edit").mockImplementation(async (...args) => {
       const result = await originalEdit(...args);
       landedLast = args[2];

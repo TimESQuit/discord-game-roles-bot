@@ -1,0 +1,128 @@
+import {
+  DiscordAPIError,
+  MessageFlags,
+  type AutocompleteInteraction,
+  type ButtonInteraction,
+  type ChatInputCommandInteraction,
+  type ModalSubmitInteraction,
+  type StringSelectMenuInteraction,
+} from "discord.js";
+import { UserFacingError } from "../errors.ts";
+import type { AppContext } from "../services/context.ts";
+import { createLfgPost, joinFromLfg, respondToLfg } from "../services/lfg.ts";
+import { autocompleteGames } from "../services/membership.ts";
+import { LFG_FIELD, lfgModal } from "../views/lfg.ts";
+import { truncate } from "../views/limits.ts";
+import { noticeView, pickGameView } from "../views/member.ts";
+import { text } from "../views/text.ts";
+import { parseId } from "./custom-ids.ts";
+import { forEdit, forReply } from "./member.ts";
+import type { Handlers } from "./router.ts";
+
+const MISSING_ACCESS = 50001;
+const MISSING_PERMISSIONS = 50013;
+const PRIVATE_V2 = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
+
+/** Posts, turning Discord's "no access / no permission" refusals into a private explanation. */
+async function postHere(
+  ctx: AppContext,
+  input: Parameters<typeof createLfgPost>[1],
+): Promise<void> {
+  try {
+    await createLfgPost(ctx, input);
+  } catch (error) {
+    if (
+      error instanceof DiscordAPIError &&
+      (error.code === MISSING_ACCESS || error.code === MISSING_PERMISSIONS)
+    ) {
+      throw new UserFacingError("I can't post in this channel.");
+    }
+    throw error;
+  }
+}
+
+export const lfgHandlers: Handlers = {
+  lfg: async (ctx, interaction: ChatInputCommandInteraction) => {
+    const raw = interaction.options.getString("game", true).trim();
+    if (!/^\d{1,15}$/.test(raw)) throw new UserFacingError("Pick a game from the list.");
+    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await postHere(ctx, {
+      authorId: interaction.user.id,
+      gameId: Number(raw),
+      when: interaction.options.getString("when"),
+      note: interaction.options.getString("note"),
+      channelId: interaction.channelId,
+    });
+    await interaction.editReply(forEdit(noticeView("Posted.")));
+  },
+
+  "autocomplete-lfg": async (ctx, interaction: AutocompleteInteraction) => {
+    const matches = await autocompleteGames(
+      ctx,
+      interaction.user.id,
+      interaction.options.getFocused(),
+      "any",
+    );
+    await interaction.respond(
+      matches.map((game) => ({ name: truncate(game.name, 100), value: String(game.id) })),
+    );
+  },
+
+  "menu-lfg": async (ctx, interaction: ButtonInteraction) => {
+    const [categories, games] = await Promise.all([
+      ctx.repos.categories.list(),
+      ctx.repos.games.list(),
+    ]);
+    await interaction.reply(forReply(pickGameView("lfg", categories, games)));
+  },
+
+  "pick-lfg": async (_ctx, interaction: StringSelectMenuInteraction) => {
+    const gameId = Number(interaction.values[0]);
+    if (!Number.isInteger(gameId)) throw new UserFacingError("Pick a game from the list.");
+    await interaction.showModal(lfgModal(gameId, "news"));
+  },
+
+  "lfg-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+    const id = parseId(interaction.customId);
+    if (id?.kind !== "lfg-modal")
+      throw new UserFacingError("That form has expired. Open it again.");
+    await interaction.deferReply({ flags: PRIVATE_V2 });
+    let channelId: string;
+    if (id.target === "news") {
+      const news = await ctx.repos.setup.get("newsChannelId");
+      if (!news) throw new UserFacingError("Run /gameadmin setup first.");
+      channelId = news;
+    } else {
+      channelId = interaction.channelId ?? "";
+    }
+    await postHere(ctx, {
+      authorId: interaction.user.id,
+      gameId: id.gameId,
+      when: interaction.fields.getTextInputValue(LFG_FIELD.when),
+      note: interaction.fields.getTextInputValue(LFG_FIELD.note),
+      channelId,
+    });
+    await interaction.editReply(forEdit(noticeView(`Posted in <#${channelId}>.`)));
+  },
+
+  "lfg-in": async (ctx, interaction: ButtonInteraction) => {
+    await interaction.deferUpdate();
+    await respondToLfg(ctx, interaction.message.id, interaction.user.id, "in");
+  },
+  "lfg-maybe": async (ctx, interaction: ButtonInteraction) => {
+    await interaction.deferUpdate();
+    await respondToLfg(ctx, interaction.message.id, interaction.user.id, "maybe");
+  },
+
+  "lfg-join": async (ctx, interaction: ButtonInteraction) => {
+    await interaction.deferReply({ flags: PRIVATE_V2 });
+    const post = await ctx.repos.lfg.get(interaction.message.id);
+    const result = await joinFromLfg(ctx, interaction.message.id, interaction.user.id);
+    const name = text(post?.gameName ?? "this game");
+    await interaction.editReply(
+      forEdit(
+        noticeView(result === "joined" ? `You've joined ${name}.` : `You already have ${name}.`),
+      ),
+    );
+  },
+};
