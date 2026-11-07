@@ -141,12 +141,18 @@ function chunked<T>(items: readonly T[], size = SELECT_OPTION_LIMIT): T[][] {
   return out;
 }
 
-/** The games of one category in the order shown, in chunks of 25. Handlers recompute chunks with this. */
+/**
+ * The remove menu fits this many dropdowns: each takes two components (row + select), and the
+ * container, notice, header and cut-off note take the other four of the per-message component limit.
+ */
+const REMOVE_DROPDOWNS = Math.floor((COMPONENT_LIMIT - 4) / 2);
+
+/** The games of one category in the order shown, in chunks of up to the select-option limit. Handlers recompute chunks with this. */
 export function categoryChunks(games: readonly Game[], categoryId: number): Game[][] {
   return chunked(games.filter((g) => g.categoryId === categoryId).toSorted(byName));
 }
 
-/** A person's games in the order shown by the remove menu, in chunks of 25. */
+/** A person's games in the order shown by the remove menu, in chunks of up to the select-option limit. */
 export function ownedChunks(owned: readonly Game[]): Game[][] {
   return chunked(owned.toSorted(byName));
 }
@@ -315,8 +321,7 @@ export function removeGamesView(ownedGames: readonly Game[], notice?: string): P
     parts.push(display(MESSAGES.noGamesPicked));
   } else {
     parts.push(display("### Remove games\nTick the games you want to leave."));
-    // container + notice + header leave room for 18 dropdowns of two components each
-    const shown = chunks.slice(0, 18);
+    const shown = chunks.slice(0, REMOVE_DROPDOWNS);
     for (const [index, chunk] of shown.entries()) {
       const label =
         chunks.length > 1
@@ -327,8 +332,9 @@ export function removeGamesView(ownedGames: readonly Game[], notice?: string): P
       );
     }
   }
-  if (chunks.length > 18) {
-    parts.push(display("Only the first 450 of your games are listed here."));
+  if (chunks.length > REMOVE_DROPDOWNS) {
+    const listed = REMOVE_DROPDOWNS * SELECT_OPTION_LIMIT;
+    parts.push(display(`Only the first ${String(listed)} of your games are listed here.`));
   }
   return payload(container(...parts), true);
 }

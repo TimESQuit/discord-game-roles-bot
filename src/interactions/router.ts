@@ -182,7 +182,10 @@ export type RouteResult = { handler: HandlerName } | { denied: true } | { unknow
 const HANDLER_SET: ReadonlySet<string> = new Set(HANDLER_NAMES);
 const isHandlerName = (value: string): value is HandlerName => HANDLER_SET.has(value);
 
-/** An ID kind is its own handler name, except for those that add an action or purpose. */
+/**
+ * An ID kind is its own handler name, except for those that add an action or purpose.
+ * Widened to `ReadonlySet<string>` so any handler name can be looked up without a cast.
+ */
 const ADMIN_HANDLER_KINDS: ReadonlySet<string> = ADMIN_KINDS;
 
 const CONTEXT_MENUS: Record<string, HandlerName> = {
