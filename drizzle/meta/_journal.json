@@ -15,6 +15,13 @@
       "when": 1794032583757,
       "tag": "0001_polite_rictor",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1794069437933,
+      "tag": "0002_tired_killmonger",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import {
   ComponentType,
   MessageFlags,
   ModalBuilder,
+  TextDisplayBuilder,
   TextInputStyle,
   type APIActionRowComponent,
   type APIButtonComponent,
@@ -63,6 +64,8 @@ function privateView(parts: (Part | Row)[]): Payload {
 
 // container + the "and N more" line
 const REVIEW_BUDGET = COMPONENT_LIMIT - 2;
+// Discord counts all text displays together; leave room for the "and N more" line.
+const REVIEW_TEXT_BUDGET = 4000 - 40;
 
 /** Compact cards with the same buttons as #bot-admin, as many as fit in 40 components. */
 export function reviewListView(
@@ -72,6 +75,7 @@ export function reviewListView(
   if (pending.length === 0) return privateView([display("No suggestions waiting for review.")]);
   const parts: (Part | Row)[] = [];
   let used = 0;
+  let chars = 0;
   let shown = 0;
   for (const s of pending) {
     const card = reviewCardView(s, categoriesById.get(s.categoryId)?.name ?? "Unknown");
@@ -81,9 +85,14 @@ export function reviewListView(
       (sum, c) => sum + 1 + ("components" in c ? c.components.length : 0),
       0,
     );
-    if (used + cost > REVIEW_BUDGET) break;
+    const length = inner.reduce(
+      (sum, c) => sum + (c.type === ComponentType.TextDisplay ? c.content.length : 0),
+      0,
+    );
+    if (used + cost > REVIEW_BUDGET || chars + length > REVIEW_TEXT_BUDGET) break;
     parts.push(...(inner as (Part | Row)[]));
     used += cost;
+    chars += length;
     shown += 1;
   }
   const more = pending.length - shown;
@@ -91,20 +100,43 @@ export function reviewListView(
   return privateView(parts);
 }
 
+const ALIASES_MAX = 300;
+const ALIASES_MODAL_MAX = 4000;
+
+/** At most 25 categories; the game's own category is always among them. */
+function modalCategories(categories: readonly Category[], current?: number): Category[] {
+  const first = categories.slice(0, 25);
+  if (current === undefined || first.some((c) => c.id === current)) return first;
+  const own = categories.find((c) => c.id === current);
+  return own ? [...first.slice(0, 24), own] : first;
+}
+
 export function gameModal(categories: readonly Category[], game?: Game): ModalBuilder {
-  return new ModalBuilder()
+  const modal = new ModalBuilder()
     .setCustomId(
       encodeId(game ? { kind: "game-edit-modal", gameId: game.id } : { kind: "game-add-modal" }),
     )
     .setTitle(game ? "Edit game" : "Add a game")
     .addLabelComponents(
       inputLabel("Game name", textInput(FIELD.name, TextInputStyle.Short, 100, true, game?.name)),
-      categoryLabel(categories.slice(0, 25), game?.categoryId),
+      categoryLabel(modalCategories(categories, game?.categoryId), game?.categoryId),
+    );
+  const aliases = game?.aliases.join(", ") ?? "";
+  if (aliases.length > ALIASES_MODAL_MAX) {
+    modal.addTextDisplayComponents(
+      new TextDisplayBuilder().setContent("Edit aliases with /gameadmin edit"),
+    );
+  } else {
+    // The prefill is never cut: the field grows to fit what it holds.
+    const max = Math.max(ALIASES_MAX, aliases.length);
+    modal.addLabelComponents(
       inputLabel(
         "Aliases (comma separated, optional)",
-        textInput(FIELD.aliases, TextInputStyle.Short, 300, false, game?.aliases.join(", ")),
+        textInput(FIELD.aliases, TextInputStyle.Short, max, false, aliases),
       ),
     );
+  }
+  return modal;
 }
 
 export function categoryModal(category?: Category): ModalBuilder {

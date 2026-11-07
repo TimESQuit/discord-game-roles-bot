@@ -35,6 +35,25 @@ describe("repeated add and remove", () => {
   });
 });
 
+describe("stale IDs", () => {
+  test("removing a removed game's ID again never touches a newer game", async () => {
+    const old = await add("Old");
+    await removeGame(ctx, old.id, A1);
+    const fresh = await add("Fresh");
+    expect(fresh.id).not.toBe(old.id);
+    await expect(removeGame(ctx, old.id, A1)).rejects.toThrow("That game no longer exists.");
+    expect(ctx.gateway.role(fresh.roleId)).toBeDefined();
+    expect(await ctx.repos.games.get(fresh.id)).toBeDefined();
+  });
+
+  test("collision errors escape game names", async () => {
+    await add("*Bold* Game");
+    await expect(add("*bold* game")).rejects.toThrow(
+      "There's already a game called \\*Bold\\* Game.",
+    );
+  });
+});
+
 describe("addGame", () => {
   test("copies template color + mentionable, stores the role, sorts, logs", async () => {
     const game = await add("Valheim", "vh");

@@ -33,3 +33,9 @@ test("a category may keep or re-case its own name", () => {
   expect(validateCategoryName("chill", existing, 1)).toBe("chill");
   expect(() => validateCategoryName("chill", existing, 2)).toThrow(UserFacingError);
 });
+
+test("error messages escape the name", () => {
+  expect(() => validateCategoryName("*x*", [{ id: 1, name: "*X*" }])).toThrow(
+    "There's already a category called \\*x\\*.",
+  );
+});

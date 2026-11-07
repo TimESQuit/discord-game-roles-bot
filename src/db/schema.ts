@@ -2,13 +2,13 @@ import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 export const categories = sqliteTable("categories", {
-  id: integer("id").primaryKey(),
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
   position: integer("position").notNull(),
 });
 
 export const games = sqliteTable("games", {
-  id: integer("id").primaryKey(),
+  id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull(),
   normalizedName: text("normalized_name").notNull().unique(),
   categoryId: integer("category_id")
@@ -38,7 +38,7 @@ export const setup = sqliteTable("setup", {
 export const suggestions = sqliteTable(
   "suggestions",
   {
-    id: integer("id").primaryKey(),
+    id: integer("id").primaryKey({ autoIncrement: true }),
     suggesterId: text("suggester_id").notNull(),
     name: text("name").notNull(),
     categoryId: integer("category_id")

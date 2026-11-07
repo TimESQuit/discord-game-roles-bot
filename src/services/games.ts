@@ -3,6 +3,7 @@ import type { Game } from "../db/types.ts";
 import type { RoleSnapshot } from "../discord/gateway.ts";
 import { computeRoleOrder, validateGameName } from "../domain/roles.ts";
 import { normalize, parseAliases } from "../domain/search.ts";
+import { text } from "../views/text.ts";
 import type { AppContext } from "./context.ts";
 
 /** Returns the template role, or throws the exact fix for the admin. */
@@ -33,16 +34,18 @@ async function checkCollisions(
   const others = (await ctx.repos.games.list()).filter((g) => g.id !== selfId);
   for (const g of others) {
     if (normalize(g.name) === normalizedName) {
-      throw new UserFacingError(`There's already a game called ${g.name}.`);
+      throw new UserFacingError(`There's already a game called ${text(g.name)}.`);
     }
     if (g.aliases.some((a) => normalize(a) === normalizedName)) {
-      throw new UserFacingError(`The alias ${normalizedName} is already used by ${g.name}.`);
+      throw new UserFacingError(
+        `The alias ${text(normalizedName)} is already used by ${text(g.name)}.`,
+      );
     }
   }
   for (const alias of aliases) {
     for (const g of others) {
       if (normalize(g.name) === alias || g.aliases.some((a) => normalize(a) === alias)) {
-        throw new UserFacingError(`The alias ${alias} is already used by ${g.name}.`);
+        throw new UserFacingError(`The alias ${text(alias)} is already used by ${text(g.name)}.`);
       }
     }
   }

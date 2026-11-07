@@ -169,3 +169,51 @@ test("category modal: one name field of at most 50, prefilled on rename", () => 
   expect(input?.value).toBe("Chill");
   expect(input?.max_length).toBe(50);
 });
+
+test("game modal: long aliases raise the max length instead of being cut", () => {
+  const long = { ...game, aliases: Array.from({ length: 60 }, (_, i) => `alias${String(i)}`) };
+  const joined = long.aliases.join(", ");
+  expect(joined.length).toBeGreaterThan(300);
+  const fields = walk(gameModal([cat(2, "A")], long).toJSON().components as unknown as Node[]);
+  const aliases = fields.find((n) => n.custom_id === "aliases");
+  expect(aliases?.value).toBe(joined);
+  expect(aliases?.max_length).toBe(joined.length);
+});
+
+test("game modal: aliases beyond 4000 characters are left out with a pointer to the command", () => {
+  const huge = { ...game, aliases: Array.from({ length: 700 }, (_, i) => `alias${String(i)}`) };
+  const json = JSON.stringify(gameModal([cat(2, "A")], huge).toJSON());
+  expect(json).not.toContain('"custom_id":"aliases"');
+  expect(json).toContain("Edit aliases with /gameadmin edit");
+});
+
+test("game modal: the game's current category is offered even beyond the first 25", () => {
+  const many = Array.from({ length: 30 }, (_, i) => cat(i + 1, `C${String(i)}`));
+  const fields = walk(
+    gameModal(many, { ...game, categoryId: 29 }).toJSON().components as unknown as Node[],
+  );
+  const select = fields.find((n) => n.custom_id === "category") as unknown as {
+    options: { value: string; default?: boolean }[];
+  };
+  expect(select.options).toHaveLength(25);
+  expect(select.options.find((o) => o.default)?.value).toBe("29");
+});
+
+test("review list keeps total text within 4000 characters", () => {
+  const big = (id: number): Suggestion => ({
+    ...sugg(id),
+    name: "N".repeat(100),
+    note: "n".repeat(300),
+    aliases: "a".repeat(300),
+  });
+  const view = reviewListView(
+    Array.from({ length: 7 }, (_, i) => big(i + 1)),
+    new Map([[1, cat(1, "C".repeat(50))]]),
+  );
+  const total = all(view)
+    .filter((n) => n.type === ComponentType.TextDisplay)
+    .reduce((sum, n) => sum + String(n.content).length, 0);
+  expect(total).toBeLessThanOrEqual(4000);
+  expect(texts(view)).toMatch(/…and \d+ more in #bot-admin/);
+  expect(countComponents(view)).toBeLessThanOrEqual(40);
+});

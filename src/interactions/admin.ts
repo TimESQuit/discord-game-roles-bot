@@ -6,8 +6,9 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
-import type { Category } from "../db/types.ts";
+import type { Category, Game } from "../db/types.ts";
 import { validateCategoryName } from "../domain/categories.ts";
+import { diffGameEdit } from "../domain/game-edit.ts";
 import { normalize } from "../domain/search.ts";
 import { UserFacingError } from "../errors.ts";
 import { runBackup } from "../services/backup.ts";
@@ -29,6 +30,7 @@ import { noticeView, pickGameView } from "../views/member.ts";
 import { FIELD } from "../views/suggestions.ts";
 import { text } from "../views/text.ts";
 import { parseId } from "./custom-ids.ts";
+import { parsePositiveId } from "./parse.ts";
 import { resolvePickedGame } from "./lfg.ts";
 import { forEdit, forReply } from "./member.ts";
 import type { Handlers } from "./router.ts";
@@ -37,12 +39,8 @@ const PRIVATE_V2 = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
 const EXPIRED_FORM = "That form has expired. Open it again.";
 const BAD_CATEGORY = "Pick a category from the list.";
 
-/** A category ID from a select value or an autocomplete option: strict positive integer. */
-export function parseCategoryId(raw: string | undefined): number {
-  const trimmed = (raw ?? "").trim();
-  if (!/^\d{1,15}$/.test(trimmed) || Number(trimmed) <= 0) throw new UserFacingError(BAD_CATEGORY);
-  return Number(trimmed);
-}
+export const parseCategoryId = (raw: string | undefined): number =>
+  parsePositiveId(raw, BAD_CATEGORY);
 
 async function requireCategory(ctx: AppContext, id: number): Promise<Category> {
   const category = await ctx.repos.categories.get(id);
@@ -97,6 +95,17 @@ async function moveCategory(
     detail: `moved ${category.name} ${dir}`,
   });
   return `Moved ${text(category.name)} ${dir}.`;
+}
+
+async function saveEdit(
+  ctx: AppContext,
+  game: Game,
+  patch: ReturnType<typeof diffGameEdit>,
+  actorId: string,
+): Promise<string> {
+  if (Object.keys(patch).length === 0) return "Nothing changed.";
+  const after = await editGame(ctx, game.id, patch, actorId);
+  return `Saved changes to ${text(after.name)}.`;
 }
 
 const showCategories = async (ctx: AppContext) => categoriesView(await ctx.repos.categories.list());
@@ -182,12 +191,8 @@ const privateAction =
     await interaction.editReply(forEdit(noticeView(await make(ctx, interaction.user.id)())));
   };
 
-function categoryOf(raw: string | undefined): number {
-  return parseCategoryId(raw);
-}
-
 function modalCategory(interaction: ModalSubmitInteraction): number {
-  return categoryOf(interaction.fields.getStringSelectValues(FIELD.category)[0]);
+  return parseCategoryId(interaction.fields.getStringSelectValues(FIELD.category)[0]);
 }
 
 export const adminHandlers: Handlers = {
@@ -244,24 +249,18 @@ export const adminHandlers: Handlers = {
     const id = parseId(interaction.customId);
     if (id?.kind !== "game-edit-modal") throw new UserFacingError(EXPIRED_FORM);
     await interaction.deferReply({ flags: PRIVATE_V2 });
-    const before = await ctx.repos.games.get(id.gameId);
-    if (!before) throw new UserFacingError("That game no longer exists.");
-    const after = await editGame(
-      ctx,
-      id.gameId,
-      {
-        name: interaction.fields.getTextInputValue(FIELD.name),
-        categoryId: modalCategory(interaction),
-        aliases: interaction.fields.getTextInputValue(FIELD.aliases),
-      },
-      interaction.user.id,
-    );
-    const changed =
-      after.name !== before.name ||
-      after.categoryId !== before.categoryId ||
-      after.aliases.join("\n") !== before.aliases.join("\n");
+    const game = await ctx.repos.games.get(id.gameId);
+    if (!game) throw new UserFacingError("That game no longer exists.");
+    // Aliases are left out of the modal when they are too long to prefill.
+    const patch = diffGameEdit(game, {
+      name: interaction.fields.getTextInputValue(FIELD.name),
+      categoryId: modalCategory(interaction),
+      ...(interaction.fields.fields.has(FIELD.aliases)
+        ? { aliases: interaction.fields.getTextInputValue(FIELD.aliases) }
+        : {}),
+    });
     await interaction.editReply(
-      forEdit(noticeView(changed ? `Saved changes to ${text(after.name)}.` : "Nothing changed.")),
+      forEdit(noticeView(await saveEdit(ctx, game, patch, interaction.user.id))),
     );
   },
   "confirm-remove": async (ctx, interaction: ButtonInteraction) => {
@@ -319,7 +318,7 @@ export const adminHandlers: Handlers = {
   "gameadmin-refresh-panel": privateAction(refresh),
 
   "gameadmin-add": async (ctx, interaction: ChatInputCommandInteraction) => {
-    const categoryId = categoryOf(interaction.options.getString("category", true));
+    const categoryId = parseCategoryId(interaction.options.getString("category", true));
     await replyPrivately(interaction, async () => {
       const game = await addGame(ctx, {
         name: interaction.options.getString("name", true),
@@ -339,24 +338,13 @@ export const adminHandlers: Handlers = {
       throw new UserFacingError("Nothing to change.");
     }
     const game = await resolvePickedGame(ctx, options.getString("game", true));
-    const categoryId = category === null ? undefined : categoryOf(category);
-    await replyPrivately(interaction, async () => {
-      const after = await editGame(
-        ctx,
-        game.id,
-        {
-          ...(name === null ? {} : { name }),
-          ...(categoryId === undefined ? {} : { categoryId }),
-          ...(aliases === null ? {} : { aliases }),
-        },
-        interaction.user.id,
-      );
-      const changed =
-        after.name !== game.name ||
-        after.categoryId !== game.categoryId ||
-        after.aliases.join("\n") !== game.aliases.join("\n");
-      return changed ? `Saved changes to ${text(after.name)}.` : "Nothing changed.";
+    const categoryId = category === null ? undefined : parseCategoryId(category);
+    const patch = diffGameEdit(game, {
+      ...(name === null ? {} : { name }),
+      ...(categoryId === undefined ? {} : { categoryId }),
+      ...(aliases === null ? {} : { aliases }),
     });
+    await replyPrivately(interaction, () => saveEdit(ctx, game, patch, interaction.user.id));
   },
   "gameadmin-remove": async (ctx, interaction: ChatInputCommandInteraction) => {
     const game = await resolvePickedGame(ctx, interaction.options.getString("game", true));
@@ -369,7 +357,7 @@ export const adminHandlers: Handlers = {
     );
   },
   "gameadmin-category-rename": async (ctx, interaction: ChatInputCommandInteraction) => {
-    const categoryId = categoryOf(interaction.options.getString("category", true));
+    const categoryId = parseCategoryId(interaction.options.getString("category", true));
     await replyPrivately(interaction, () =>
       renameCategory(
         ctx,
@@ -380,7 +368,7 @@ export const adminHandlers: Handlers = {
     );
   },
   "gameadmin-category-move": async (ctx, interaction: ChatInputCommandInteraction) => {
-    const categoryId = categoryOf(interaction.options.getString("category", true));
+    const categoryId = parseCategoryId(interaction.options.getString("category", true));
     const dir = interaction.options.getString("direction", true);
     if (dir !== "up" && dir !== "down") throw new UserFacingError("Pick up or down.");
     await replyPrivately(interaction, () =>

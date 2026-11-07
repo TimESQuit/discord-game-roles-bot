@@ -17,6 +17,7 @@ import { truncate } from "../views/limits.ts";
 import { noticeView, pickGameView } from "../views/member.ts";
 import { text } from "../views/text.ts";
 import { parseId } from "./custom-ids.ts";
+import { parsePositiveId } from "./parse.ts";
 import { forEdit, forReply } from "./member.ts";
 import type { Handlers } from "./router.ts";
 
@@ -44,11 +45,8 @@ async function postHere(
 
 /** Strictly parses a picked game ID and checks the game still exists (local read only). */
 export async function resolvePickedGame(ctx: AppContext, raw: string | undefined): Promise<Game> {
-  const trimmed = (raw ?? "").trim();
-  if (!/^\d{1,15}$/.test(trimmed) || Number(trimmed) <= 0) {
-    throw new UserFacingError("Pick a game from the list.");
-  }
-  const game = await ctx.repos.games.get(Number(trimmed));
+  const id = parsePositiveId(raw, "Pick a game from the list.");
+  const game = await ctx.repos.games.get(id);
   if (!game) throw new UserFacingError("That game no longer exists.");
   return game;
 }

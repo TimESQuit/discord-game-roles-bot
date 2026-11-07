@@ -1,4 +1,5 @@
 import { UserFacingError } from "../errors.ts";
+import { text } from "../views/text.ts";
 
 export const CATEGORY_NAME_MAX = 50;
 
@@ -15,7 +16,7 @@ export function validateCategoryName(
   }
   const lower = name.toLowerCase();
   if (existing.some((c) => c.id !== selfId && c.name.trim().toLowerCase() === lower)) {
-    throw new UserFacingError(`There's already a category called ${name}.`);
+    throw new UserFacingError(`There's already a category called ${text(name)}.`);
   }
   return name;
 }

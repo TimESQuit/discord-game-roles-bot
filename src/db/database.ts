@@ -18,8 +18,16 @@ export function openDatabase(path: string): Db {
   const sqlite = new BetterSqlite3(path);
   sqlite.pragma("busy_timeout = 5000");
   if (path !== ":memory:") sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
+  // Migrations run inside a transaction, where `PRAGMA foreign_keys` is a no-op, so enforcement
+  // is switched off here, outside it. Table rebuilds would otherwise fire ON DELETE actions.
+  sqlite.pragma("foreign_keys = OFF");
   migrate(drizzle(sqlite), { migrationsFolder: MIGRATIONS_DIR });
+  const broken = sqlite.pragma("foreign_key_check") as unknown[];
+  if (broken.length > 0) {
+    sqlite.close();
+    throw new Error("The database has rows that break a foreign key after migrating.");
+  }
+  sqlite.pragma("foreign_keys = ON");
   return { sqlite, kysely: new Kysely<DB>({ dialect: new SqliteDialect({ database: sqlite }) }) };
 }
 
