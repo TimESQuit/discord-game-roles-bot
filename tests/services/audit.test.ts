@@ -16,6 +16,14 @@ test("rejection line includes reviewer and reason", () => {
   ).toBe(`<@${A1}> rejected suggestion **Foo**: dupe`);
 });
 
+test("suggestion verbs are past tense", () => {
+  const line = (kind: "suggestion-approved" | "suggestion-edited" | "suggestion-withdrawn") =>
+    formatAuditLine({ kind, userId: A1, name: "Foo" });
+  expect(line("suggestion-approved")).toBe(`<@${A1}> approved suggestion **Foo**`);
+  expect(line("suggestion-edited")).toBe(`<@${A1}> edited suggestion **Foo**`);
+  expect(line("suggestion-withdrawn")).toBe(`<@${A1}> withdrew suggestion **Foo**`);
+});
+
 test("user text can't ping or format", () => {
   const line = formatAuditLine({ kind: "suggested", userId: U1, name: "@everyone **x**" });
   expect(line).not.toMatch(/@everyone|\*\*x\*\*/);

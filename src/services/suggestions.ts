@@ -48,7 +48,7 @@ async function refreshCard(ctx: AppContext, id: number): Promise<void> {
     await ctx.gateway.edit(
       adminChannelId,
       s.reviewMessageId,
-      reviewCardView(s, category?.name ?? "Unknown", s.aliases),
+      reviewCardView(s, category?.name ?? "Unknown"),
     );
   } catch (error) {
     console.error(`Could not update the review card for suggestion ${id}`, error);
@@ -88,8 +88,17 @@ export async function submitSuggestion(
     note: input.note,
     createdAt: ctx.now().toISOString(),
   });
-  const messageId = await ctx.gateway.send(adminChannelId, reviewCardView(s, category.name));
-  await ctx.repos.suggestions.setReviewMessage(s.id, messageId);
+  try {
+    const messageId = await ctx.gateway.send(adminChannelId, reviewCardView(s, category.name));
+    await ctx.repos.suggestions.setReviewMessage(s.id, messageId);
+  } catch (error) {
+    console.error(`Could not post the review card for suggestion ${s.id}`, error);
+    await ctx.repos.suggestions.remove(s.id);
+    await ctx.audit.notifyAdmins(
+      `Could not post a review card for the suggestion **${name.replaceAll("@", "@\u200b")}**. Check the bot's permissions in this channel.`,
+    );
+    throw new UserFacingError("Couldn't post your suggestion for review. Please try again later.");
+  }
   await ctx.audit.log({ kind: "suggested", userId: input.userId, name });
   return (await ctx.repos.suggestions.get(s.id)) ?? s;
 }
@@ -112,7 +121,12 @@ export async function approveSuggestion(
     await ctx.repos.suggestions.undoDecision(id);
     throw error;
   }
-  await ctx.repos.suggestions.setGame(id, game.id);
+  try {
+    await ctx.repos.suggestions.setGame(id, game.id);
+  } catch (error) {
+    console.error(`Could not link suggestion ${id} to game ${game.id}`, error);
+    await ctx.audit.notifyAdmins(`Could not link suggestion #${id} to ${game.name}.`);
+  }
 
   if (ctx.gateway.memberRoleIds(s.suggesterId).size > 0) {
     try {
@@ -145,11 +159,12 @@ export async function editSuggestion(
   if (s.status !== "pending") throw alreadyDecided(s.status);
   const name = patch.name === undefined ? undefined : validateGameName(patch.name);
   if (patch.categoryId !== undefined) await requireCategory(ctx, patch.categoryId);
-  await ctx.repos.suggestions.update(id, {
+  const wrote = await ctx.repos.suggestions.updatePending(id, {
     ...(name === undefined ? {} : { name }),
     ...(patch.categoryId === undefined ? {} : { categoryId: patch.categoryId }),
     ...(patch.aliases === undefined ? {} : { aliases: patch.aliases }),
   });
+  if (!wrote) throw alreadyDecided((await requireSuggestion(ctx, id)).status);
   const updated = await requireSuggestion(ctx, id);
   await refreshCard(ctx, id);
   await ctx.audit.log({ kind: "suggestion-edited", userId: adminId, name: updated.name });

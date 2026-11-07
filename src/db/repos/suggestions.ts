@@ -23,6 +23,12 @@ export type SuggestionsRepo = {
     id: number,
     patch: Partial<Pick<Suggestion, "name" | "categoryId" | "note" | "aliases">>,
   ): Promise<void>;
+  /** Writes only while the suggestion is still pending; false means it was already decided. */
+  updatePending(
+    id: number,
+    patch: Partial<Pick<Suggestion, "name" | "categoryId" | "aliases">>,
+  ): Promise<boolean>;
+  remove(id: number): Promise<void>;
   setReviewMessage(id: number, messageId: string): Promise<void>;
   setGame(id: number, gameId: number | null): Promise<void>;
 };
@@ -138,6 +144,23 @@ export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
       if (patch.aliases !== undefined) set.aliases = patch.aliases;
       if (Object.keys(set).length === 0) return;
       await kysely.updateTable("suggestions").set(set).where("id", "=", id).execute();
+    },
+    async updatePending(id, patch) {
+      const set: { name?: string; category_id?: number; aliases?: string | null } = {};
+      if (patch.name !== undefined) set.name = patch.name;
+      if (patch.categoryId !== undefined) set.category_id = patch.categoryId;
+      if (patch.aliases !== undefined) set.aliases = patch.aliases;
+      if (Object.keys(set).length === 0) return (await get(id))?.status === "pending";
+      const result = await kysely
+        .updateTable("suggestions")
+        .set(set)
+        .where("id", "=", id)
+        .where("status", "=", "pending")
+        .executeTakeFirst();
+      return result.numUpdatedRows > 0n;
+    },
+    async remove(id) {
+      await kysely.deleteFrom("suggestions").where("id", "=", id).execute();
     },
     async setReviewMessage(id, messageId) {
       await kysely

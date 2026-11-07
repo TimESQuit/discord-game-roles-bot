@@ -203,3 +203,21 @@ test("removing a game keeps its LFG posts, with gameId null and gameName kept", 
   expect(await r.lfg.get(M1)).toMatchObject({ gameId: null, gameName: "Rocket League" });
   expect(await r.suggestions.get(s.id)).toMatchObject({ gameId: null });
 });
+
+test("updatePending only writes while pending; remove deletes the row", async () => {
+  const { r, c } = await setup();
+  const s = await r.suggestions.add({
+    suggesterId: U1,
+    name: "Valheim",
+    categoryId: c.id,
+    note: null,
+    createdAt: T0,
+  });
+  expect(await r.suggestions.updatePending(s.id, { name: "Valheim 2", aliases: "vh" })).toBe(true);
+  expect(await r.suggestions.get(s.id)).toMatchObject({ name: "Valheim 2", aliases: "vh" });
+  await r.suggestions.decide(s.id, "approved", ADMIN_A, T1);
+  expect(await r.suggestions.updatePending(s.id, { name: "Late" })).toBe(false);
+  expect((await r.suggestions.get(s.id))?.name).toBe("Valheim 2");
+  await r.suggestions.remove(s.id);
+  expect(await r.suggestions.get(s.id)).toBeUndefined();
+});

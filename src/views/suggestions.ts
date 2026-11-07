@@ -16,21 +16,17 @@ function statusLine(s: Suggestion): string {
     case "rejected":
       return `Rejected by <@${s.reviewerId}>${s.rejectionReason ? `: ${text(s.rejectionReason)}` : ""}`;
     case "withdrawn":
-      return "Withdrawn";
+      return `Withdrawn by <@${s.suggesterId}>`;
   }
 }
 
 /** Minimal review card; Task 17 finishes the layout. */
-export function reviewCardView(
-  s: Suggestion,
-  categoryName: string,
-  aliases: string | null = s.aliases,
-): Payload {
+export function reviewCardView(s: Suggestion, categoryName: string): Payload {
   const lines = [
     `**Suggestion #${s.id}:** **${text(s.name)}** from <@${s.suggesterId}>`,
     `Category: ${text(categoryName)}`,
   ];
-  if (aliases) lines.push(`Aliases: ${text(aliases)}`);
+  if (s.aliases) lines.push(`Aliases: ${text(s.aliases)}`);
   if (s.note) lines.push(`Note: ${text(s.note)}`);
   lines.push(statusLine(s));
   const payload: Payload = { content: lines.join("\n"), allowedMentions: { parse: [] } };

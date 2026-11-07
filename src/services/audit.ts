@@ -49,7 +49,8 @@ export function formatAuditLine(e: AuditEvent): string {
     case "suggestion-rejected":
     case "suggestion-edited":
     case "suggestion-withdrawn": {
-      const verb = e.kind.slice("suggestion-".length);
+      const verb =
+        e.kind === "suggestion-withdrawn" ? "withdrew" : e.kind.slice("suggestion-".length);
       const reason = e.reason ? `: ${text(e.reason)}` : "";
       return `${user(e.userId)} ${verb} suggestion **${text(e.name)}**${reason}`;
     }

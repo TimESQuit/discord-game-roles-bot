@@ -66,6 +66,18 @@ describe("submit", () => {
   });
 });
 
+describe("submit failures", () => {
+  test("a failed card post leaves no row, tells the admins and gives a friendly error", async () => {
+    ctx.gateway.failNext("send", new Error("boom"));
+    await expect(suggest()).rejects.toThrow(
+      "Couldn't post your suggestion for review. Please try again later.",
+    );
+    expect(await ctx.repos.suggestions.countPending(U1)).toBe(0);
+    expect(await ctx.repos.suggestions.listPending()).toEqual([]);
+    expect(ctx.adminNotices.length).toBeGreaterThan(0);
+  });
+});
+
 describe("closeMatches", () => {
   test("finds games and pending suggestions", async () => {
     await addGame(ctx, { name: "Valheim", categoryId: chill.id, aliases: "", actorId: A1 });
@@ -80,6 +92,33 @@ describe("closeMatches", () => {
 });
 
 describe("approve", () => {
+  test("an edit that passed its pending check but writes after the approval is refused", async () => {
+    const s = await suggest();
+    // Hold the edit's first category lookup until the approval has finished.
+    const original = ctx.repos.categories.get.bind(ctx.repos.categories);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let held = false;
+    ctx.repos.categories.get = async (id) => {
+      if (!held) {
+        held = true;
+        await gate;
+      }
+      return original(id);
+    };
+    const edit = editSuggestion(ctx, s.id, { name: "Valheim Deluxe", categoryId: chill.id }, A2);
+    const edited = edit.then(
+      () => "ok",
+      (e: Error) => e.message,
+    );
+    await Promise.resolve();
+    const game = await approveSuggestion(ctx, s.id, A1);
+    release();
+    expect(await edited).toBe("This suggestion was already approved.");
+    expect((await ctx.repos.suggestions.get(s.id))?.name).toBe(game.name);
+    expect(ctx.logLines.some((l) => l.includes("edited suggestion"))).toBe(false);
+  });
+
   test("creates the game, adds the suggester, announces in #game-news, updates the card, logs", async () => {
     ctx.gateway.addMember(U1, ["100000000000000999"]);
     const s = await suggest();
@@ -232,8 +271,8 @@ describe("reject and withdraw", () => {
     const s = await suggest();
     await withdrawSuggestion(ctx, s.id, U1);
     const payload = await card(s);
-    expect(payload.content).toContain("Withdrawn");
+    expect(payload.content).toContain(`Withdrawn by <@${U1}>`);
     expect(payload.components ?? []).toHaveLength(0);
-    expect(ctx.logLines).toContain(`<@${U1}> withdrawn suggestion **Valheim**`);
+    expect(ctx.logLines).toContain(`<@${U1}> withdrew suggestion **Valheim**`);
   });
 });
