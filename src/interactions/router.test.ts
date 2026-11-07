@@ -4,12 +4,20 @@ import {
   ComponentType,
   InteractionType,
   MessageFlags,
-  type Interaction,
 } from "discord.js";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { UserFacingError } from "../errors.ts";
 import { encodeId } from "../domain/index.ts";
-import { handleInteraction, route } from "./router.ts";
+import {
+  autocomplete,
+  button,
+  chatInput,
+  handleInteraction,
+  modal,
+  route,
+  select,
+  userContext,
+} from "./router.ts";
 import { noticeView } from "../views/index.ts";
 import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../testing/index.ts";
 
@@ -183,7 +191,7 @@ describe("route", () => {
 });
 
 type FakeOpts = {
-  type: "button" | "select" | "modal" | "command" | "autocomplete" | "other";
+  type: "button" | "select" | "modal" | "command" | "autocomplete" | "user-context" | "other";
   subcommand?: string;
   subcommandGroup?: string;
   log?: string[];
@@ -204,21 +212,26 @@ const KINDS: Record<FakeOpts["type"], object> = {
     commandType: ApplicationCommandType.ChatInput,
   },
   autocomplete: { type: InteractionType.ApplicationCommandAutocomplete },
+  "user-context": {
+    type: InteractionType.ApplicationCommand,
+    commandType: ApplicationCommandType.User,
+  },
   other: { type: InteractionType.Ping },
 };
 
 /** A real interaction prototype with just the data the router reads, so type checks such as
  * isButton() run discord.js's own code. Replies are recorded instead of sent.
  */
-function fake(o: FakeOpts): { i: Interaction; calls: { method: string; arg: unknown }[] } {
+function fake(o: FakeOpts): { i: BaseInteraction; calls: { method: string; arg: unknown }[] } {
   const calls: { method: string; arg: unknown }[] = [];
   const record = (method: string) => async (arg?: unknown) => {
     calls.push({ method, arg });
     o.log?.push(method);
     if (o.failReplies && method !== "respond") throw new Error("discord down");
   };
-  const i: Interaction = Object.create(BaseInteraction.prototype);
-  Object.assign(i, {
+  const made: unknown = Object.create(BaseInteraction.prototype);
+  if (!(made instanceof BaseInteraction)) throw new Error("Could not build a fake interaction");
+  const i = Object.assign(made, {
     ...KINDS[o.type],
     deferred: o.deferred ?? false,
     replied: false,
@@ -476,5 +489,44 @@ describe("handleInteraction", () => {
       ),
     ).resolves.toBeUndefined();
     expect(err).toHaveBeenCalled();
+  });
+});
+
+describe("handler kind guards", () => {
+  const kinds = { button, select, modal, chatInput, autocomplete, userContext };
+  const matching: Record<keyof typeof kinds, FakeOpts["type"]> = {
+    button: "button",
+    select: "select",
+    modal: "modal",
+    chatInput: "command",
+    autocomplete: "autocomplete",
+    userContext: "user-context",
+  };
+
+  test("a handler runs for its own kind of interaction", async () => {
+    const ctx = await makeContext();
+    for (const kind of [
+      "button",
+      "select",
+      "modal",
+      "chatInput",
+      "autocomplete",
+      "userContext",
+    ] as const) {
+      const fn = vi.fn<() => Promise<void>>(async () => {});
+      const { i } = fake({ type: matching[kind] });
+      await kinds[kind](fn)(ctx, i);
+      expect(fn).toHaveBeenCalledWith(ctx, i);
+    }
+  });
+
+  test("a handler given another kind of interaction throws and does not run", async () => {
+    const ctx = await makeContext();
+    for (const [name, wrap] of Object.entries(kinds)) {
+      const fn = vi.fn<() => Promise<void>>(async () => {});
+      const { i } = fake({ type: name === "button" ? "modal" : "button" });
+      await expect(wrap(fn)(ctx, i)).rejects.toThrow("Expected a");
+      expect(fn).not.toHaveBeenCalled();
+    }
   });
 });

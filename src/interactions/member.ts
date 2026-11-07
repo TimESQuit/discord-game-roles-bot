@@ -1,9 +1,7 @@
 import {
-  type AutocompleteInteraction,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type StringSelectMenuInteraction,
-  type UserContextMenuCommandInteraction,
 } from "discord.js";
 import { isAdmin, text, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
@@ -32,7 +30,15 @@ import {
   removeGamesView,
 } from "../views/index.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
-import { memberRoleIds, type Handlers } from "./router.ts";
+import {
+  autocomplete,
+  button,
+  chatInput,
+  memberRoleIds,
+  select,
+  userContext,
+  type Handlers,
+} from "./router.ts";
 
 const joinNames = (games: readonly { name: string }[]): string =>
   games.map((g) => text(g.name)).join(", ");
@@ -134,35 +140,35 @@ async function pickPage(ctx: AppContext, interaction: ButtonInteraction): Promis
 }
 
 export const memberHandlers: Handlers = {
-  "panel-open": async (ctx, interaction: ButtonInteraction) => {
+  "panel-open": button(async (ctx, interaction) => {
     await openMenu(ctx, interaction);
-  },
-  "games-menu": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "games-menu": chatInput(async (ctx, interaction) => {
     await openMenu(ctx, interaction);
-  },
+  }),
 
-  "menu-add": async (ctx, interaction: ButtonInteraction) => {
+  "menu-add": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await showAddGames(ctx, interaction, 0);
-  },
-  "menu-remove": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "menu-remove": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(removeGamesView(await gamesOf(ctx, interaction.user.id))));
-  },
-  "menu-mine": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "menu-mine": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await showMine(ctx, interaction);
-  },
-  "menu-who": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "menu-who": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     const [categories, games] = await Promise.all([
       ctx.repos.categories.list(),
       ctx.repos.games.list(),
     ]);
     await interaction.editReply(forEdit(pickGameView("who", categories, games)));
-  },
+  }),
 
-  "add-select": async (ctx, interaction: StringSelectMenuInteraction) => {
+  "add-select": select(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "add-select")
       throw new UserFacingError("That menu has expired. Open it again.");
@@ -190,14 +196,14 @@ export const memberHandlers: Handlers = {
     await interaction.editReply(
       forEdit(addGamesView(categories, games, roleIds, page, summary(result))),
     );
-  },
-  "add-page": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "add-page": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "add-page") throw new UserFacingError("That menu has expired. Open it again.");
     await interaction.deferUpdate();
     await showAddGames(ctx, interaction, id.page);
-  },
-  "remove-select": async (ctx, interaction: StringSelectMenuInteraction) => {
+  }),
+  "remove-select": select(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "remove-select") {
       throw new UserFacingError("That menu has expired. Open it again.");
@@ -213,35 +219,33 @@ export const memberHandlers: Handlers = {
     }
     const notice = removed.length > 0 ? `Removed ${joinNames(removed)}.` : "No changes.";
     await interaction.editReply(forEdit(removeGamesView(await gamesOf(ctx, userId), notice)));
-  },
-  "pick-who": async (ctx, interaction: StringSelectMenuInteraction) => {
+  }),
+  "pick-who": select(async (ctx, interaction) => {
     await interaction.deferUpdate();
     const gameId = Number(interaction.values[0]);
     if (!Number.isInteger(gameId)) throw new UserFacingError("Pick a game from the list.");
     await interaction.editReply(forEdit(await showWho(ctx, gameId)));
-  },
-  "pick-page-who": pickPage,
-  "pick-page-lfg": pickPage,
-  "pick-page-edit": pickPage,
-  "pick-page-remove": pickPage,
-  cancel: async (_ctx, interaction: ButtonInteraction) => {
+  }),
+  "pick-page-who": button(pickPage),
+  "pick-page-lfg": button(pickPage),
+  "pick-page-edit": button(pickPage),
+  "pick-page-remove": button(pickPage),
+  cancel: button(async (_ctx, interaction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(noticeView("Cancelled.")));
-  },
+  }),
 
-  "games-add": (ctx, interaction: ChatInputCommandInteraction) =>
-    commandJoinLeave(ctx, interaction, "join"),
-  "games-remove": (ctx, interaction: ChatInputCommandInteraction) =>
-    commandJoinLeave(ctx, interaction, "leave"),
-  "games-mine": async (ctx, interaction: ChatInputCommandInteraction) => {
+  "games-add": chatInput((ctx, interaction) => commandJoinLeave(ctx, interaction, "join")),
+  "games-remove": chatInput((ctx, interaction) => commandJoinLeave(ctx, interaction, "leave")),
+  "games-mine": chatInput(async (ctx, interaction) => {
     await interaction.reply(forReply(myGamesView(await gamesOf(ctx, interaction.user.id))));
-  },
-  "games-who": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "games-who": chatInput(async (ctx, interaction) => {
     const gameId = gameIdOption(interaction);
     await interaction.reply(forReply(await showWho(ctx, gameId)));
-  },
+  }),
 
-  "autocomplete-games": async (ctx, interaction: AutocompleteInteraction) => {
+  "autocomplete-games": autocomplete(async (ctx, interaction) => {
     const sub = interaction.options.getSubcommand(false);
     const mode = sub === "add" ? "add" : sub === "remove" ? "remove" : "any";
     const focused = interaction.options.getFocused();
@@ -249,9 +253,9 @@ export const memberHandlers: Handlers = {
     await interaction.respond(
       matches.map((game) => ({ name: truncate(game.name, 100), value: String(game.id) })),
     );
-  },
+  }),
 
-  "ctx-see-games": async (ctx, interaction: UserContextMenuCommandInteraction) => {
+  "ctx-see-games": userContext(async (ctx, interaction) => {
     const games = await gamesOf(ctx, interaction.targetId);
     await interaction.reply(
       forReply(
@@ -262,8 +266,8 @@ export const memberHandlers: Handlers = {
         ),
       ),
     );
-  },
-  "ctx-in-common": async (ctx, interaction: UserContextMenuCommandInteraction) => {
+  }),
+  "ctx-in-common": userContext(async (ctx, interaction) => {
     const games = await gamesInCommon(ctx, interaction.user.id, interaction.targetId);
     await interaction.reply(
       forReply(
@@ -274,5 +278,5 @@ export const memberHandlers: Handlers = {
         ),
       ),
     );
-  },
+  }),
 };

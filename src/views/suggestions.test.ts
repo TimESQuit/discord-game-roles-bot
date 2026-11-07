@@ -74,13 +74,13 @@ test("decided card shows who decided and has no buttons", () => {
     "Chill",
   );
   expect(texts(approved)).toContain("Approved by <@100000000000000002>");
-  expect(buttons(approved)).toHaveLength(0);
+  expect(findComponents(approved, ComponentType.Button)).toHaveLength(0);
   const rejected = reviewCardView(
     sugg({ status: "rejected", reviewerId: "100000000000000002", rejectionReason: "too niche" }),
     "Chill",
   );
   expect(texts(rejected)).toContain("Rejected by <@100000000000000002>: too niche");
-  expect(buttons(rejected)).toHaveLength(0);
+  expect(findComponents(rejected, ComponentType.Button)).toHaveLength(0);
 });
 
 test("card shows aliases from the argument and the note", () => {

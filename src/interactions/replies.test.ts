@@ -1,11 +1,13 @@
-import { MessageFlags } from "discord.js";
+import { MessageFlags, MessageFlagsBitField } from "discord.js";
 import { expect, test } from "vitest";
 import { flagBits } from "../testing/index.ts";
 import { noticeView } from "../views/index.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
 
-test("the defer flags string is Ephemeral | IsComponentsV2", () => {
-  expect(Number(PRIVATE_V2_DEFER)).toBe(MessageFlags.Ephemeral | MessageFlags.IsComponentsV2);
+test("the defer flags resolve to Ephemeral | IsComponentsV2", () => {
+  expect(new MessageFlagsBitField(PRIVATE_V2_DEFER).bitfield).toBe(
+    MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
+  );
 });
 
 test("a private view replies privately and edits keep only the layout flag", () => {

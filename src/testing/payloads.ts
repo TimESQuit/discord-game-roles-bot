@@ -1,5 +1,6 @@
 import {
   ComponentType,
+  isJSONEncodable,
   MessageFlagsBitField,
   type APIButtonComponentWithCustomId,
   type APIMessageComponent,
@@ -14,7 +15,9 @@ export type AnyComponent = APIMessageComponent | APIModalComponent;
 /** A payload or modal, or just its list of top-level components (API objects or builders). */
 export type ComponentSource = { components?: readonly unknown[] } | readonly unknown[];
 
-const COMPONENT_TYPES: ReadonlySet<unknown> = new Set(Object.values(ComponentType));
+const COMPONENT_TYPES: ReadonlySet<unknown> = new Set(
+  Object.values(ComponentType).filter((v) => typeof v === "number"),
+);
 
 function isComponent(value: unknown): value is AnyComponent {
   return (
@@ -27,13 +30,7 @@ function isComponent(value: unknown): value is AnyComponent {
 
 /** Builders expose their API form through toJSON(); API objects are used as they are. */
 function toComponent(value: unknown): AnyComponent | undefined {
-  const json: unknown =
-    typeof value === "object" &&
-    value !== null &&
-    "toJSON" in value &&
-    typeof value.toJSON === "function"
-      ? value.toJSON()
-      : value;
+  const json: unknown = isJSONEncodable(value) ? value.toJSON() : value;
   return isComponent(json) ? json : undefined;
 }
 

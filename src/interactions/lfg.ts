@@ -1,11 +1,4 @@
-import {
-  DiscordAPIError,
-  type AutocompleteInteraction,
-  type ButtonInteraction,
-  type ChatInputCommandInteraction,
-  type ModalSubmitInteraction,
-  type StringSelectMenuInteraction,
-} from "discord.js";
+import { DiscordAPIError } from "discord.js";
 import type { Game } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
@@ -19,7 +12,7 @@ import { LFG_FIELD, lfgModal, truncate, noticeView, pickGameView } from "../view
 import { text, parseId } from "../domain/index.ts";
 import { parsePositiveId } from "./parse.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
-import type { Handlers } from "./router.ts";
+import { autocomplete, button, chatInput, modal, select, type Handlers } from "./router.ts";
 
 const MISSING_ACCESS = 50001;
 const MISSING_PERMISSIONS = 50013;
@@ -51,7 +44,7 @@ export async function resolvePickedGame(ctx: AppContext, raw: string | undefined
 }
 
 export const lfgHandlers: Handlers = {
-  lfg: async (ctx, interaction: ChatInputCommandInteraction) => {
+  lfg: chatInput(async (ctx, interaction) => {
     const raw = interaction.options.getString("game", true).trim();
     if (!/^\d{1,15}$/.test(raw)) throw new UserFacingError("Pick a game from the list.");
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
@@ -63,9 +56,9 @@ export const lfgHandlers: Handlers = {
       channelId: interaction.channelId,
     });
     await interaction.editReply(forEdit(noticeView("Posted.")));
-  },
+  }),
 
-  "autocomplete-lfg": async (ctx, interaction: AutocompleteInteraction) => {
+  "autocomplete-lfg": autocomplete(async (ctx, interaction) => {
     const matches = await autocompleteGames(
       ctx,
       interaction.user.id,
@@ -75,22 +68,22 @@ export const lfgHandlers: Handlers = {
     await interaction.respond(
       matches.map((game) => ({ name: truncate(game.name, 100), value: String(game.id) })),
     );
-  },
+  }),
 
-  "menu-lfg": async (ctx, interaction: ButtonInteraction) => {
+  "menu-lfg": button(async (ctx, interaction) => {
     const [categories, games] = await Promise.all([
       ctx.repos.categories.list(),
       ctx.repos.games.list(),
     ]);
     await interaction.reply(forReply(pickGameView("lfg", categories, games)));
-  },
+  }),
 
-  "pick-lfg": async (ctx, interaction: StringSelectMenuInteraction) => {
+  "pick-lfg": select(async (ctx, interaction) => {
     const game = await resolvePickedGame(ctx, interaction.values[0]);
     await interaction.showModal(lfgModal(game.id, "news"));
-  },
+  }),
 
-  "lfg-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  "lfg-modal": modal(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "lfg-modal")
       throw new UserFacingError("That form has expired. Open it again.");
@@ -112,18 +105,18 @@ export const lfgHandlers: Handlers = {
       channelId,
     });
     await interaction.editReply(forEdit(noticeView(`Posted in <#${channelId}>.`)));
-  },
+  }),
 
-  "lfg-in": async (ctx, interaction: ButtonInteraction) => {
+  "lfg-in": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await respondToLfg(ctx, interaction.message.id, interaction.user.id, "in");
-  },
-  "lfg-maybe": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "lfg-maybe": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await respondToLfg(ctx, interaction.message.id, interaction.user.id, "maybe");
-  },
+  }),
 
-  "lfg-join": async (ctx, interaction: ButtonInteraction) => {
+  "lfg-join": button(async (ctx, interaction) => {
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const post = await ctx.repos.lfg.get(interaction.message.id);
     const result = await joinFromLfg(ctx, interaction.message.id, interaction.user.id);
@@ -133,5 +126,5 @@ export const lfgHandlers: Handlers = {
         noticeView(result === "joined" ? `You've joined ${name}.` : `You already have ${name}.`),
       ),
     );
-  },
+  }),
 };

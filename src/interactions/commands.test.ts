@@ -4,6 +4,7 @@ import {
   REST,
   Routes,
   type APIApplicationCommandOption,
+  type RESTPostAPIApplicationGuildCommandsJSONBody,
 } from "discord.js";
 import { expect, test, vi } from "vitest";
 import { commandDefinitions, registerCommands } from "./commands.ts";
@@ -16,10 +17,11 @@ const find = (name: string): ReturnType<typeof commandDefinitions>[number] => {
   return c;
 };
 /** The options of a command, subcommand or group; other options have none. */
-const optionsOf = (c: object): readonly APIApplicationCommandOption[] =>
-  "options" in c && Array.isArray(c.options) ? c.options : [];
-const namesOf = (c: object): string[] => optionsOf(c).map((o) => o.name);
-const sub = (c: object, name: string): APIApplicationCommandOption => {
+type Node = RESTPostAPIApplicationGuildCommandsJSONBody | APIApplicationCommandOption;
+const optionsOf = (c: Node): readonly APIApplicationCommandOption[] =>
+  "options" in c ? (c.options ?? []) : [];
+const namesOf = (c: Node): string[] => optionsOf(c).map((o) => o.name);
+const sub = (c: Node, name: string): APIApplicationCommandOption => {
   const s = optionsOf(c).find((o) => o.name === name);
   if (!s) throw new Error(`missing ${name}`);
   return s;

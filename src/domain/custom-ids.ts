@@ -48,10 +48,21 @@ export type CustomId =
 
 export type CustomIdKind = CustomId["kind"];
 
-/** An argument is a non-negative integer (`null`) or one of a fixed set of words. */
+/** The fields of one kind of ID, without its `kind`. */
+type ArgKeys<K extends CustomIdKind> = Exclude<keyof Extract<CustomId, { kind: K }>, "kind">;
+/** A number field is a non-negative integer (`null`); a field of string literals lists them. */
+type Words<V> = [V] extends [number] ? null : readonly V[];
+/** One argument of kind K: a real field of that ID, with words matching its type. */
+type SpecFor<K extends CustomIdKind> = {
+  [N in ArgKeys<K>]: { name: N; words: Words<Extract<CustomId, { kind: K }>[N]> };
+}[ArgKeys<K>];
+/** What the codec needs of any argument, whatever its kind. */
 type ArgSpec = { name: string; words: readonly string[] | null };
-const int = (name: string): ArgSpec => ({ name, words: null });
-const word = (name: string, words: readonly string[]): ArgSpec => ({ name, words });
+const int = <N extends string>(name: N) => ({ name, words: null });
+const word = <N extends string, W extends string>(name: N, words: readonly W[]) => ({
+  name,
+  words,
+});
 
 const MENU_ACTIONS = ["add", "remove", "suggest", "mine", "who", "mysug", "lfg"] as const;
 const ADMIN_ACTIONS = [
@@ -67,7 +78,7 @@ const ADMIN_ACTIONS = [
 ] as const;
 const PURPOSES = ["who", "lfg", "edit", "remove"] as const;
 
-const SPECS: Record<CustomIdKind, readonly ArgSpec[]> = {
+const SPECS: { [K in CustomIdKind]: readonly SpecFor<K>[] } = {
   "panel-open": [],
   menu: [word("action", MENU_ACTIONS)],
   "add-select": [int("categoryId"), int("chunk")],
@@ -128,7 +139,8 @@ function isCustomId(value: unknown): value is CustomId {
   if (typeof value !== "object" || value === null) return false;
   const kind: unknown = Reflect.get(value, "kind");
   if (typeof kind !== "string" || !isKind(kind)) return false;
-  return SPECS[kind].every((spec) => {
+  const specs: readonly ArgSpec[] = SPECS[kind];
+  return specs.every((spec) => {
     const arg: unknown = Reflect.get(value, spec.name);
     if (spec.words === null) return typeof arg === "number" && Number.isInteger(arg) && arg >= 0;
     return typeof arg === "string" && spec.words.includes(arg);
@@ -137,7 +149,8 @@ function isCustomId(value: unknown): value is CustomId {
 
 export function encodeId(id: CustomId): string {
   const fields: Record<string, unknown> = id;
-  const parts = SPECS[id.kind].map((spec) => String(fields[spec.name]));
+  const specs: readonly ArgSpec[] = SPECS[id.kind];
+  const parts = specs.map((spec) => String(fields[spec.name]));
   const raw = [PREFIX + id.kind, ...parts].join(":");
   if (raw.length > 100) throw new RangeError("Custom ID is longer than 100 characters");
   return raw;
@@ -147,7 +160,7 @@ export function parseId(raw: string): CustomId | null {
   if (!raw.startsWith(PREFIX)) return null;
   const [kind, ...args] = raw.slice(PREFIX.length).split(":");
   if (kind === undefined || !isKind(kind)) return null;
-  const specs = SPECS[kind];
+  const specs: readonly ArgSpec[] = SPECS[kind];
   if (args.length !== specs.length) return null;
   const out: Record<string, string | number> = { kind };
   for (const [index, spec] of specs.entries()) {

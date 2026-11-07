@@ -47,7 +47,7 @@ test("panel view has exactly one button with panel-open ID", () => {
   expect(p.flags).toBeDefined();
   expect(flagBits(p) & MessageFlags.IsComponentsV2).toBeTruthy();
   expect(p.content).toBeUndefined();
-  expect(buttons(p)).toHaveLength(1);
+  expect(findComponents(p, ComponentType.Button)).toHaveLength(1);
   expect(buttons(p)[0]?.custom_id).toBe("gr:panel-open");
   expect(buttons(p)[0]?.label).toBe("Open game roles");
   expect(p.allowedMentions).toEqual({ parse: [] });
@@ -55,11 +55,11 @@ test("panel view has exactly one button with panel-open ID", () => {
 
 test("menu: 7 member buttons; admin row only for admins", () => {
   const member = menuView({ isAdmin: false });
-  expect(buttons(member)).toHaveLength(7);
+  expect(findComponents(member, ComponentType.Button)).toHaveLength(7);
   expect(flagBits(member) & MessageFlags.Ephemeral).toBeTruthy();
   expect(flagBits(member) & MessageFlags.IsComponentsV2).toBeTruthy();
   const admin = menuView({ isAdmin: true });
-  expect(buttons(admin)).toHaveLength(16);
+  expect(findComponents(admin, ComponentType.Button)).toHaveLength(16);
   for (const p of [member, admin]) {
     for (const row of findComponents(p, ComponentType.ActionRow)) {
       expect(row.components.length).toBeLessThanOrEqual(5);
@@ -116,7 +116,7 @@ test("12 categories x 25 games stays at 40 components per page and pages", () =>
 
 test("a single page has no pager; the notice shows at the top", () => {
   const p = addGamesView([chill], [game(1, "Minecraft", 1)], new Set(), 0, "Added Minecraft.");
-  expect(buttons(p)).toHaveLength(0);
+  expect(findComponents(p, ComponentType.Button)).toHaveLength(0);
   expect(texts(p).startsWith("Added Minecraft.")).toBe(true);
 });
 

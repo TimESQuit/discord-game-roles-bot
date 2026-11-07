@@ -1,5 +1,4 @@
 import {
-  type AutocompleteInteraction,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
@@ -37,7 +36,15 @@ import {
 import { parsePositiveId } from "./parse.ts";
 import { resolvePickedGame } from "./lfg.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
-import type { Handlers } from "./router.ts";
+import {
+  buttonOrChatInput,
+  autocomplete,
+  button,
+  chatInput,
+  modal,
+  select,
+  type Handlers,
+} from "./router.ts";
 
 const EXPIRED_FORM = "That form has expired. Open it again.";
 const BAD_CATEGORY = "Pick a category from the list.";
@@ -187,55 +194,54 @@ const backup = (ctx: AppContext, userId: string) => async () => {
 };
 
 type AnyInteraction = ButtonInteraction | ChatInputCommandInteraction;
-const privateAction =
-  (make: (ctx: AppContext, userId: string) => () => Promise<string>) =>
-  async (ctx: AppContext, interaction: AnyInteraction): Promise<void> => {
+const privateAction = (make: (ctx: AppContext, userId: string) => () => Promise<string>) =>
+  buttonOrChatInput(async (ctx, interaction: AnyInteraction): Promise<void> => {
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     await interaction.editReply(forEdit(noticeView(await make(ctx, interaction.user.id)())));
-  };
+  });
 
 function modalCategory(interaction: ModalSubmitInteraction): number {
   return parseCategoryId(interaction.fields.getStringSelectValues(FIELD.category)[0]);
 }
 
 export const adminHandlers: Handlers = {
-  "admin-review": async (ctx, interaction: ButtonInteraction) => {
+  "admin-review": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(await pendingReview(ctx)));
-  },
-  "gameadmin-review": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "gameadmin-review": chatInput(async (ctx, interaction) => {
     await interaction.reply(forReply(await pendingReview(ctx)));
-  },
+  }),
 
-  "admin-add": (ctx, interaction: ButtonInteraction) => openGameModal(ctx, interaction),
-  "admin-edit": async (ctx, interaction: ButtonInteraction) => {
+  "admin-add": button((ctx, interaction) => openGameModal(ctx, interaction)),
+  "admin-edit": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(await pickerView(ctx, "edit")));
-  },
-  "admin-remove": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "admin-remove": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(await pickerView(ctx, "remove")));
-  },
-  "admin-categories": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "admin-categories": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(await showCategories(ctx)));
-  },
+  }),
   "admin-reapply": privateAction(reapply),
   "admin-refresh": privateAction(refresh),
   "admin-backup": privateAction(backup),
-  "admin-setup": previewInto,
+  "admin-setup": buttonOrChatInput(previewInto),
 
-  "pick-edit": async (ctx, interaction: StringSelectMenuInteraction) => {
+  "pick-edit": select(async (ctx, interaction) => {
     const game = await resolvePickedGame(ctx, interaction.values[0]);
     await openGameModal(ctx, interaction, game);
-  },
-  "pick-remove": async (ctx, interaction: StringSelectMenuInteraction) => {
+  }),
+  "pick-remove": select(async (ctx, interaction) => {
     await interaction.deferUpdate();
     const game = await resolvePickedGame(ctx, interaction.values[0]);
     await interaction.editReply(forEdit(confirmRemove(ctx, game)));
-  },
+  }),
 
-  "game-add-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  "game-add-modal": modal(async (ctx, interaction) => {
     if (parseId(interaction.customId)?.kind !== "game-add-modal") {
       throw new UserFacingError(EXPIRED_FORM);
     }
@@ -247,8 +253,8 @@ export const adminHandlers: Handlers = {
       actorId: interaction.user.id,
     });
     await interaction.editReply(forEdit(noticeView(`Added ${text(game.name)}.`)));
-  },
-  "game-edit-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  }),
+  "game-edit-modal": modal(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "game-edit-modal") throw new UserFacingError(EXPIRED_FORM);
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
@@ -265,37 +271,37 @@ export const adminHandlers: Handlers = {
     await interaction.editReply(
       forEdit(noticeView(await saveEdit(ctx, game, patch, interaction.user.id))),
     );
-  },
-  "confirm-remove": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "confirm-remove": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "confirm-remove") throw new UserFacingError(EXPIRED_FORM);
     await interaction.deferUpdate();
     const { game } = await removeGame(ctx, id.gameId, interaction.user.id);
     await interaction.editReply(forEdit(noticeView(`Removed ${text(game.name)}.`)));
-  },
-  "confirm-setup": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "confirm-setup": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     const result = await applySetup(ctx, interaction.user.id);
     await interaction.editReply(forEdit(setupReportView(result)));
-  },
+  }),
 
-  "category-add": async (_ctx, interaction: ButtonInteraction) => {
+  "category-add": button(async (_ctx, interaction) => {
     await interaction.showModal(categoryModal());
-  },
-  "category-rename": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "category-rename": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "category-rename") throw new UserFacingError(EXPIRED_FORM);
     await interaction.showModal(categoryModal(await requireCategory(ctx, id.categoryId)));
-  },
-  "category-add-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  }),
+  "category-add-modal": modal(async (ctx, interaction) => {
     if (parseId(interaction.customId)?.kind !== "category-add-modal") {
       throw new UserFacingError(EXPIRED_FORM);
     }
     await answerCategoryModal(ctx, interaction, () =>
       addCategory(ctx, interaction.fields.getTextInputValue(FIELD.name), interaction.user.id),
     );
-  },
-  "category-rename-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  }),
+  "category-rename-modal": modal(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "category-rename-modal") throw new UserFacingError(EXPIRED_FORM);
     await answerCategoryModal(ctx, interaction, () =>
@@ -306,21 +312,21 @@ export const adminHandlers: Handlers = {
         interaction.user.id,
       ),
     );
-  },
-  "category-move": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "category-move": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "category-move") throw new UserFacingError(EXPIRED_FORM);
     await interaction.deferUpdate();
     await moveCategory(ctx, id.categoryId, id.dir, interaction.user.id);
     await interaction.editReply(forEdit(await showCategories(ctx)));
-  },
+  }),
 
-  "gameadmin-setup": previewInto,
+  "gameadmin-setup": buttonOrChatInput(previewInto),
   "gameadmin-backup": privateAction(backup),
   "gameadmin-reapply-template": privateAction(reapply),
   "gameadmin-refresh-panel": privateAction(refresh),
 
-  "gameadmin-add": async (ctx, interaction: ChatInputCommandInteraction) => {
+  "gameadmin-add": chatInput(async (ctx, interaction) => {
     const categoryId = parseCategoryId(interaction.options.getString("category", true));
     await replyPrivately(interaction, async () => {
       const game = await addGame(ctx, {
@@ -331,8 +337,8 @@ export const adminHandlers: Handlers = {
       });
       return `Added ${text(game.name)}.`;
     });
-  },
-  "gameadmin-edit": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "gameadmin-edit": chatInput(async (ctx, interaction) => {
     const { options } = interaction;
     const name = options.getString("name");
     const category = options.getString("category");
@@ -348,18 +354,18 @@ export const adminHandlers: Handlers = {
       ...(aliases === null ? {} : { aliases }),
     });
     await replyPrivately(interaction, () => saveEdit(ctx, game, patch, interaction.user.id));
-  },
-  "gameadmin-remove": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "gameadmin-remove": chatInput(async (ctx, interaction) => {
     const game = await resolvePickedGame(ctx, interaction.options.getString("game", true));
     await interaction.reply(forReply(confirmRemove(ctx, game)));
-  },
+  }),
 
-  "gameadmin-category-add": async (ctx, interaction: ChatInputCommandInteraction) => {
+  "gameadmin-category-add": chatInput(async (ctx, interaction) => {
     await replyPrivately(interaction, () =>
       addCategory(ctx, interaction.options.getString("name", true), interaction.user.id),
     );
-  },
-  "gameadmin-category-rename": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "gameadmin-category-rename": chatInput(async (ctx, interaction) => {
     const categoryId = parseCategoryId(interaction.options.getString("category", true));
     await replyPrivately(interaction, () =>
       renameCategory(
@@ -369,17 +375,17 @@ export const adminHandlers: Handlers = {
         interaction.user.id,
       ),
     );
-  },
-  "gameadmin-category-move": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "gameadmin-category-move": chatInput(async (ctx, interaction) => {
     const categoryId = parseCategoryId(interaction.options.getString("category", true));
     const dir = interaction.options.getString("direction", true);
     if (dir !== "up" && dir !== "down") throw new UserFacingError("Pick up or down.");
     await replyPrivately(interaction, () =>
       moveCategory(ctx, categoryId, dir, interaction.user.id),
     );
-  },
+  }),
 
-  "autocomplete-gameadmin": async (ctx, interaction: AutocompleteInteraction) => {
+  "autocomplete-gameadmin": autocomplete(async (ctx, interaction) => {
     const focused = interaction.options.getFocused(true);
     if (focused.name === "game") {
       const matches = await autocompleteGames(ctx, interaction.user.id, focused.value, "any");
@@ -403,5 +409,5 @@ export const adminHandlers: Handlers = {
     } else {
       await interaction.respond([]);
     }
-  },
+  }),
 };

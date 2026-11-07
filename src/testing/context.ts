@@ -104,9 +104,6 @@ export function sentTo(ctx: TestContext, key: SetupKey): Payload[] {
   return channelId ? (ctx.gateway.messages.get(channelId) ?? []).map((m) => m.payload) : [];
 }
 
-/** Every Payload field is optional, so any object is one. */
-const isPayload = (value: unknown): value is Payload => typeof value === "object" && value !== null;
-
 export function lastEdit(ctx: TestContext): {
   channelId: string;
   messageId: string;
@@ -115,9 +112,6 @@ export function lastEdit(ctx: TestContext): {
   const call = ctx.gateway.calls.findLast((c) => c.method === "edit");
   if (!call) throw new Error("No message was edited");
   const [channelId, messageId, payload] = call.args;
-  if (typeof channelId !== "string" || typeof messageId !== "string" || !isPayload(payload)) {
-    throw new Error("The last edit call has unexpected arguments");
-  }
   return { channelId, messageId, payload };
 }
 
@@ -125,8 +119,5 @@ export function lastSend(ctx: TestContext): { channelId: string; payload: Payloa
   const call = ctx.gateway.calls.findLast((c) => c.method === "send");
   if (!call) throw new Error("No message was sent");
   const [channelId, payload] = call.args;
-  if (typeof channelId !== "string" || !isPayload(payload)) {
-    throw new Error("The last send call has unexpected arguments");
-  }
   return { channelId, payload };
 }

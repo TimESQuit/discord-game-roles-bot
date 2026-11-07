@@ -9,10 +9,30 @@ export interface FakeMessage {
   hasAttachment: boolean;
 }
 
+type RecordedMethod =
+  | "createRole"
+  | "editRole"
+  | "deleteRole"
+  | "setRolePositions"
+  | "addMemberRole"
+  | "removeMemberRole"
+  | "createCategory"
+  | "createTextChannel"
+  | "setChannelParent"
+  | "messageExists"
+  | "send"
+  | "edit"
+  | "deleteMessage";
+
+/** A recorded call, keyed by method so each one's arguments keep the Gateway's types. */
+export type GatewayCall = {
+  [M in RecordedMethod]: { method: M; args: Parameters<Gateway[M]> };
+}[RecordedMethod];
+
 export class FakeGateway implements Gateway {
   readonly guildId: string;
   readonly botUserId: string;
-  calls: { method: string; args: unknown[] }[] = [];
+  calls: GatewayCall[] = [];
   messages = new Map<string, FakeMessage[]>();
 
   #roles = new Map<string, RoleSnapshot>();
@@ -121,7 +141,7 @@ export class FakeGateway implements Gateway {
     o: { name: string; color: number; mentionable: boolean },
     reason: string,
   ): Promise<RoleSnapshot> {
-    this.#begin("createRole", [o, reason]);
+    this.#begin({ method: "createRole", args: [o, reason] });
     for (const r of this.#roles.values()) if (r.position >= 1) r.position += 1;
     // The bot's own role sits in the same list, so it shifts up too.
     if (this.#botTop >= 1) this.#botTop += 1;
@@ -134,13 +154,13 @@ export class FakeGateway implements Gateway {
     patch: Partial<Pick<RoleSnapshot, "name" | "color" | "mentionable">>,
     reason: string,
   ): Promise<void> {
-    this.#begin("editRole", [id, patch, reason]);
+    this.#begin({ method: "editRole", args: [id, patch, reason] });
     const r = this.#roles.get(id);
     if (!r) throw new Error(`Unknown role ${id}`);
     Object.assign(r, patch);
   }
   async deleteRole(id: string, reason: string): Promise<void> {
-    this.#begin("deleteRole", [id, reason]);
+    this.#begin({ method: "deleteRole", args: [id, reason] });
     const gone = this.#roles.get(id);
     this.#roles.delete(id);
     if (gone && gone.position >= 1) {
@@ -154,7 +174,7 @@ export class FakeGateway implements Gateway {
     changes: readonly { id: string; position: number }[],
     reason: string,
   ): Promise<void> {
-    this.#begin("setRolePositions", [changes, reason]);
+    this.#begin({ method: "setRolePositions", args: [changes, reason] });
     const others = [...this.#roles.values()].filter((r) => r.id !== this.guildId);
     const n = others.length;
     const pinned = new Map<number, string>();
@@ -176,17 +196,17 @@ export class FakeGateway implements Gateway {
     if (everyone) everyone.position = 0;
   }
   async addMemberRole(userId: string, roleId: string, reason: string): Promise<void> {
-    this.#begin("addMemberRole", [userId, roleId, reason]);
+    this.#begin({ method: "addMemberRole", args: [userId, roleId, reason] });
     const roles = this.#members.get(userId) ?? new Set<string>();
     roles.add(roleId);
     this.#members.set(userId, roles);
   }
   async removeMemberRole(userId: string, roleId: string, reason: string): Promise<void> {
-    this.#begin("removeMemberRole", [userId, roleId, reason]);
+    this.#begin({ method: "removeMemberRole", args: [userId, roleId, reason] });
     this.#members.get(userId)?.delete(roleId);
   }
   async createCategory(name: string, overwrites: readonly Overwrite[]): Promise<string> {
-    this.#begin("createCategory", [name, overwrites]);
+    this.#begin({ method: "createCategory", args: [name, overwrites] });
     const id = this.#newId();
     this.#channels.add(id);
     return id;
@@ -196,21 +216,21 @@ export class FakeGateway implements Gateway {
     parentId: string | null,
     overwrites: readonly Overwrite[],
   ): Promise<string> {
-    this.#begin("createTextChannel", [name, parentId, overwrites]);
+    this.#begin({ method: "createTextChannel", args: [name, parentId, overwrites] });
     const id = this.#newId();
     this.#channels.add(id);
     return id;
   }
   async setChannelParent(channelId: string, parentId: string): Promise<void> {
-    this.#begin("setChannelParent", [channelId, parentId]);
+    this.#begin({ method: "setChannelParent", args: [channelId, parentId] });
   }
   async messageExists(channelId: string, messageId: string): Promise<boolean> {
-    this.#begin("messageExists", [channelId, messageId]);
+    this.#begin({ method: "messageExists", args: [channelId, messageId] });
     return (this.messages.get(channelId) ?? []).some((m) => m.id === messageId);
   }
   async send(channelId: string, payload: Payload): Promise<string> {
     if (!this.#channels.has(channelId)) throw new Error(`Unknown channel ${channelId}`);
-    this.#begin("send", [channelId, payload]);
+    this.#begin({ method: "send", args: [channelId, payload] });
     const id = this.#newId();
     this.#list(channelId).push({
       id,
@@ -222,22 +242,22 @@ export class FakeGateway implements Gateway {
     return id;
   }
   async edit(channelId: string, messageId: string, payload: Payload): Promise<boolean> {
-    this.#begin("edit", [channelId, messageId, payload]);
+    this.#begin({ method: "edit", args: [channelId, messageId, payload] });
     const m = this.messages.get(channelId)?.find((x) => x.id === messageId);
     if (!m) return false;
     m.payload = payload;
     return true;
   }
   async deleteMessage(channelId: string, messageId: string): Promise<void> {
-    this.#begin("deleteMessage", [channelId, messageId]);
+    this.#begin({ method: "deleteMessage", args: [channelId, messageId] });
     this.deleteMessageBehindBotsBack(channelId, messageId);
   }
 
   // ---- internals ----
-  #begin(method: string, args: unknown[]): void {
-    const err = this.#failures.get(method)?.shift();
+  #begin(call: GatewayCall): void {
+    const err = this.#failures.get(call.method)?.shift();
     if (err) throw err;
-    this.calls.push({ method, args });
+    this.calls.push(call);
   }
   #newId(): string {
     this.#nextId += 1n;

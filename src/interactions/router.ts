@@ -1,4 +1,12 @@
-import type { Interaction } from "discord.js";
+import type {
+  AutocompleteInteraction,
+  ButtonInteraction,
+  ChatInputCommandInteraction,
+  BaseInteraction,
+  ModalSubmitInteraction,
+  StringSelectMenuInteraction,
+  UserContextMenuCommandInteraction,
+} from "discord.js";
 import { isAdmin, isAdminId, parseId, type CustomId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "../services/index.ts";
@@ -85,10 +93,73 @@ export const HANDLER_NAMES = [
 
 export type HandlerName = (typeof HANDLER_NAMES)[number];
 
-// oxlint-disable-next-line typescript/no-explicit-any -- each handler narrows the interaction itself
-export type Handlers = Partial<
-  Record<HandlerName, (ctx: AppContext, interaction: any) => Promise<void>>
->;
+export type Handler = (ctx: AppContext, interaction: BaseInteraction) => Promise<void>;
+export type Handlers = Partial<Record<HandlerName, Handler>>;
+
+const wrongKind = (kind: string): Error => new Error(`Expected a ${kind} interaction`);
+
+/*
+ * Routing already decides the kind of interaction a handler gets. These wrappers check it again
+ * with discord.js's own guards, so each handler's declared interaction type is checked, not
+ * assumed.
+ */
+export const button =
+  (fn: (ctx: AppContext, interaction: ButtonInteraction) => Promise<void>): Handler =>
+  async (ctx, interaction) => {
+    if (!interaction.isButton()) throw wrongKind("button");
+    await fn(ctx, interaction);
+  };
+
+export const select =
+  (fn: (ctx: AppContext, interaction: StringSelectMenuInteraction) => Promise<void>): Handler =>
+  async (ctx, interaction) => {
+    if (!interaction.isStringSelectMenu()) throw wrongKind("string select menu");
+    await fn(ctx, interaction);
+  };
+
+export const modal =
+  (fn: (ctx: AppContext, interaction: ModalSubmitInteraction) => Promise<void>): Handler =>
+  async (ctx, interaction) => {
+    if (!interaction.isModalSubmit()) throw wrongKind("modal submit");
+    await fn(ctx, interaction);
+  };
+
+export const chatInput =
+  (fn: (ctx: AppContext, interaction: ChatInputCommandInteraction) => Promise<void>): Handler =>
+  async (ctx, interaction) => {
+    if (!interaction.isChatInputCommand()) throw wrongKind("chat input command");
+    await fn(ctx, interaction);
+  };
+
+export const autocomplete =
+  (fn: (ctx: AppContext, interaction: AutocompleteInteraction) => Promise<void>): Handler =>
+  async (ctx, interaction) => {
+    if (!interaction.isAutocomplete()) throw wrongKind("autocomplete");
+    await fn(ctx, interaction);
+  };
+
+export const userContext =
+  (
+    fn: (ctx: AppContext, interaction: UserContextMenuCommandInteraction) => Promise<void>,
+  ): Handler =>
+  async (ctx, interaction) => {
+    if (!interaction.isUserContextMenuCommand()) throw wrongKind("user context menu command");
+    await fn(ctx, interaction);
+  };
+
+export const buttonOrChatInput =
+  (
+    fn: (
+      ctx: AppContext,
+      interaction: ButtonInteraction | ChatInputCommandInteraction,
+    ) => Promise<void>,
+  ): Handler =>
+  async (ctx, interaction) => {
+    if (!interaction.isButton() && !interaction.isChatInputCommand()) {
+      throw wrongKind("button or chat input command");
+    }
+    await fn(ctx, interaction);
+  };
 
 export type RouteInput = {
   type: "button" | "select" | "modal" | "command" | "autocomplete" | "user-context";
@@ -213,7 +284,7 @@ export function route(input: RouteInput, adminRoleId: string): RouteResult {
 const GENERIC_ERROR = "Something went wrong. The admins have been told.";
 const EXPIRED = "That button has expired. Open the menu again.";
 
-function routeInput(interaction: Interaction, roleIds: ReadonlySet<string>): RouteInput | null {
+function routeInput(interaction: BaseInteraction, roleIds: ReadonlySet<string>): RouteInput | null {
   if (interaction.isButton()) {
     return { type: "button", customId: interaction.customId, memberRoleIds: roleIds };
   }
@@ -238,27 +309,27 @@ function routeInput(interaction: Interaction, roleIds: ReadonlySet<string>): Rou
   return null;
 }
 
-export function memberRoleIds(interaction: Interaction): ReadonlySet<string> {
+export function memberRoleIds(interaction: BaseInteraction): ReadonlySet<string> {
   const roles = interaction.member?.roles;
   if (roles === undefined) return new Set();
   return new Set(Array.isArray(roles) ? roles : roles.cache.keys());
 }
 
-async function sayPrivately(interaction: Interaction, content: string): Promise<void> {
+async function sayPrivately(interaction: BaseInteraction, content: string): Promise<void> {
   if (!interaction.isRepliable()) return;
   const payload = forReply(noticeView(content));
   if (interaction.deferred || interaction.replied) await interaction.followUp(payload);
   else await interaction.reply(payload);
 }
 
-async function respondEmpty(interaction: Interaction): Promise<void> {
+async function respondEmpty(interaction: BaseInteraction): Promise<void> {
   if (interaction.isAutocomplete() && !interaction.responded) await interaction.respond([]);
 }
 
 export async function handleInteraction(
   ctx: AppContext,
   handlers: Handlers,
-  interaction: Interaction,
+  interaction: BaseInteraction,
 ): Promise<void> {
   const input = routeInput(interaction, memberRoleIds(interaction));
   if (input === null) {
@@ -266,25 +337,25 @@ export async function handleInteraction(
     return;
   }
   const result = route(input, ctx.config.adminRoleId);
-  const autocomplete = input.type === "autocomplete";
+  const isAutocompleteInput = input.type === "autocomplete";
 
   try {
     if ("denied" in result || "unknown" in result) {
-      if (autocomplete) await respondEmpty(interaction);
+      if (isAutocompleteInput) await respondEmpty(interaction);
       else
         await sayPrivately(interaction, "denied" in result ? "Only admins can do that." : EXPIRED);
       return;
     }
     const handler = handlers[result.handler];
     if (handler === undefined) {
-      if (autocomplete) await respondEmpty(interaction);
+      if (isAutocompleteInput) await respondEmpty(interaction);
       else await sayPrivately(interaction, EXPIRED);
       return;
     }
     try {
       await handler(ctx, interaction);
     } catch (error) {
-      if (autocomplete) {
+      if (isAutocompleteInput) {
         console.error(`Autocomplete ${result.handler} failed`, error);
         await respondEmpty(interaction);
       } else if (error instanceof UserFacingError) {

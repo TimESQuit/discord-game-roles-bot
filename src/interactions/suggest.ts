@@ -1,9 +1,4 @@
-import {
-  MessageFlags,
-  type ButtonInteraction,
-  type ChatInputCommandInteraction,
-  type ModalSubmitInteraction,
-} from "discord.js";
+import { MessageFlags, type ButtonInteraction, type ChatInputCommandInteraction } from "discord.js";
 import type { Category, Suggestion } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
@@ -27,7 +22,7 @@ import {
 } from "../views/index.ts";
 import { text, parseId } from "../domain/index.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
-import type { Handlers } from "./router.ts";
+import { button, buttonOrChatInput, chatInput, modal, type Handlers } from "./router.ts";
 
 export type Draft = { name: string; categoryId: number; note: string | null };
 
@@ -109,18 +104,18 @@ function suggestionId(
 }
 
 export const suggestHandlers: Handlers = {
-  "menu-suggest": openSuggestForm,
-  "games-suggest": openSuggestForm,
+  "menu-suggest": buttonOrChatInput(openSuggestForm),
+  "games-suggest": buttonOrChatInput(openSuggestForm),
 
-  "menu-mysug": async (ctx, interaction: ButtonInteraction) => {
+  "menu-mysug": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     await interaction.editReply(forEdit(await mySuggestions(ctx, interaction.user.id)));
-  },
-  "games-suggestions": async (ctx, interaction: ChatInputCommandInteraction) => {
+  }),
+  "games-suggestions": chatInput(async (ctx, interaction) => {
     await interaction.reply(forReply(await mySuggestions(ctx, interaction.user.id)));
-  },
+  }),
 
-  "suggest-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  "suggest-modal": modal(async (ctx, interaction) => {
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
     if (!Number.isInteger(categoryId)) throw new UserFacingError("Pick a category.");
@@ -138,9 +133,9 @@ export const suggestHandlers: Handlers = {
     await interaction.editReply(
       forEdit(noticeView(await submitDraft(ctx, interaction.user.id, draft))),
     );
-  },
+  }),
 
-  "dup-submit": async (ctx, interaction: ButtonInteraction) => {
+  "dup-submit": button(async (ctx, interaction) => {
     await interaction.deferUpdate();
     const userId = interaction.user.id;
     const draft = draftStore.get(userId);
@@ -155,9 +150,9 @@ export const suggestHandlers: Handlers = {
       draftStore.put(userId, draft);
       throw error;
     }
-  },
+  }),
 
-  "dup-join": async (ctx, interaction: ButtonInteraction) => {
+  "dup-join": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "dup-join") throw new UserFacingError(EXPIRED_MENU);
     await interaction.deferUpdate();
@@ -171,16 +166,16 @@ export const suggestHandlers: Handlers = {
         noticeView(result === "joined" ? `You've joined ${name}.` : `You already have ${name}.`),
       ),
     );
-  },
+  }),
 
-  withdraw: async (ctx, interaction: ButtonInteraction) => {
+  withdraw: button(async (ctx, interaction) => {
     const id = suggestionId(interaction.customId, "withdraw");
     await interaction.deferUpdate();
     await withdrawSuggestion(ctx, id, interaction.user.id);
     await interaction.editReply(forEdit(await mySuggestions(ctx, interaction.user.id)));
-  },
+  }),
 
-  "review-approve": async (ctx, interaction: ButtonInteraction) => {
+  "review-approve": button(async (ctx, interaction) => {
     const id = suggestionId(interaction.customId, "review-approve");
     await interaction.deferUpdate();
     const game = await approveSuggestion(ctx, id, interaction.user.id);
@@ -189,22 +184,22 @@ export const suggestHandlers: Handlers = {
       flags: MessageFlags.Ephemeral,
       allowedMentions: { parse: [] },
     });
-  },
-  "review-edit": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "review-edit": button(async (ctx, interaction) => {
     const s = await requirePendingSuggestion(
       ctx,
       suggestionId(interaction.customId, "review-edit"),
     );
     await interaction.showModal(reviewEditModal(s, await requireCategories(ctx)));
-  },
-  "review-reject": async (ctx, interaction: ButtonInteraction) => {
+  }),
+  "review-reject": button(async (ctx, interaction) => {
     const s = await requirePendingSuggestion(
       ctx,
       suggestionId(interaction.customId, "review-reject"),
     );
     await interaction.showModal(rejectModal(s));
-  },
-  "review-edit-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  }),
+  "review-edit-modal": modal(async (ctx, interaction) => {
     const id = suggestionId(interaction.customId, "review-edit-modal");
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
@@ -220,8 +215,8 @@ export const suggestHandlers: Handlers = {
       interaction.user.id,
     );
     await interaction.editReply(forEdit(noticeView(`Saved changes to ${text(updated.name)}.`)));
-  },
-  "review-reject-modal": async (ctx, interaction: ModalSubmitInteraction) => {
+  }),
+  "review-reject-modal": modal(async (ctx, interaction) => {
     const id = suggestionId(interaction.customId, "review-reject-modal");
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const s = await ctx.repos.suggestions.get(id);
@@ -234,5 +229,5 @@ export const suggestHandlers: Handlers = {
     await interaction.editReply(
       forEdit(noticeView(`Rejected ${text(s?.name ?? "the suggestion")}.`)),
     );
-  },
+  }),
 };

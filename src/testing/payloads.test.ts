@@ -59,7 +59,15 @@ test("builders are read through toJSON and things that are not components are sk
     new ButtonBuilder().setCustomId("b").setLabel("B").setStyle(ButtonStyle.Secondary),
   );
   const found = allComponents({
-    components: [row, new TextDisplayBuilder().setContent("hi"), "text", null, { type: 9999 }, {}],
+    components: [
+      row,
+      new TextDisplayBuilder().setContent("hi"),
+      "text",
+      null,
+      { type: 9999 },
+      { type: "Button" },
+      {},
+    ],
   });
   expect(found.map((c) => c.type)).toEqual([
     ComponentType.ActionRow,

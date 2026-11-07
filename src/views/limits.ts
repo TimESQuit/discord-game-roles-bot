@@ -1,3 +1,5 @@
+import { isJSONEncodable } from "discord.js";
+
 type Node = Record<string, unknown>;
 
 const isNode = (value: unknown): value is Node => typeof value === "object" && value !== null;
@@ -5,7 +7,7 @@ const isNode = (value: unknown): value is Node => typeof value === "object" && v
 /** Builders expose their payload through toJSON(); plain API objects are used as they are. */
 const toNode = (value: unknown): Node => {
   if (!isNode(value)) return {};
-  if (typeof value.toJSON !== "function") return value;
+  if (!isJSONEncodable(value)) return value;
   const json: unknown = value.toJSON();
   return isNode(json) ? json : {};
 };

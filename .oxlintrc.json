@@ -9,6 +9,10 @@
     "typescript/no-floating-promises": "error",
     "eslint/no-await-in-loop": "off",
     "typescript/no-non-null-assertion": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-return": "error",
     "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
     "import/no-cycle": "error",
     "no-restricted-imports": [
