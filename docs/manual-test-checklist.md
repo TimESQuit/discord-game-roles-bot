@@ -49,6 +49,7 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 - [ ] A category with 0 games, one with more than 25, a menu over 40 components, and a stale dropdown submitted after a game was removed: no select is sent with 0 options, categories chunk and page, unknown selections are ignored.
 - [ ] User text with mentions (`@everyone`, `<@&id>`) in game names, notes, LFG "when" and rejection reasons never pings anyone.
 - [ ] Bot loses Manage Roles, or its role is dragged below the template: role actions reply with the exact fix ("Move the bot's role above Game role template in Server Settings → Roles") instead of "This interaction failed".
+- [ ] Quickly ticking then unticking the same game in one dropdown within a moment may be a no-op (member cache lag); re-open the menu to confirm.
 
 ## Backups and monitoring
 

@@ -120,8 +120,11 @@ process.on("SIGINT", () => void shutdown.run());
 
 try {
   await client.login(config.token);
-} catch {
-  console.error("Could not log in to Discord. Check DISCORD_TOKEN and the network.");
+} catch (error) {
+  console.error(
+    'Could not log in to Discord. Check DISCORD_TOKEN and the network; "Disallowed intents" means Server Members is off in the Developer Portal.',
+    error instanceof Error ? error.message : String(error),
+  );
   await closeDatabase(db).catch(() => {});
   process.exit(1);
 }

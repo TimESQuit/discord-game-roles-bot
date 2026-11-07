@@ -2,7 +2,7 @@ import { escapeMarkdown } from "discord.js";
 import type { Repos } from "../db/repos/index.ts";
 import type { Gateway } from "../discord/gateway.ts";
 
-export type Source = "panel" | "command" | "lfg";
+export type Source = "panel" | "command" | "lfg" | "suggestion";
 
 export type AuditEvent =
   | { kind: "joined" | "left"; userId: string; game: string; source: Source }
@@ -28,6 +28,7 @@ const SOURCE_LABELS: Record<Source, string> = {
   panel: "panel",
   command: "command",
   lfg: "LFG post",
+  suggestion: "suggestion",
 };
 
 /** Escapes Markdown and breaks up "@" so user-typed text can neither format nor ping. */

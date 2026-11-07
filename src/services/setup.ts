@@ -24,6 +24,8 @@ export const REQUIRED_PERMISSIONS: PermissionsString[] = [
   "EmbedLinks",
   "AttachFiles",
   "ReadMessageHistory",
+  "CreatePublicThreads",
+  "AddReactions",
 ];
 
 const PERMISSION_NAMES: Partial<Record<PermissionsString, string>> = {
@@ -34,6 +36,8 @@ const PERMISSION_NAMES: Partial<Record<PermissionsString, string>> = {
   EmbedLinks: "Embed Links",
   AttachFiles: "Attach Files",
   ReadMessageHistory: "Read Message History",
+  CreatePublicThreads: "Create Public Threads",
+  AddReactions: "Add Reactions",
 };
 
 /** The problems to fix before setup can run, each a full sentence. */
@@ -76,7 +80,23 @@ export async function previewSetup(
   return { problems, plan: await planFor(ctx, problems.length === 0) };
 }
 
+let setupRunning = false;
+let refreshRunning = false;
+
 export async function applySetup(
+  ctx: AppContext,
+  actorId: string,
+): Promise<{ created: SetupItem[]; fine: SetupItem[] }> {
+  if (setupRunning) throw new UserFacingError("Setup is already running.");
+  setupRunning = true;
+  try {
+    return await runSetup(ctx, actorId);
+  } finally {
+    setupRunning = false;
+  }
+}
+
+async function runSetup(
   ctx: AppContext,
   actorId: string,
 ): Promise<{ created: SetupItem[]; fine: SetupItem[] }> {
@@ -180,6 +200,16 @@ export async function refreshPanel(
   ctx: AppContext,
   actorId: string,
 ): Promise<"updated" | "reposted"> {
+  if (refreshRunning) throw new UserFacingError("The panel is already being refreshed.");
+  refreshRunning = true;
+  try {
+    return await runRefresh(ctx, actorId);
+  } finally {
+    refreshRunning = false;
+  }
+}
+
+async function runRefresh(ctx: AppContext, actorId: string): Promise<"updated" | "reposted"> {
   const channelId = await ctx.repos.setup.get("panelChannelId");
   if (channelId === undefined || !ctx.gateway.channelExists(channelId))
     throw new UserFacingError("Run /gameadmin setup first.");

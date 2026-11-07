@@ -165,7 +165,7 @@ export const suggestHandlers: Handlers = {
     await interaction.deferUpdate();
     const game = await ctx.repos.games.get(id.gameId);
     if (!game) throw new UserFacingError("That game no longer exists.");
-    const result = await join(ctx, interaction.user.id, game.id, "panel");
+    const result = await join(ctx, interaction.user.id, game.id, "suggestion");
     draftStore.delete(interaction.user.id);
     const name = text(game.name);
     await interaction.editReply(

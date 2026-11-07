@@ -37,6 +37,12 @@ test("every event kind produces a line", () => {
   );
 });
 
+test("the suggestion source reads as 'suggestion'", () => {
+  expect(
+    formatAuditLine({ kind: "joined", userId: U1, game: "G", source: "suggestion" }),
+  ).toContain("(suggestion)");
+});
+
 test("log posts to #bot-log with no mentions allowed", async () => {
   const ctx = await makeContext();
   await ctx.audit.log({ kind: "joined", userId: U1, game: "Valheim", source: "panel" });

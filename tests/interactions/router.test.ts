@@ -1,7 +1,9 @@
+import { MessageFlags } from "discord.js";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { UserFacingError } from "../../src/errors.ts";
 import { encodeId } from "../../src/interactions/custom-ids.ts";
 import { handleInteraction, route } from "../../src/interactions/router.ts";
+import { noticeView } from "../../src/views/member.ts";
 import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../fakes/context.ts";
 
 type RouteInputType = Parameters<typeof route>[0]["type"];
@@ -209,8 +211,7 @@ function fake(o: FakeOpts) {
   return { i: i as never, calls };
 }
 
-const EPHEMERAL = 64;
-const reply = (content: string) => ({ content, flags: EPHEMERAL });
+const reply = (content: string) => noticeView(content);
 
 describe("handleInteraction", () => {
   afterEach(() => vi.restoreAllMocks());
@@ -394,6 +395,41 @@ describe("handleInteraction", () => {
     await handleInteraction(ctx, {}, i);
     expect(calls).toEqual([]);
     expect(warn).toHaveBeenCalled();
+  });
+
+  test("replies are layout V2 notices with no plain content", async () => {
+    const ctx = await makeContext();
+    const { i, calls } = fake({
+      type: "button",
+      customId: encodeId({ kind: "cancel" }),
+      deferred: true,
+    });
+    await handleInteraction(ctx, {}, i);
+    const arg = calls[0]?.arg as { content?: string; flags: number };
+    expect(arg.content).toBeUndefined();
+    expect(arg.flags & MessageFlags.IsComponentsV2).toBeTruthy();
+    expect(arg.flags & MessageFlags.Ephemeral).toBeTruthy();
+  });
+
+  test("a throwing reply in the generic-error branch still notifies the admins", async () => {
+    const ctx = await makeContext({ setup: true });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { i } = fake({
+      type: "button",
+      customId: encodeId({ kind: "cancel" }),
+      failReplies: true,
+    });
+    await handleInteraction(
+      ctx,
+      {
+        cancel: async () => {
+          throw new Error("boom");
+        },
+      },
+      i,
+    );
+    expect(ctx.adminNotices).toHaveLength(1);
+    expect(ctx.adminNotices[0]).toContain("boom");
   });
 
   test("a failing error reply does not throw", async () => {

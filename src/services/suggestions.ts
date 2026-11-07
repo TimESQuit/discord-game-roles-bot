@@ -130,7 +130,7 @@ export async function approveSuggestion(
 
   if (ctx.gateway.memberRoleIds(s.suggesterId).size > 0) {
     try {
-      await join(ctx, s.suggesterId, game.id, "panel");
+      await join(ctx, s.suggesterId, game.id, "suggestion");
     } catch (error) {
       console.error(`Could not add ${s.suggesterId} to ${game.name}`, error);
       await ctx.audit.notifyAdmins(`Could not add the suggester to ${game.name}.`);

@@ -1,7 +1,9 @@
-import { MessageFlags, type Interaction } from "discord.js";
+import { type Interaction } from "discord.js";
 import { isAdmin } from "../domain/roles.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "../services/context.ts";
+import { noticeView } from "../views/member.ts";
+import { forReply } from "./member.ts";
 import { isAdminId, parseId, type CustomId } from "./custom-ids.ts";
 
 export const HANDLER_NAMES = [
@@ -209,7 +211,6 @@ export function route(input: RouteInput, adminRoleId: string): RouteResult {
   return name !== null && isHandlerName(name) ? { handler: name } : { unknown: true };
 }
 
-const PRIVATE = MessageFlags.Ephemeral as const;
 const GENERIC_ERROR = "Something went wrong. The admins have been told.";
 const EXPIRED = "That button has expired. Open the menu again.";
 
@@ -249,7 +250,7 @@ export function memberRoleIds(interaction: Interaction): ReadonlySet<string> {
 
 async function sayPrivately(interaction: Interaction, content: string): Promise<void> {
   if (!interaction.isRepliable()) return;
-  const payload = { content, flags: PRIVATE };
+  const payload = forReply(noticeView(content));
   if (interaction.deferred || interaction.replied) await interaction.followUp(payload);
   else await interaction.reply(payload);
 }
@@ -295,7 +296,11 @@ export async function handleInteraction(
       } else {
         console.error(`Handler ${result.handler} failed`, error);
         const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
-        await sayPrivately(interaction, GENERIC_ERROR);
+        try {
+          await sayPrivately(interaction, GENERIC_ERROR);
+        } catch (replyError) {
+          console.error("Could not send the error reply", replyError);
+        }
         await ctx.audit.notifyAdmins(`Error in ${result.handler}:\n${detail}`.slice(0, 1500));
       }
     }

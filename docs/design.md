@@ -93,7 +93,7 @@ Each bot needs three steps by hand; after that, `/gameadmin setup` builds the re
 **By hand, once per bot (dev and prod)**
 
 1. In the Discord Developer Portal, create the application. Turn off "Public Bot" and turn on "Server Members". Put the token, application ID, server ID and admin role ID in that environment's env file.
-2. Invite the bot with a link that grants: Manage Roles, Manage Channels, View Channels, Send Messages, Embed Links, Attach Files, Read Message History.
+2. Invite the bot with a link that grants: Manage Roles, Manage Channels, View Channels, Send Messages, Embed Links, Attach Files, Read Message History, Create Public Threads, Add Reactions.
 3. In Server Settings → Roles, drag the bot's role high enough for the game roles to go below it. On production it must also be above every old game role, for the migration.
 
 **`/gameadmin setup`** (admin role only)

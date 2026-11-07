@@ -49,7 +49,16 @@ describe("checkSetup", () => {
       "Give the bot the Embed Links permission.",
       "Give the bot the Read Message History permission.",
     ]);
-    expect(REQUIRED_PERMISSIONS).toHaveLength(7);
+    expect(REQUIRED_PERMISSIONS).toHaveLength(9);
+  });
+
+  test("lists the thread and reaction permissions the read-only channels need", async () => {
+    const ctx = await makeContext({ setup: false });
+    ctx.gateway.setMissingPermissions(["CreatePublicThreads", "AddReactions"]);
+    expect(await checkSetup(ctx)).toEqual([
+      "Give the bot the Create Public Threads permission.",
+      "Give the bot the Add Reactions permission.",
+    ]);
   });
 
   test("reports the role-position problem only when the template exists", async () => {
@@ -79,6 +88,18 @@ describe("previewSetup", () => {
 });
 
 describe("applySetup", () => {
+  test("two concurrent runs create one set; the second is refused", async () => {
+    const ctx = await makeContext({ setup: false });
+    const results = await Promise.allSettled([applySetup(ctx, A1), applySetup(ctx, A1)]);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(
+      (results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason.message,
+    ).toBe("Setup is already running.");
+    expect(creates(ctx, "createRole")).toHaveLength(1);
+    expect(creates(ctx, "createCategory")).toHaveLength(1);
+    await expect(applySetup(ctx, A1)).resolves.toBeDefined();
+  });
+
   test("creates everything on a blank server and records every ID", async () => {
     const ctx = await makeContext({ setup: false });
     const result = await applySetup(ctx, A1);
@@ -192,6 +213,23 @@ describe("applySetup", () => {
 });
 
 describe("refreshPanel", () => {
+  test("two concurrent refreshes post one panel; the second is refused", async () => {
+    const ctx = await makeContext({ setup: false });
+    await applySetup(ctx, A1);
+    const channel = (await ctx.repos.setup.get("panelChannelId"))!;
+    ctx.gateway.deleteMessageBehindBotsBack(
+      channel,
+      (await ctx.repos.setup.get("panelMessageId"))!,
+    );
+    const results = await Promise.allSettled([refreshPanel(ctx, A1), refreshPanel(ctx, A1)]);
+    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
+    expect(
+      (results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason.message,
+    ).toBe("The panel is already being refreshed.");
+    expect(ctx.gateway.messages.get(channel)).toHaveLength(1);
+    await expect(refreshPanel(ctx, A1)).resolves.toBe("updated");
+  });
+
   test("edits the existing message", async () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
