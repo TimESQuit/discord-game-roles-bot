@@ -1,10 +1,15 @@
 {
   "plugins": ["typescript", "unicorn", "import", "vitest"],
   "categories": {
-    "correctness": "error"
+    "correctness": "error",
+    "suspicious": "error",
+    "perf": "error"
   },
   "rules": {
     "typescript/no-floating-promises": "error",
+    "eslint/no-await-in-loop": "off",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-assertions": ["error", { "assertionStyle": "never" }],
     "import/no-cycle": "error",
     "no-restricted-imports": [
       "error",
