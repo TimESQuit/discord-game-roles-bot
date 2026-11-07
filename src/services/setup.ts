@@ -8,6 +8,7 @@ import {
   PANEL_CHANNEL_NAME,
   STARTING_CATEGORIES,
   TEMPLATE_ROLE_NAME,
+  MESSAGES,
 } from "../constants.ts";
 import type { SetupKey } from "../db/index.ts";
 import type { Overwrite } from "../discord/index.ts";
@@ -219,7 +220,7 @@ export async function refreshPanel(
 async function runRefresh(ctx: AppContext, actorId: string): Promise<"updated" | "reposted"> {
   const channelId = await ctx.repos.setup.get("panelChannelId");
   if (channelId === undefined || !ctx.gateway.channelExists(channelId))
-    throw new UserFacingError("Run /gameadmin setup first.");
+    throw new UserFacingError(MESSAGES.setupFirst);
   const messageId = await ctx.repos.setup.get("panelMessageId");
   let result: "updated" | "reposted" = "reposted";
   if (messageId !== undefined && (await ctx.gateway.edit(channelId, messageId, panelView()))) {

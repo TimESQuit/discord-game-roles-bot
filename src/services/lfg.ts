@@ -1,12 +1,10 @@
+import { LFG_WHEN_MAX, MESSAGES, NOTE_MAX } from "../constants.ts";
 import type { LfgAnswer, LfgPost } from "../db/index.ts";
 import { toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { lfgPostView } from "../views/index.ts";
 import type { AppContext } from "./context.ts";
 import { join } from "./membership.ts";
-
-const MAX_WHEN = 100;
-const MAX_NOTE = 300;
 
 const clean = (value: string | null): string | null => {
   const trimmed = value?.trim() ?? "";
@@ -47,19 +45,19 @@ export async function createLfgPost(
 ): Promise<string> {
   const when = clean(input.when);
   const note = clean(input.note);
-  if (when !== null && when.length > MAX_WHEN) {
-    throw new UserFacingError("Keep 'when' under 100 characters.");
+  if (when !== null && when.length > LFG_WHEN_MAX) {
+    throw new UserFacingError(`Keep 'when' under ${LFG_WHEN_MAX} characters.`);
   }
-  if (note !== null && note.length > MAX_NOTE) {
-    throw new UserFacingError("Keep the note under 300 characters.");
+  if (note !== null && note.length > NOTE_MAX) {
+    throw new UserFacingError(`Keep the note under ${NOTE_MAX} characters.`);
   }
   const game = await ctx.repos.games.get(input.gameId);
-  if (!game) throw new UserFacingError("That game no longer exists.");
+  if (!game) throw new UserFacingError(MESSAGES.gameGone);
   if (!ctx.gateway.role(game.roleId)) {
     await ctx.audit.notifyAdmins(
       `The role for ${game.name} is missing in Discord. Remove the game or recreate it.`,
     );
-    throw new UserFacingError("That game's role is missing; the admins have been told.");
+    throw new UserFacingError(MESSAGES.gameRoleMissing);
   }
   const post: Omit<LfgPost, LfgAnswer> = {
     messageId: "",

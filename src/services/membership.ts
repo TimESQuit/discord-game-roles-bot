@@ -1,4 +1,4 @@
-import { SELECT_OPTION_LIMIT } from "../constants.ts";
+import { SELECT_OPTION_LIMIT, MESSAGES } from "../constants.ts";
 import type { Game } from "../db/index.ts";
 import { diffSelection, byName, rankGames } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
@@ -7,7 +7,7 @@ import type { Source } from "./audit.ts";
 
 async function requireGame(ctx: AppContext, gameId: number): Promise<Game> {
   const game = await ctx.repos.games.get(gameId);
-  if (!game) throw new UserFacingError("That game no longer exists.");
+  if (!game) throw new UserFacingError(MESSAGES.gameGone);
   return game;
 }
 
@@ -68,7 +68,7 @@ export async function join(
     await ctx.audit.notifyAdmins(
       `The role for ${game.name} is missing in Discord. Remove the game or recreate it.`,
     );
-    throw new UserFacingError("That game's role is missing; the admins have been told.");
+    throw new UserFacingError(MESSAGES.gameRoleMissing);
   }
   if (ctx.gateway.memberRoleIds(userId).has(game.roleId)) return "already";
   await ctx.gateway.addMemberRole(userId, game.roleId, `Joined ${game.name} via ${source}`);

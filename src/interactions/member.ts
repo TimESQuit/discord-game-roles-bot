@@ -1,3 +1,4 @@
+import { MESSAGES, TEXT_LIMIT } from "../constants.ts";
 import {
   type ButtonInteraction,
   type ChatInputCommandInteraction,
@@ -89,13 +90,13 @@ async function showMine(ctx: AppContext, interaction: ButtonInteraction): Promis
 function gameIdOption(interaction: ChatInputCommandInteraction): number {
   const raw = interaction.options.getString("game", true).trim();
   const id = /^\d{1,15}$/.test(raw) ? Number(raw) : Number.NaN;
-  if (!Number.isInteger(id)) throw new UserFacingError("Pick a game from the list.");
+  if (!Number.isInteger(id)) throw new UserFacingError(MESSAGES.pickGame);
   return id;
 }
 
 async function gameName(ctx: AppContext, gameId: number): Promise<string> {
   const game = await ctx.repos.games.get(gameId);
-  if (!game) throw new UserFacingError("That game no longer exists.");
+  if (!game) throw new UserFacingError(MESSAGES.gameGone);
   return text(game.name);
 }
 
@@ -130,7 +131,7 @@ async function commandJoinLeave(
 /** Shared by all four pick-page-* handlers; the router already checked admin rights. */
 async function pickPage(ctx: AppContext, interaction: ButtonInteraction): Promise<void> {
   const id = parseId(interaction.customId);
-  if (id?.kind !== "pick-page") throw new UserFacingError("That menu has expired. Open it again.");
+  if (id?.kind !== "pick-page") throw new UserFacingError(MESSAGES.menuExpired);
   await interaction.deferUpdate();
   const [categories, games] = await Promise.all([
     ctx.repos.categories.list(),
@@ -170,8 +171,7 @@ export const memberHandlers: Handlers = {
 
   "add-select": select(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
-    if (id?.kind !== "add-select")
-      throw new UserFacingError("That menu has expired. Open it again.");
+    if (id?.kind !== "add-select") throw new UserFacingError(MESSAGES.menuExpired);
     await interaction.deferUpdate();
     const [categories, games] = await Promise.all([
       ctx.repos.categories.list(),
@@ -180,7 +180,7 @@ export const memberHandlers: Handlers = {
     // Only options whose tick differs from what this menu showed may change, so a stale menu
     // can never touch a role the person did not tick or untick.
     const rendered = interaction.component?.options;
-    if (rendered === undefined) throw new UserFacingError("That menu has expired. Open it again.");
+    if (rendered === undefined) throw new UserFacingError(MESSAGES.menuExpired);
     const userId = interaction.user.id;
     const result = await applySelection(
       ctx,
@@ -199,14 +199,14 @@ export const memberHandlers: Handlers = {
   }),
   "add-page": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
-    if (id?.kind !== "add-page") throw new UserFacingError("That menu has expired. Open it again.");
+    if (id?.kind !== "add-page") throw new UserFacingError(MESSAGES.menuExpired);
     await interaction.deferUpdate();
     await showAddGames(ctx, interaction, id.page);
   }),
   "remove-select": select(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "remove-select") {
-      throw new UserFacingError("That menu has expired. Open it again.");
+      throw new UserFacingError(MESSAGES.menuExpired);
     }
     await interaction.deferUpdate();
     const userId = interaction.user.id;
@@ -223,7 +223,7 @@ export const memberHandlers: Handlers = {
   "pick-who": select(async (ctx, interaction) => {
     await interaction.deferUpdate();
     const gameId = Number(interaction.values[0]);
-    if (!Number.isInteger(gameId)) throw new UserFacingError("Pick a game from the list.");
+    if (!Number.isInteger(gameId)) throw new UserFacingError(MESSAGES.pickGame);
     await interaction.editReply(forEdit(await showWho(ctx, gameId)));
   }),
   "pick-page-who": button(pickPage),
@@ -251,7 +251,7 @@ export const memberHandlers: Handlers = {
     const focused = interaction.options.getFocused();
     const matches = await autocompleteGames(ctx, interaction.user.id, focused, mode);
     await interaction.respond(
-      matches.map((game) => ({ name: truncate(game.name, 100), value: String(game.id) })),
+      matches.map((game) => ({ name: truncate(game.name, TEXT_LIMIT), value: String(game.id) })),
     );
   }),
 

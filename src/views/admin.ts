@@ -10,29 +10,31 @@ import {
   type APIComponentInContainer,
   type APIContainerComponent,
 } from "discord.js";
-import { COMPONENT_LIMIT, TEXT_LIMIT } from "../constants.ts";
+import {
+  ALIASES_MAX,
+  CATEGORY_NAME_MAX,
+  COMPONENT_LIMIT,
+  GAME_NAME_MAX,
+  SELECT_OPTION_LIMIT,
+  TEXT_DISPLAY_LIMIT,
+  TEXT_INPUT_LIMIT,
+  TEXT_LIMIT,
+} from "../constants.ts";
 import type { Category, Game, Suggestion } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
-import {
-  CATEGORY_NAME_MAX,
-  encodeId,
-  text,
-  type SetupItem,
-  type CustomId,
-} from "../domain/index.ts";
+import { encodeId, text, type SetupItem, type CustomId } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
 import { FIELD, categoryLabel, inputLabel, reviewCardParts, textInput } from "./suggestions.ts";
 
 const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;
-const TEXT_DISPLAY_MAX = 4000;
 
 type Part = APIComponentInContainer;
 type Row = APIActionRowComponent<APIButtonComponent>;
 
 const display = (content: string): Part => ({
   type: ComponentType.TextDisplay,
-  content: truncate(content, TEXT_DISPLAY_MAX),
+  content: truncate(content, TEXT_DISPLAY_LIMIT),
 });
 
 const button = (
@@ -68,7 +70,7 @@ function privateView(parts: (Part | Row)[]): Payload {
 // container + the "and N more" line
 const REVIEW_BUDGET = COMPONENT_LIMIT - 2;
 // Discord counts all text displays together; leave room for the "and N more" line.
-const REVIEW_TEXT_BUDGET = 4000 - 40;
+const REVIEW_TEXT_BUDGET = TEXT_DISPLAY_LIMIT - 40;
 
 /** Compact cards with the same buttons as #bot-admin, as many as fit in 40 components. */
 export function reviewListView(
@@ -102,15 +104,12 @@ export function reviewListView(
   return privateView(parts);
 }
 
-const ALIASES_MAX = 300;
-const ALIASES_MODAL_MAX = 4000;
-
 /** At most 25 categories; the game's own category is always among them. */
 function modalCategories(categories: readonly Category[], current?: number): Category[] {
-  const first = categories.slice(0, 25);
+  const first = categories.slice(0, SELECT_OPTION_LIMIT);
   if (current === undefined || first.some((c) => c.id === current)) return first;
   const own = categories.find((c) => c.id === current);
-  return own ? [...first.slice(0, 24), own] : first;
+  return own ? [...first.slice(0, SELECT_OPTION_LIMIT - 1), own] : first;
 }
 
 export function gameModal(categories: readonly Category[], game?: Game): ModalBuilder {
@@ -120,11 +119,14 @@ export function gameModal(categories: readonly Category[], game?: Game): ModalBu
     )
     .setTitle(game ? "Edit game" : "Add a game")
     .addLabelComponents(
-      inputLabel("Game name", textInput(FIELD.name, TextInputStyle.Short, 100, true, game?.name)),
+      inputLabel(
+        "Game name",
+        textInput(FIELD.name, TextInputStyle.Short, GAME_NAME_MAX, true, game?.name),
+      ),
       categoryLabel(modalCategories(categories, game?.categoryId), game?.categoryId),
     );
   const aliases = game?.aliases.join(", ") ?? "";
-  if (aliases.length > ALIASES_MODAL_MAX) {
+  if (aliases.length > TEXT_INPUT_LIMIT) {
     modal.addTextDisplayComponents(
       new TextDisplayBuilder().setContent("Edit aliases with /gameadmin edit"),
     );

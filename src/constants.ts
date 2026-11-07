@@ -12,6 +12,34 @@ export const HEARTBEAT_INTERVAL_MS = 300_000;
 export const SELECT_OPTION_LIMIT = 25;
 export const COMPONENT_LIMIT = 40;
 export const TEXT_LIMIT = 100;
+export const TEXT_DISPLAY_LIMIT = 4000;
+export const TEXT_INPUT_LIMIT = 4000;
+export const BUTTONS_PER_ROW = 5;
+export const AUTOCOMPLETE_CHOICE_LIMIT = 25;
 export const CUSTOM_ID_LIMIT = 100;
+export const PEOPLE_SHOWN_MAX = 50;
+
+/** Longest text each form field and command option accepts; validation and the field share them. */
+export const GAME_NAME_MAX = 100;
+export const ALIASES_MAX = 300;
+export const NOTE_MAX = 300;
+export const REASON_MAX = 300;
+export const LFG_WHEN_MAX = 100;
+export const CATEGORY_NAME_MAX = 50;
 export const MOVE_DIRECTIONS = ["up", "down"] as const;
 export type MoveDirection = (typeof MOVE_DIRECTIONS)[number];
+
+/** User-facing replies that more than one module sends. */
+export const MESSAGES = {
+  gameGone: "That game no longer exists.",
+  menuExpired: "That menu has expired. Open it again.",
+  setupFirst: "Run /gameadmin setup first.",
+  categoryGone: "That category doesn't exist.",
+  pickGame: "Pick a game from the list.",
+  suggestionGone: "That suggestion no longer exists.",
+  formExpired: "That form has expired. Open it again.",
+  pickCategory: "Pick a category.",
+  nothingChanged: "Nothing changed.",
+  noGamesPicked: "You haven't picked any games yet.",
+  gameRoleMissing: "That game's role is missing; the admins have been told.",
+} as const;

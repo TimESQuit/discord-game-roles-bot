@@ -1,3 +1,4 @@
+import { MESSAGES } from "../constants.ts";
 import { UserFacingError } from "../errors.ts";
 import type { Game } from "../db/index.ts";
 import type { RoleSnapshot } from "../discord/index.ts";
@@ -9,7 +10,7 @@ import type { AppContext } from "./context.ts";
 export async function assertCanManageRoles(ctx: AppContext): Promise<RoleSnapshot> {
   const templateId = await ctx.repos.setup.get("templateRoleId");
   const template = templateId === undefined ? undefined : ctx.gateway.role(templateId);
-  if (!template) throw new UserFacingError("Run /gameadmin setup first.");
+  if (!template) throw new UserFacingError(MESSAGES.setupFirst);
   if (ctx.gateway.missingBotPermissions(["ManageRoles"]).length > 0) {
     throw new UserFacingError(
       "Give the bot the Manage Roles permission in Server Settings → Roles.",
@@ -52,7 +53,7 @@ async function checkCollisions(
 
 async function requireCategory(ctx: AppContext, categoryId: number) {
   const category = await ctx.repos.categories.get(categoryId);
-  if (!category) throw new UserFacingError("That category doesn't exist.");
+  if (!category) throw new UserFacingError(MESSAGES.categoryGone);
   return category;
 }
 
@@ -113,7 +114,7 @@ export async function editGame(
   actorId: string,
 ): Promise<Game> {
   const game = await ctx.repos.games.get(gameId);
-  if (!game) throw new UserFacingError("That game no longer exists.");
+  if (!game) throw new UserFacingError(MESSAGES.gameGone);
 
   const name = patch.name === undefined ? game.name : validateGameName(patch.name);
   const nameChanged = name !== game.name;
@@ -156,7 +157,7 @@ export async function removeGame(
   actorId: string,
 ): Promise<{ game: Game; hadMembers: number }> {
   const game = await ctx.repos.games.get(gameId);
-  if (!game) throw new UserFacingError("That game no longer exists.");
+  if (!game) throw new UserFacingError(MESSAGES.gameGone);
   await assertCanManageRoles(ctx);
   const hadMembers = ctx.gateway.roleMemberIds(game.roleId).length;
   if (ctx.gateway.role(game.roleId)) {

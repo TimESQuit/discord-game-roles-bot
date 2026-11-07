@@ -1,3 +1,4 @@
+import { MESSAGES } from "../constants.ts";
 import { MessageFlags, type ButtonInteraction, type ChatInputCommandInteraction } from "discord.js";
 import type { Category, Suggestion } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
@@ -49,7 +50,7 @@ export const draftStore = {
   },
 };
 
-const EXPIRED_MENU = "That menu has expired. Open it again.";
+const EXPIRED_MENU = MESSAGES.menuExpired;
 
 async function requireCategories(ctx: AppContext): Promise<Category[]> {
   const categories = await ctx.repos.categories.list();
@@ -61,7 +62,7 @@ async function requireCategories(ctx: AppContext): Promise<Category[]> {
 
 async function requirePendingSuggestion(ctx: AppContext, id: number): Promise<Suggestion> {
   const s = await ctx.repos.suggestions.get(id);
-  if (!s) throw new UserFacingError("That suggestion no longer exists.");
+  if (!s) throw new UserFacingError(MESSAGES.suggestionGone);
   if (s.status !== "pending") {
     throw new UserFacingError(`This suggestion was already ${s.status}.`);
   }
@@ -118,7 +119,7 @@ export const suggestHandlers: Handlers = {
   "suggest-modal": modal(async (ctx, interaction) => {
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
-    if (!Number.isInteger(categoryId)) throw new UserFacingError("Pick a category.");
+    if (!Number.isInteger(categoryId)) throw new UserFacingError(MESSAGES.pickCategory);
     const draft: Draft = {
       name: interaction.fields.getTextInputValue(FIELD.name).trim(),
       categoryId,
@@ -157,7 +158,7 @@ export const suggestHandlers: Handlers = {
     if (id?.kind !== "dup-join") throw new UserFacingError(EXPIRED_MENU);
     await interaction.deferUpdate();
     const game = await ctx.repos.games.get(id.gameId);
-    if (!game) throw new UserFacingError("That game no longer exists.");
+    if (!game) throw new UserFacingError(MESSAGES.gameGone);
     const result = await join(ctx, interaction.user.id, game.id, "suggestion");
     draftStore.delete(interaction.user.id);
     const name = text(game.name);
@@ -203,7 +204,7 @@ export const suggestHandlers: Handlers = {
     const id = suggestionId(interaction.customId, "review-edit-modal");
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
-    if (!Number.isInteger(categoryId)) throw new UserFacingError("Pick a category.");
+    if (!Number.isInteger(categoryId)) throw new UserFacingError(MESSAGES.pickCategory);
     const updated = await editSuggestion(
       ctx,
       id,

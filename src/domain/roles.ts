@@ -1,4 +1,4 @@
-import { SELECT_OPTION_LIMIT, TEXT_LIMIT } from "../constants.ts";
+import { GAME_NAME_MAX, SELECT_OPTION_LIMIT } from "../constants.ts";
 import { UserFacingError } from "../errors.ts";
 import { normalize } from "../normalize.ts";
 
@@ -58,8 +58,8 @@ export function validateGameName(raw: string): string {
   if (normalize(name) === "") {
     throw new UserFacingError("Game names need at least one letter or number.");
   }
-  if (name.length > TEXT_LIMIT) {
-    throw new UserFacingError(`Game names can be at most ${TEXT_LIMIT} characters.`);
+  if (name.length > GAME_NAME_MAX) {
+    throw new UserFacingError(`Game names can be at most ${GAME_NAME_MAX} characters.`);
   }
   return name;
 }

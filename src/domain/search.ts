@@ -1,3 +1,4 @@
+import { AUTOCOMPLETE_CHOICE_LIMIT } from "../constants.ts";
 import Fuse from "fuse.js";
 import { normalize } from "../normalize.ts";
 
@@ -40,7 +41,7 @@ function search<T extends Searchable>(
 export function rankGames<T extends Searchable>(
   query: string,
   items: readonly T[],
-  limit = 25,
+  limit = AUTOCOMPLETE_CHOICE_LIMIT,
 ): T[] {
   if (query.trim() === "") return items.slice(0, limit);
   const q = normalize(query);

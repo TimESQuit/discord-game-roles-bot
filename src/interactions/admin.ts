@@ -4,7 +4,13 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
-import { MOVE_DIRECTIONS, type MoveDirection } from "../constants.ts";
+import {
+  AUTOCOMPLETE_CHOICE_LIMIT,
+  MESSAGES,
+  MOVE_DIRECTIONS,
+  TEXT_LIMIT,
+  type MoveDirection,
+} from "../constants.ts";
 import type { Category, Game } from "../db/index.ts";
 import { validateCategoryName, diffGameEdit, text, parseId } from "../domain/index.ts";
 import { normalize } from "../normalize.ts";
@@ -47,7 +53,7 @@ import {
   type Handlers,
 } from "./router.ts";
 
-const EXPIRED_FORM = "That form has expired. Open it again.";
+const EXPIRED_FORM = MESSAGES.formExpired;
 const BAD_CATEGORY = "Pick a category from the list.";
 
 export const parseCategoryId = (raw: string | undefined): number =>
@@ -55,7 +61,7 @@ export const parseCategoryId = (raw: string | undefined): number =>
 
 async function requireCategory(ctx: AppContext, id: number): Promise<Category> {
   const category = await ctx.repos.categories.get(id);
-  if (!category) throw new UserFacingError("That category doesn't exist.");
+  if (!category) throw new UserFacingError(MESSAGES.categoryGone);
   return category;
 }
 
@@ -74,7 +80,7 @@ async function renameCategory(
 ): Promise<string> {
   const category = await requireCategory(ctx, categoryId);
   const name = validateCategoryName(rawName, await ctx.repos.categories.list(), categoryId);
-  if (name === category.name) return "Nothing changed.";
+  if (name === category.name) return MESSAGES.nothingChanged;
   await ctx.repos.categories.rename(categoryId, name);
   await ctx.audit.log({
     kind: "category-changed",
@@ -93,7 +99,7 @@ async function moveCategory(
   const categories = await ctx.repos.categories.list();
   const index = categories.findIndex((c) => c.id === categoryId);
   const category = categories[index];
-  if (!category) throw new UserFacingError("That category doesn't exist.");
+  if (!category) throw new UserFacingError(MESSAGES.categoryGone);
   if (dir === "up" ? index === 0 : index === categories.length - 1) {
     throw new UserFacingError(
       `${text(category.name)} is already ${dir === "up" ? "first" : "last"}.`,
@@ -114,7 +120,7 @@ async function saveEdit(
   patch: ReturnType<typeof diffGameEdit>,
   actorId: string,
 ): Promise<string> {
-  if (Object.keys(patch).length === 0) return "Nothing changed.";
+  if (Object.keys(patch).length === 0) return MESSAGES.nothingChanged;
   const after = await editGame(ctx, game.id, patch, actorId);
   return `Saved changes to ${text(after.name)}.`;
 }
@@ -260,7 +266,7 @@ export const adminHandlers: Handlers = {
     if (id?.kind !== "game-edit-modal") throw new UserFacingError(EXPIRED_FORM);
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const game = await ctx.repos.games.get(id.gameId);
-    if (!game) throw new UserFacingError("That game no longer exists.");
+    if (!game) throw new UserFacingError(MESSAGES.gameGone);
     // Aliases are left out of the modal when they are too long to prefill.
     const patch = diffGameEdit(game, {
       name: interaction.fields.getTextInputValue(FIELD.name),
@@ -392,7 +398,7 @@ export const adminHandlers: Handlers = {
     if (focused.name === "game") {
       const matches = await autocompleteGames(ctx, interaction.user.id, focused.value, "any");
       await interaction.respond(
-        matches.map((g) => ({ name: truncate(g.name, 100), value: String(g.id) })),
+        matches.map((g) => ({ name: truncate(g.name, TEXT_LIMIT), value: String(g.id) })),
       );
     } else if (focused.name === "category") {
       const query = normalize(focused.value);
@@ -404,9 +410,9 @@ export const adminHandlers: Handlers = {
       const matches = categories
         .filter((c) => rank(c) < 2)
         .toSorted((a, b) => rank(a) - rank(b) || a.position - b.position)
-        .slice(0, 25);
+        .slice(0, AUTOCOMPLETE_CHOICE_LIMIT);
       await interaction.respond(
-        matches.map((c) => ({ name: truncate(c.name, 100), value: String(c.id) })),
+        matches.map((c) => ({ name: truncate(c.name, TEXT_LIMIT), value: String(c.id) })),
       );
     } else {
       await interaction.respond([]);

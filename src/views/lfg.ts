@@ -1,3 +1,4 @@
+import { LFG_WHEN_MAX, NOTE_MAX, PEOPLE_SHOWN_MAX, TEXT_DISPLAY_LIMIT } from "../constants.ts";
 import {
   ButtonStyle,
   ComponentType,
@@ -18,12 +19,10 @@ import { truncate } from "./limits.ts";
 /** Field IDs inside the LFG modal (read back with `interaction.fields`). */
 export const LFG_FIELD = { when: "when", note: "note" } as const;
 
-const TEXT_DISPLAY_MAX = 4000;
-const LIST_SHOWN = 50;
-
 const people = (label: string, ids: readonly string[]): string => {
-  const shown = ids.slice(0, LIST_SHOWN).map((id) => `<@${id}>`);
-  if (ids.length > LIST_SHOWN) shown.push(`…and ${String(ids.length - LIST_SHOWN)} more`);
+  const shown = ids.slice(0, PEOPLE_SHOWN_MAX).map((id) => `<@${id}>`);
+  if (ids.length > PEOPLE_SHOWN_MAX)
+    shown.push(`…and ${String(ids.length - PEOPLE_SHOWN_MAX)} more`);
   return `${label} (${String(ids.length)}):${shown.length === 0 ? "" : ` ${shown.join(", ")}`}`;
 };
 
@@ -59,13 +58,13 @@ export function lfgPostView(post: LfgPost, game: Game | null): Payload {
   const inner: APIContainerComponent = {
     type: ComponentType.Container,
     components: [
-      { type: ComponentType.TextDisplay, content: truncate(head.join("\n"), TEXT_DISPLAY_MAX) },
+      { type: ComponentType.TextDisplay, content: truncate(head.join("\n"), TEXT_DISPLAY_LIMIT) },
       { type: ComponentType.Separator },
       {
         type: ComponentType.TextDisplay,
         content: truncate(
           `${people("In", post.in)}\n${people("Maybe", post.maybe)}`,
-          TEXT_DISPLAY_MAX,
+          TEXT_DISPLAY_LIMIT,
         ),
       },
       buttons,
@@ -89,7 +88,7 @@ export function lfgModal(gameId: number, target: LfgTarget): ModalBuilder {
           new TextInputBuilder()
             .setCustomId(LFG_FIELD.when)
             .setStyle(TextInputStyle.Short)
-            .setMaxLength(100)
+            .setMaxLength(LFG_WHEN_MAX)
             .setRequired(false)
             .setPlaceholder("tonight 9pm"),
         ),
@@ -99,7 +98,7 @@ export function lfgModal(gameId: number, target: LfgTarget): ModalBuilder {
           new TextInputBuilder()
             .setCustomId(LFG_FIELD.note)
             .setStyle(TextInputStyle.Paragraph)
-            .setMaxLength(300)
+            .setMaxLength(NOTE_MAX)
             .setRequired(false),
         ),
     );

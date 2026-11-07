@@ -1,3 +1,4 @@
+import { MESSAGES, TEXT_LIMIT } from "../constants.ts";
 import { DiscordAPIError } from "discord.js";
 import type { Game } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
@@ -37,16 +38,16 @@ async function postHere(
 
 /** Strictly parses a picked game ID and checks the game still exists (local read only). */
 export async function resolvePickedGame(ctx: AppContext, raw: string | undefined): Promise<Game> {
-  const id = parsePositiveId(raw, "Pick a game from the list.");
+  const id = parsePositiveId(raw, MESSAGES.pickGame);
   const game = await ctx.repos.games.get(id);
-  if (!game) throw new UserFacingError("That game no longer exists.");
+  if (!game) throw new UserFacingError(MESSAGES.gameGone);
   return game;
 }
 
 export const lfgHandlers: Handlers = {
   lfg: chatInput(async (ctx, interaction) => {
     const raw = interaction.options.getString("game", true).trim();
-    if (!/^\d{1,15}$/.test(raw)) throw new UserFacingError("Pick a game from the list.");
+    if (!/^\d{1,15}$/.test(raw)) throw new UserFacingError(MESSAGES.pickGame);
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     await postHere(ctx, {
       authorId: interaction.user.id,
@@ -66,7 +67,7 @@ export const lfgHandlers: Handlers = {
       "any",
     );
     await interaction.respond(
-      matches.map((game) => ({ name: truncate(game.name, 100), value: String(game.id) })),
+      matches.map((game) => ({ name: truncate(game.name, TEXT_LIMIT), value: String(game.id) })),
     );
   }),
 
@@ -85,13 +86,12 @@ export const lfgHandlers: Handlers = {
 
   "lfg-modal": modal(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
-    if (id?.kind !== "lfg-modal")
-      throw new UserFacingError("That form has expired. Open it again.");
+    if (id?.kind !== "lfg-modal") throw new UserFacingError(MESSAGES.formExpired);
     await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     let channelId: string;
     if (id.target === "news") {
       const news = await ctx.repos.setup.get("newsChannelId");
-      if (!news) throw new UserFacingError("Run /gameadmin setup first.");
+      if (!news) throw new UserFacingError(MESSAGES.setupFirst);
       channelId = news;
     } else {
       if (!interaction.channelId) throw new UserFacingError("I can't post in this channel.");

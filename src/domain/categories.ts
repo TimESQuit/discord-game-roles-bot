@@ -1,7 +1,6 @@
+import { CATEGORY_NAME_MAX } from "../constants.ts";
 import { UserFacingError } from "../errors.ts";
 import { text } from "./text.ts";
-
-export const CATEGORY_NAME_MAX = 50;
 
 /** Trims the name and checks length and uniqueness (ignoring case). `selfId` is the category being renamed. */
 export function validateCategoryName(

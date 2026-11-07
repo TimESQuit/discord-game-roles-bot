@@ -12,7 +12,16 @@ import {
   type APIComponentInContainer,
   type APIContainerComponent,
 } from "discord.js";
-import { TEXT_LIMIT } from "../constants.ts";
+import {
+  ALIASES_MAX,
+  BUTTONS_PER_ROW,
+  GAME_NAME_MAX,
+  NOTE_MAX,
+  REASON_MAX,
+  SELECT_OPTION_LIMIT,
+  TEXT_DISPLAY_LIMIT,
+  TEXT_LIMIT,
+} from "../constants.ts";
 import type { Category, Game, Suggestion } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 import { encodeId, text, type CustomId } from "../domain/index.ts";
@@ -21,10 +30,8 @@ import { truncate } from "./limits.ts";
 const V2 = [MessageFlags.IsComponentsV2] as const;
 const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;
-const TEXT_DISPLAY_MAX = 4000;
 const DECIDED_SHOWN = 10;
 const PENDING_SHOWN = 10;
-const JOIN_BUTTONS_MAX = 5;
 
 /** Field IDs inside the modals (read back with `interaction.fields`). */
 export const FIELD = {
@@ -39,7 +46,7 @@ type Row = APIActionRowComponent<APIButtonComponent>;
 
 const display = (content: string): APIComponentInContainer => ({
   type: ComponentType.TextDisplay,
-  content: truncate(content, TEXT_DISPLAY_MAX),
+  content: truncate(content, TEXT_DISPLAY_LIMIT),
 });
 
 const button = (
@@ -128,7 +135,7 @@ export function duplicatePromptView(matches: {
   games: readonly Game[];
   pending: readonly { id: number; name: string }[];
 }): Payload {
-  const games = matches.games.slice(0, JOIN_BUTTONS_MAX);
+  const games = matches.games.slice(0, BUTTONS_PER_ROW);
   const lines = ["### Did you mean…?"];
   if (games.length > 0) lines.push("These games already exist:");
   for (const g of games) lines.push(`- ${text(g.name)}`);
@@ -240,11 +247,11 @@ export function suggestModal(categories: readonly Category[]): ModalBuilder {
     .setCustomId(encodeId({ kind: "suggest-modal" }))
     .setTitle("Suggest a game")
     .addLabelComponents(
-      inputLabel("Game name", textInput(FIELD.name, TextInputStyle.Short, 100, true)),
-      categoryLabel(categories.slice(0, 25)),
+      inputLabel("Game name", textInput(FIELD.name, TextInputStyle.Short, GAME_NAME_MAX, true)),
+      categoryLabel(categories.slice(0, SELECT_OPTION_LIMIT)),
       inputLabel(
         "Note for the admins (optional)",
-        textInput(FIELD.note, TextInputStyle.Paragraph, 300, false),
+        textInput(FIELD.note, TextInputStyle.Paragraph, NOTE_MAX, false),
       ),
     );
 }
@@ -254,11 +261,14 @@ export function reviewEditModal(s: Suggestion, categories: readonly Category[]):
     .setCustomId(encodeId({ kind: "review-edit-modal", suggestionId: s.id }))
     .setTitle("Edit suggestion")
     .addLabelComponents(
-      inputLabel("Game name", textInput(FIELD.name, TextInputStyle.Short, 100, true, s.name)),
-      categoryLabel(categories.slice(0, 25), s.categoryId),
+      inputLabel(
+        "Game name",
+        textInput(FIELD.name, TextInputStyle.Short, GAME_NAME_MAX, true, s.name),
+      ),
+      categoryLabel(categories.slice(0, SELECT_OPTION_LIMIT), s.categoryId),
       inputLabel(
         "Aliases (comma separated)",
-        textInput(FIELD.aliases, TextInputStyle.Short, 300, false, s.aliases ?? undefined),
+        textInput(FIELD.aliases, TextInputStyle.Short, ALIASES_MAX, false, s.aliases ?? undefined),
       ),
     );
 }
@@ -268,6 +278,6 @@ export function rejectModal(s: Suggestion): ModalBuilder {
     .setCustomId(encodeId({ kind: "review-reject-modal", suggestionId: s.id }))
     .setTitle("Reject suggestion")
     .addLabelComponents(
-      inputLabel("Reason", textInput(FIELD.reason, TextInputStyle.Paragraph, 300, true)),
+      inputLabel("Reason", textInput(FIELD.reason, TextInputStyle.Paragraph, REASON_MAX, true)),
     );
 }

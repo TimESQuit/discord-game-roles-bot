@@ -1,4 +1,4 @@
-import { MAX_PENDING_SUGGESTIONS } from "../constants.ts";
+import { MAX_PENDING_SUGGESTIONS, MESSAGES } from "../constants.ts";
 import type { Game, Suggestion } from "../db/index.ts";
 import { validateGameName, findCloseMatches } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
@@ -9,13 +9,13 @@ import { join } from "./membership.ts";
 
 async function requireSuggestion(ctx: AppContext, id: number): Promise<Suggestion> {
   const s = await ctx.repos.suggestions.get(id);
-  if (!s) throw new UserFacingError("That suggestion no longer exists.");
+  if (!s) throw new UserFacingError(MESSAGES.suggestionGone);
   return s;
 }
 
 async function requireCategory(ctx: AppContext, categoryId: number) {
   const category = await ctx.repos.categories.get(categoryId);
-  if (!category) throw new UserFacingError("That category doesn't exist.");
+  if (!category) throw new UserFacingError(MESSAGES.categoryGone);
   return category;
 }
 
@@ -74,7 +74,7 @@ export async function submitSuggestion(
   const name = validateGameName(input.name);
   const category = await requireCategory(ctx, input.categoryId);
   const adminChannelId = await ctx.repos.setup.get("adminChannelId");
-  if (adminChannelId === undefined) throw new UserFacingError("Run /gameadmin setup first.");
+  if (adminChannelId === undefined) throw new UserFacingError(MESSAGES.setupFirst);
   if ((await ctx.repos.suggestions.countPending(input.userId)) >= MAX_PENDING_SUGGESTIONS) {
     throw new UserFacingError(
       `You already have ${MAX_PENDING_SUGGESTIONS} pending suggestions. Withdraw one or wait for an admin to review them.`,

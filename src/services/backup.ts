@@ -1,7 +1,7 @@
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { BACKUP_RETENTION_DAYS } from "../constants.ts";
+import { BACKUP_RETENTION_DAYS, MESSAGES } from "../constants.ts";
 import type { Db } from "../db/index.ts";
 import { msUntilNextRun, selectExpiredBackups } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
@@ -24,7 +24,7 @@ export async function runBackup(
   actorId: string | null,
 ): Promise<{ file: string; pruned: number }> {
   const channelId = await ctx.repos.setup.get("backupsChannelId");
-  if (channelId === undefined) throw new UserFacingError("Run /gameadmin setup first.");
+  if (channelId === undefined) throw new UserFacingError(MESSAGES.setupFirst);
 
   const now = ctx.now();
   const name = backupFileName(now);

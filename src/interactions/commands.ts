@@ -10,7 +10,13 @@ import {
   type SlashCommandSubcommandBuilder,
 } from "discord.js";
 import type { Config } from "../config.ts";
-import { MOVE_DIRECTIONS } from "../constants.ts";
+import {
+  ALIASES_MAX,
+  GAME_NAME_MAX,
+  LFG_WHEN_MAX,
+  MOVE_DIRECTIONS,
+  NOTE_MAX,
+} from "../constants.ts";
 
 type Buildable = { toJSON(): RESTPostAPIApplicationGuildCommandsJSONBody };
 
@@ -22,10 +28,10 @@ const gameOption =
     o.setName("game").setDescription(description).setRequired(true).setAutocomplete(true);
 
 const nameOption = (o: SlashCommandStringOption) =>
-  o.setName("name").setDescription("The name").setRequired(true).setMaxLength(100);
+  o.setName("name").setDescription("The name").setRequired(true).setMaxLength(GAME_NAME_MAX);
 
 const aliasOption = (o: SlashCommandStringOption) =>
-  o.setName("aliases").setDescription("Other names, separated by commas").setMaxLength(300);
+  o.setName("aliases").setDescription("Other names, separated by commas").setMaxLength(ALIASES_MAX);
 
 function games(): Buildable {
   return new SlashCommandBuilder()
@@ -54,9 +60,11 @@ function lfg(): Buildable {
     .setContexts(GUILD_ONLY)
     .addStringOption(gameOption())
     .addStringOption((o) =>
-      o.setName("when").setDescription("When you want to play").setMaxLength(100),
+      o.setName("when").setDescription("When you want to play").setMaxLength(LFG_WHEN_MAX),
     )
-    .addStringOption((o) => o.setName("note").setDescription("A short note").setMaxLength(300));
+    .addStringOption((o) =>
+      o.setName("note").setDescription("A short note").setMaxLength(NOTE_MAX),
+    );
 }
 
 const categoryOption = (required: boolean) => (o: SlashCommandStringOption) =>
@@ -88,7 +96,9 @@ function gameadmin(): Buildable {
         "Edit a game",
       )(s)
         .addStringOption(gameOption())
-        .addStringOption((o) => o.setName("name").setDescription("The new name").setMaxLength(100))
+        .addStringOption((o) =>
+          o.setName("name").setDescription("The new name").setMaxLength(GAME_NAME_MAX),
+        )
         .addStringOption(categoryOption(false))
         .addStringOption(aliasOption),
     )

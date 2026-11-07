@@ -10,7 +10,14 @@ import {
   type APIStringSelectComponent,
   type APITextDisplayComponent,
 } from "discord.js";
-import { COMPONENT_LIMIT, SELECT_OPTION_LIMIT, TEXT_LIMIT } from "../constants.ts";
+import {
+  COMPONENT_LIMIT,
+  MESSAGES,
+  PEOPLE_SHOWN_MAX,
+  SELECT_OPTION_LIMIT,
+  TEXT_DISPLAY_LIMIT,
+  TEXT_LIMIT,
+} from "../constants.ts";
 import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 import {
@@ -27,8 +34,6 @@ import { truncate } from "./limits.ts";
 const V2 = [MessageFlags.IsComponentsV2] as const;
 const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;
-const TEXT_DISPLAY_MAX = 4000;
-const PEOPLE_CAP = 50;
 
 type Row =
   | APIActionRowComponent<APIButtonComponent>
@@ -261,7 +266,7 @@ export function addGamesView(
   const pages = addPages(categories, games);
   const current = Math.min(Math.max(0, page), pages.length - 1);
   const parts: (APIComponentInContainer | Row)[] = [];
-  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_MAX)));
+  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_LIMIT)));
   parts.push(
     display(
       `### Add games\nTick the games you play and untick the ones you don't.${pages.length > 1 ? ` (Page ${String(current + 1)} of ${String(pages.length)})` : ""}`,
@@ -304,10 +309,10 @@ export function addGamesView(
 
 export function removeGamesView(ownedGames: readonly Game[], notice?: string): Payload {
   const parts: (APIComponentInContainer | Row)[] = [];
-  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_MAX)));
+  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_LIMIT)));
   const chunks = ownedChunks(ownedGames);
   if (chunks.length === 0) {
-    parts.push(display("You haven't picked any games yet."));
+    parts.push(display(MESSAGES.noGamesPicked));
   } else {
     parts.push(display("### Remove games\nTick the games you want to leave."));
     // container + notice + header leave room for 18 dropdowns of two components each
@@ -381,7 +386,7 @@ function listBody(lines: readonly string[], empty: string): string {
   const out: string[] = [];
   let length = 0;
   for (const [index, line] of lines.entries()) {
-    if (length + line.length + 1 > TEXT_DISPLAY_MAX - 300) {
+    if (length + line.length + 1 > TEXT_DISPLAY_LIMIT - 300) {
       out.push(`…and ${String(lines.length - index)} more`);
       break;
     }
@@ -393,12 +398,12 @@ function listBody(lines: readonly string[], empty: string): string {
 
 export function myGamesView(games: readonly Game[], notice?: string): Payload {
   const parts: (APIComponentInContainer | Row)[] = [];
-  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_MAX)));
+  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_LIMIT)));
   parts.push(
     display(
       `### My games\n${listBody(
         games.toSorted(byName).map((g) => `- ${text(g.name)}`),
-        "You haven't picked any games yet.",
+        MESSAGES.noGamesPicked,
       )}`,
     ),
     buttonRow(
@@ -420,7 +425,7 @@ export function gameListView(title: string, games: readonly Game[], empty: strin
 
 /** A list of people as mentions (they do not ping), capped at 50. */
 export function peopleListView(title: string, userIds: readonly string[], empty: string): Payload {
-  const shown = userIds.slice(0, PEOPLE_CAP).map((id) => `<@${id}>`);
+  const shown = userIds.slice(0, PEOPLE_SHOWN_MAX).map((id) => `<@${id}>`);
   const more = userIds.length - shown.length;
   const body =
     userIds.length === 0

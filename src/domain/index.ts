@@ -1,4 +1,4 @@
-export { CATEGORY_NAME_MAX, validateCategoryName } from "./categories.ts";
+export { validateCategoryName } from "./categories.ts";
 export { ADMIN_KINDS, ADMIN_PURPOSES, encodeId, isAdminId, parseId } from "./custom-ids.ts";
 export type { AdminAction, CustomId, LfgTarget, MenuAction, PickPurpose } from "./custom-ids.ts";
 export { diffGameEdit } from "./game-edit.ts";
