@@ -1,3 +1,4 @@
+import { ComponentType } from "discord.js";
 import { beforeEach, describe, expect, test } from "vitest";
 import type { Suggestion } from "../../src/db/types.ts";
 import {
@@ -26,6 +27,18 @@ beforeEach(async () => {
 const suggest = (name = "Valheim", userId = U1): Promise<Suggestion> =>
   submitSuggestion(ctx, { userId, name, categoryId: chill.id, note: null });
 
+/** The text of a layout-V2 payload: every text display, joined. */
+function textOf(payload: { components?: unknown }): string {
+  const found: string[] = [];
+  const visit = (node: unknown): void => {
+    const n = node as { type?: number; content?: string; components?: unknown[] };
+    if (n.type === ComponentType.TextDisplay) found.push(String(n.content));
+    for (const child of n.components ?? []) visit(child);
+  };
+  for (const top of (payload.components ?? []) as unknown[]) visit(top);
+  return found.join("\n");
+}
+
 async function adminChannelId(): Promise<string> {
   return (await ctx.repos.setup.get("adminChannelId"))!;
 }
@@ -41,7 +54,7 @@ describe("submit", () => {
     expect((await ctx.repos.suggestions.get(s.id))?.reviewMessageId).toBeTruthy();
     expect(ctx.logLines).toContain(`<@${U1}> suggested **Valheim**`);
     const payload = await card(s);
-    expect(payload.content).toContain("Valheim");
+    expect(textOf(payload)).toContain("Valheim");
     expect(JSON.stringify(payload.components)).toContain(`gr:review-approve:${s.id}`);
   });
 
@@ -126,15 +139,15 @@ describe("approve", () => {
     expect(ctx.gateway.memberRoleIds(U1).has(game.roleId)).toBe(true);
     const news = sentTo(ctx, "newsChannelId");
     expect(news).toHaveLength(1);
-    expect(news[0]?.content).toBe(`New game: **Valheim** — <@&${game.roleId}>`);
+    expect(textOf(news[0]!)).toBe(`New game: **Valheim** — <@&${game.roleId}>`);
     expect(await ctx.repos.suggestions.get(s.id)).toMatchObject({
       status: "approved",
       reviewerId: A1,
       gameId: game.id,
     });
     const payload = await card(s);
-    expect(payload.content).toContain(`Approved by <@${A1}>`);
-    expect(payload.components ?? []).toHaveLength(0);
+    expect(textOf(payload)).toContain(`Approved by <@${A1}>`);
+    expect(JSON.stringify(payload.components)).not.toContain("gr:review");
     expect(ctx.logLines).toContain(`<@${A1}> approved suggestion **Valheim**`);
     expect(ctx.logLines).toContain(`<@${A1}> added game **Valheim**`);
   });
@@ -192,12 +205,14 @@ describe("approve", () => {
 
   test("a failed announcement does not undo the approval and tells the admins", async () => {
     const s = await suggest();
-    // The card is already posted; the next send is the announcement.
+    // The card is already posted. The next send is the "added game" log line (the audit
+    // swallows its failure); the one after is the announcement.
+    ctx.gateway.failNext("send", new Error("no log"));
     ctx.gateway.failNext("send", new Error("no news"));
     await approveSuggestion(ctx, s.id, A1);
     expect((await ctx.repos.suggestions.get(s.id))?.status).toBe("approved");
     expect(await ctx.repos.games.list()).toHaveLength(1);
-    expect(ctx.adminNotices.some((n) => n.includes("Valheim"))).toBe(true);
+    expect(ctx.adminNotices.some((n) => n.includes("Could not announce Valheim"))).toBe(true);
   });
 });
 
@@ -216,8 +231,8 @@ describe("edit", () => {
       aliases: "vh, valhe",
     });
     const payload = await card(s);
-    expect(payload.content).toContain("Valheim Deluxe");
-    expect(payload.content).toContain("vh, valhe");
+    expect(textOf(payload)).toContain("Valheim Deluxe");
+    expect(textOf(payload)).toContain("vh, valhe");
     expect(ctx.logLines).toContain(`<@${A1}> edited suggestion **Valheim Deluxe**`);
     const game = await approveSuggestion(ctx, s.id, A1);
     expect(game).toMatchObject({
@@ -249,7 +264,7 @@ describe("reject and withdraw", () => {
       rejectionReason: "too niche",
       reviewerId: A1,
     });
-    expect((await card(s)).content).toContain(`Rejected by <@${A1}>: too niche`);
+    expect(textOf(await card(s))).toContain(`Rejected by <@${A1}>: too niche`);
     expect(ctx.logLines).toContain(`<@${A1}> rejected suggestion **Valheim**: too niche`);
   });
 
@@ -271,8 +286,8 @@ describe("reject and withdraw", () => {
     const s = await suggest();
     await withdrawSuggestion(ctx, s.id, U1);
     const payload = await card(s);
-    expect(payload.content).toContain(`Withdrawn by <@${U1}>`);
-    expect(payload.components ?? []).toHaveLength(0);
+    expect(textOf(payload)).toContain(`Withdrawn by <@${U1}>`);
+    expect(JSON.stringify(payload.components)).not.toContain("gr:review");
     expect(ctx.logLines).toContain(`<@${U1}> withdrew suggestion **Valheim**`);
   });
 });

@@ -40,14 +40,14 @@ import { parseId } from "./custom-ids.ts";
 import { memberRoleIds, type Handlers } from "./router.ts";
 
 /** Edits keep the layout flag and never resend the ephemeral flag. */
-const forEdit = (view: Payload): InteractionEditReplyOptions =>
+export const forEdit = (view: Payload): InteractionEditReplyOptions =>
   ({
     components: view.components,
     flags: MessageFlags.IsComponentsV2,
     allowedMentions: view.allowedMentions,
   }) as InteractionEditReplyOptions;
 
-const forReply = (view: Payload): InteractionReplyOptions =>
+export const forReply = (view: Payload): InteractionReplyOptions =>
   ({
     components: view.components,
     flags: view.flags,
