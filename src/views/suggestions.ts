@@ -1,11 +1,7 @@
-import { ButtonStyle, ComponentType, escapeMarkdown } from "discord.js";
+import { ButtonStyle, ComponentType } from "discord.js";
 import type { Game, Suggestion } from "../db/types.ts";
 import type { Payload } from "../discord/gateway.ts";
-
-/** Escapes Markdown and breaks up "@" so user-typed text can neither format nor ping. */
-function text(value: string): string {
-  return escapeMarkdown(value).replaceAll("@", "@​");
-}
+import { text } from "./text.ts";
 
 function statusLine(s: Suggestion): string {
   switch (s.status) {

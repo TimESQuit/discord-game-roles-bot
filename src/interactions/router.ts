@@ -233,7 +233,7 @@ function routeInput(
   return null;
 }
 
-function memberRoleIds(interaction: Interaction): ReadonlySet<string> {
+export function memberRoleIds(interaction: Interaction): ReadonlySet<string> {
   const roles = interaction.member?.roles;
   if (roles === undefined) return new Set();
   return new Set(Array.isArray(roles) ? roles : roles.cache.keys());
