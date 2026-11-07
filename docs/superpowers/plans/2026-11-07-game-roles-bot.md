@@ -45,7 +45,7 @@ Three things Discord forces:
 - Every member and admin action writes exactly one `#bot-log` line (see `AuditEvent`, Task 8).
 - Admin rights are checked when the action is handled, on every admin custom ID, modal and `/gameadmin` command. Showing the buttons is not the check.
 - The bot stores only Discord user IDs, never names. Tests use made-up IDs such as `"100000000000000001"`. No real server, channel, role or member data goes in the repo.
-- Acknowledge every interaction within 3 s: call `deferReply`/`deferUpdate` before any Discord API call. Autocomplete answers synchronously from SQLite and the member cache.
+- Acknowledge every interaction within 3 s: call `deferReply`/`deferUpdate` before any Discord API call. Autocomplete awaits only local SQLite reads and the member cache, never a Discord API call, so it stays well inside 3 s.
 - The client default is `allowedMentions: { parse: [] }`. Only the LFG post opts in, and only for its own game role.
 - Discord limits: 25 options per select, 25 autocomplete choices, 40 components per message (layout V2), 100 characters per label, option, role name and custom ID.
 - Fixed copy: channels `game-news`, `bot-admin`, `bot-log`, `bot-backups`; category `Bot admin`; template role `Game role template`; starting categories `Competitive`, `Chill`, `IRL activities`; pending-suggestion limit 10; backup retention 30 days.
