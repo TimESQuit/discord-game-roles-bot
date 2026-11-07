@@ -15,9 +15,9 @@ let ctx: TestContext;
 let chill: { id: number };
 let comp: { id: number };
 
-beforeEach(() => {
-  ctx = makeContext();
-  const cats = ctx.repos.categories.list();
+beforeEach(async () => {
+  ctx = await makeContext();
+  const cats = await ctx.repos.categories.list();
   comp = cats[0]!;
   chill = cats.find((c) => c.name === "Chill")!;
 });
@@ -34,7 +34,7 @@ describe("addGame", () => {
       color: TEMPLATE_COLOR,
       mentionable: true,
     });
-    expect(ctx.repos.games.ownsRole(game.roleId)).toBe(true);
+    expect(await ctx.repos.games.ownsRole(game.roleId)).toBe(true);
     expect(game.aliases).toEqual(["vh"]);
     expect(ctx.logLines).toContain(`<@${A1}> added game **Valheim**`);
     expect(ctx.gateway.role(game.roleId)!.position).toBeLessThan(templatePosition + 1);
@@ -72,7 +72,7 @@ describe("addGame", () => {
   });
 
   test("no template recorded → 'Run /gameadmin setup first.'", async () => {
-    const bare = makeContext({ setup: false });
+    const bare = await makeContext({ setup: false });
     await expect(
       addGame(bare, { name: "Valheim", categoryId: 1, aliases: "", actorId: A1 }),
     ).rejects.toThrow("Run /gameadmin setup first.");
@@ -88,7 +88,7 @@ describe("addGame", () => {
       color: 0,
       mentionable: false,
     });
-    ctx.repos.games.add({
+    await ctx.repos.games.add({
       name: "Zed",
       categoryId: chill.id,
       roleId: "100000000000000901",
@@ -97,8 +97,8 @@ describe("addGame", () => {
       addedAt: "2026-01-01T00:00:00Z",
     });
     await expect(add("Alpha")).rejects.toThrow("boom");
-    expect(ctx.repos.games.byNormalizedName("Alpha")).toBeUndefined();
-    expect(ctx.repos.games.list()).toHaveLength(1);
+    expect(await ctx.repos.games.byNormalizedName("Alpha")).toBeUndefined();
+    expect(await ctx.repos.games.list()).toHaveLength(1);
     const created = calls("createRole").length;
     expect(created).toBe(1);
     expect(calls("deleteRole")).toHaveLength(1);
@@ -166,7 +166,7 @@ describe("removeGame", () => {
     expect(deleted).toEqual([game.roleId]);
     expect(hadMembers).toBe(1);
     expect(ctx.gateway.role(other.id)).toBeDefined();
-    expect(ctx.repos.games.get(valheim.id)).toBeUndefined();
+    expect(await ctx.repos.games.get(valheim.id)).toBeUndefined();
     expect(ctx.logLines).toContain(`<@${A1}> removed game **Valheim**`);
   });
 
@@ -174,7 +174,7 @@ describe("removeGame", () => {
     const valheim = await add("Valheim");
     ctx.gateway.removeRoleBehindBotsBack(valheim.roleId);
     await removeGame(ctx, valheim.id, A1);
-    expect(ctx.repos.games.get(valheim.id)).toBeUndefined();
+    expect(await ctx.repos.games.get(valheim.id)).toBeUndefined();
     expect(calls("deleteRole")).toHaveLength(0);
   });
 

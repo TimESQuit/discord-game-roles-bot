@@ -1,7 +1,7 @@
 import { STARTING_CATEGORIES } from "../../src/constants.ts";
 import type { Config } from "../../src/config.ts";
-import { openDatabase } from "../../src/db/database.ts";
-import { createRepos } from "../../src/db/repos.ts";
+import { openDatabase, type Db } from "../../src/db/database.ts";
+import { createRepos } from "../../src/db/repos/index.ts";
 import type { SetupKey } from "../../src/db/types.ts";
 import type { Payload } from "../../src/discord/gateway.ts";
 import { createAudit } from "../../src/services/audit.ts";
@@ -27,17 +27,27 @@ const CHANNEL_KEYS = [
   "backupsChannelId",
 ] as const satisfies readonly SetupKey[];
 
+/** Synchronous read of a setup value, so the `logLines` and `adminNotices` getters stay synchronous. */
+function setupValue(db: Db, key: SetupKey): string | undefined {
+  const row = db.sqlite.prepare("SELECT value FROM setup WHERE key = ?").get(key) as
+    | { value: string }
+    | undefined;
+  return row?.value;
+}
+
 export type TestContext = AppContext & {
+  db: Db;
   gateway: FakeGateway;
   logLines: string[];
   adminNotices: string[];
 };
 
-export function makeContext(
+export async function makeContext(
   overrides: { setup?: boolean; now?: Date; config?: Partial<Config> } = {},
-): TestContext {
+): Promise<TestContext> {
   const gateway = new FakeGateway({});
-  const repos = createRepos(openDatabase(":memory:"));
+  const db = openDatabase(":memory:");
+  const repos = createRepos(db.kysely);
   const config: Config = {
     token: "test-token",
     applicationId: "100000000000000100",
@@ -52,7 +62,7 @@ export function makeContext(
 
   gateway.setBotTopPosition(templatePosition + 5);
   if (overrides.setup ?? true) {
-    for (const name of STARTING_CATEGORIES) repos.categories.add(name);
+    for (const name of STARTING_CATEGORIES) await repos.categories.add(name);
     gateway.addRole({
       id: TEMPLATE_ROLE_ID,
       name: "Game role template",
@@ -60,17 +70,17 @@ export function makeContext(
       color: TEMPLATE_COLOR,
       mentionable: true,
     });
-    repos.setup.set("templateRoleId", TEMPLATE_ROLE_ID);
+    await repos.setup.set("templateRoleId", TEMPLATE_ROLE_ID);
     let next = 100000000000000700n;
     for (const key of CHANNEL_KEYS) {
       const id = (next++).toString();
       gateway.addChannel(id);
-      repos.setup.set(key, id);
+      await repos.setup.set(key, id);
     }
   }
 
   const sentTo = (key: SetupKey): string[] => {
-    const channelId = repos.setup.get(key);
+    const channelId = setupValue(db, key);
     return (channelId ? (gateway.messages.get(channelId) ?? []) : []).map((m) =>
       String(m.payload.content ?? ""),
     );
@@ -78,6 +88,7 @@ export function makeContext(
 
   return {
     config,
+    db,
     repos,
     gateway,
     audit: createAudit(repos, gateway),
@@ -92,7 +103,7 @@ export function makeContext(
 }
 
 export function sentTo(ctx: TestContext, key: SetupKey): Payload[] {
-  const channelId = ctx.repos.setup.get(key);
+  const channelId = setupValue(ctx.db, key);
   return channelId ? (ctx.gateway.messages.get(channelId) ?? []).map((m) => m.payload) : [];
 }
 

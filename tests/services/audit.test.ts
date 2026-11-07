@@ -30,24 +30,24 @@ test("every event kind produces a line", () => {
 });
 
 test("log posts to #bot-log with no mentions allowed", async () => {
-  const ctx = makeContext();
+  const ctx = await makeContext();
   await ctx.audit.log({ kind: "joined", userId: U1, game: "Valheim", source: "panel" });
   const { channelId, payload } = lastSend(ctx);
-  expect(channelId).toBe(ctx.repos.setup.get("logChannelId"));
+  expect(channelId).toBe(await ctx.repos.setup.get("logChannelId"));
   expect(payload.allowedMentions).toEqual({ parse: [] });
   expect(ctx.logLines).toEqual([`<@${U1}> joined **Valheim** (panel)`]);
   expect(sentTo(ctx, "logChannelId")).toHaveLength(1);
 });
 
 test("admin notices go to #bot-admin", async () => {
-  const ctx = makeContext();
+  const ctx = await makeContext();
   await ctx.audit.notifyAdmins("hello");
   expect(ctx.adminNotices).toEqual(["hello"]);
   expect(ctx.logLines).toEqual([]);
 });
 
 test("log never throws when Discord fails", async () => {
-  const ctx = makeContext();
+  const ctx = await makeContext();
   const spy = vi.spyOn(console, "error").mockImplementation(() => {});
   ctx.gateway.failNext("send", new Error("boom"));
   await expect(
@@ -57,7 +57,7 @@ test("log never throws when Discord fails", async () => {
 });
 
 test("falls back to console.log when the channel isn't recorded", async () => {
-  const ctx = makeContext({ setup: false });
+  const ctx = await makeContext({ setup: false });
   const spy = vi.spyOn(console, "log").mockImplementation(() => {});
   await createAudit(ctx.repos, ctx.gateway).notifyAdmins("careful");
   expect(spy).toHaveBeenCalledWith("careful");

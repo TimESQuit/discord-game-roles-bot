@@ -6,8 +6,8 @@ import { normalize, parseAliases } from "../domain/search.ts";
 import type { AppContext } from "./context.ts";
 
 /** Returns the template role, or throws the exact fix for the admin. */
-export function assertCanManageRoles(ctx: AppContext): RoleSnapshot {
-  const templateId = ctx.repos.setup.get("templateRoleId");
+export async function assertCanManageRoles(ctx: AppContext): Promise<RoleSnapshot> {
+  const templateId = await ctx.repos.setup.get("templateRoleId");
   const template = templateId === undefined ? undefined : ctx.gateway.role(templateId);
   if (!template) throw new UserFacingError("Run /gameadmin setup first.");
   if (ctx.gateway.missingBotPermissions(["ManageRoles"]).length > 0) {
@@ -23,9 +23,14 @@ export function assertCanManageRoles(ctx: AppContext): RoleSnapshot {
   return template;
 }
 
-function checkCollisions(ctx: AppContext, name: string, aliases: string[], selfId?: number): void {
+async function checkCollisions(
+  ctx: AppContext,
+  name: string,
+  aliases: string[],
+  selfId?: number,
+): Promise<void> {
   const normalizedName = normalize(name);
-  const others = ctx.repos.games.list().filter((g) => g.id !== selfId);
+  const others = (await ctx.repos.games.list()).filter((g) => g.id !== selfId);
   for (const g of others) {
     if (normalize(g.name) === normalizedName) {
       throw new UserFacingError(`There's already a game called ${g.name}.`);
@@ -43,17 +48,16 @@ function checkCollisions(ctx: AppContext, name: string, aliases: string[], selfI
   }
 }
 
-function requireCategory(ctx: AppContext, categoryId: number) {
-  const category = ctx.repos.categories.get(categoryId);
+async function requireCategory(ctx: AppContext, categoryId: number) {
+  const category = await ctx.repos.categories.get(categoryId);
   if (!category) throw new UserFacingError("That category doesn't exist.");
   return category;
 }
 
 export async function sortGameRoles(ctx: AppContext, actorId = "the bot"): Promise<void> {
-  const templateId = ctx.repos.setup.get("templateRoleId");
+  const templateId = await ctx.repos.setup.get("templateRoleId");
   if (templateId === undefined) return;
-  const roleIds = ctx.repos.games
-    .list()
+  const roleIds = (await ctx.repos.games.list())
     .map((g) => g.roleId)
     .filter((id) => ctx.gateway.role(id) !== undefined);
   const changes = computeRoleOrder(ctx.gateway.roles(), templateId, roleIds);
@@ -66,11 +70,11 @@ export async function addGame(
   ctx: AppContext,
   input: { name: string; categoryId: number; aliases: string; actorId: string },
 ): Promise<Game> {
-  const template = assertCanManageRoles(ctx);
+  const template = await assertCanManageRoles(ctx);
   const name = validateGameName(input.name);
   const aliases = parseAliases(input.aliases);
-  requireCategory(ctx, input.categoryId);
-  checkCollisions(ctx, name, aliases);
+  await requireCategory(ctx, input.categoryId);
+  await checkCollisions(ctx, name, aliases);
 
   const role = await ctx.gateway.createRole(
     { name, color: template.color, mentionable: template.mentionable },
@@ -78,7 +82,7 @@ export async function addGame(
   );
   let game: Game | undefined;
   try {
-    game = ctx.repos.games.add({
+    game = await ctx.repos.games.add({
       name,
       categoryId: input.categoryId,
       roleId: role.id,
@@ -88,7 +92,7 @@ export async function addGame(
     });
     await sortGameRoles(ctx, input.actorId);
   } catch (error) {
-    if (game) ctx.repos.games.remove(game.id);
+    if (game) await ctx.repos.games.remove(game.id);
     try {
       await ctx.gateway.deleteRole(role.id, `Game add failed for ${input.actorId}`);
     } catch (cleanupError) {
@@ -106,7 +110,7 @@ export async function editGame(
   patch: { name?: string; categoryId?: number; aliases?: string },
   actorId: string,
 ): Promise<Game> {
-  const game = ctx.repos.games.get(gameId);
+  const game = await ctx.repos.games.get(gameId);
   if (!game) throw new UserFacingError("That game no longer exists.");
 
   const name = patch.name === undefined ? game.name : validateGameName(patch.name);
@@ -114,17 +118,17 @@ export async function editGame(
   const aliases = patch.aliases === undefined ? game.aliases : parseAliases(patch.aliases);
   const aliasesChanged = [...aliases].sort().join("\n") !== [...game.aliases].sort().join("\n");
   const category =
-    patch.categoryId === undefined ? undefined : requireCategory(ctx, patch.categoryId);
+    patch.categoryId === undefined ? undefined : await requireCategory(ctx, patch.categoryId);
   const categoryChanged = category !== undefined && category.id !== game.categoryId;
 
   if (!nameChanged && !aliasesChanged && !categoryChanged) return game;
-  if (nameChanged) assertCanManageRoles(ctx);
-  checkCollisions(ctx, name, aliases, game.id);
+  if (nameChanged) await assertCanManageRoles(ctx);
+  await checkCollisions(ctx, name, aliases, game.id);
 
   if (nameChanged && ctx.gateway.role(game.roleId)) {
     await ctx.gateway.editRole(game.roleId, { name }, `Game renamed by ${actorId}`);
   }
-  const updated = ctx.repos.games.update(game.id, {
+  const updated = await ctx.repos.games.update(game.id, {
     ...(nameChanged ? { name } : {}),
     ...(categoryChanged ? { categoryId: category.id } : {}),
     ...(aliasesChanged ? { aliases } : {}),
@@ -149,22 +153,22 @@ export async function removeGame(
   gameId: number,
   actorId: string,
 ): Promise<{ game: Game; hadMembers: number }> {
-  const game = ctx.repos.games.get(gameId);
+  const game = await ctx.repos.games.get(gameId);
   if (!game) throw new UserFacingError("That game no longer exists.");
-  assertCanManageRoles(ctx);
+  await assertCanManageRoles(ctx);
   const hadMembers = ctx.gateway.roleMemberIds(game.roleId).length;
   if (ctx.gateway.role(game.roleId)) {
     await ctx.gateway.deleteRole(game.roleId, `Game removed by ${actorId}`);
   }
-  ctx.repos.games.remove(game.id);
+  await ctx.repos.games.remove(game.id);
   await ctx.audit.log({ kind: "game-removed", userId: actorId, game: game.name });
   return { game, hadMembers };
 }
 
 export async function reapplyTemplate(ctx: AppContext, actorId: string): Promise<number> {
-  const template = assertCanManageRoles(ctx);
+  const template = await assertCanManageRoles(ctx);
   let count = 0;
-  for (const game of ctx.repos.games.list()) {
+  for (const game of await ctx.repos.games.list()) {
     if (!ctx.gateway.role(game.roleId)) continue;
     await ctx.gateway.editRole(
       game.roleId,

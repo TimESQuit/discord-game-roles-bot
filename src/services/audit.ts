@@ -1,5 +1,5 @@
 import { escapeMarkdown } from "discord.js";
-import type { Repos } from "../db/repos.ts";
+import type { Repos } from "../db/repos/index.ts";
 import type { Gateway } from "../discord/gateway.ts";
 
 export type Source = "panel" | "command" | "lfg";
@@ -80,7 +80,7 @@ export interface Audit {
 export function createAudit(repos: Repos, gateway: Gateway): Audit {
   async function post(key: "logChannelId" | "adminChannelId", content: string): Promise<void> {
     try {
-      const channelId = repos.setup.get(key);
+      const channelId = await repos.setup.get(key);
       if (channelId === undefined) {
         console.log(content);
         return;

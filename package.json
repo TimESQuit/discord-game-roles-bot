@@ -9,15 +9,22 @@
     "format": "oxfmt",
     "format:check": "oxfmt --check",
     "test": "vitest run",
-    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm test",
+    "db:generate": "drizzle-kit generate",
+    "db:check": "node scripts/check-migrations.ts",
+    "check": "pnpm typecheck && pnpm lint && pnpm format:check && pnpm db:check && pnpm test",
     "dev": "node --env-file=.env --watch src/main.ts",
     "start": "node src/main.ts"
   },
   "dependencies": {
-    "discord.js": "14.28.1"
+    "better-sqlite3": "13.0.3",
+    "discord.js": "14.28.1",
+    "drizzle-orm": "0.45.4",
+    "kysely": "0.29.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "9.6.0",
     "@types/node": "26.6.6",
+    "drizzle-kit": "0.31.11",
     "oxfmt": "0.77.0",
     "oxlint": "1.92.0",
     "oxlint-tsgolint": "7.0.2006",
