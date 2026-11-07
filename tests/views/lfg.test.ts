@@ -119,3 +119,17 @@ test("lfgModal has optional when (max 100) and note (max 300)", () => {
   expect(inputs[1]?.style).toBe(2);
   expect(lfgModal(7, "here").toJSON().custom_id).toBe("gr:lfg-modal:7:here");
 });
+
+test("300 responders show exactly 50 mentions, an overflow line and the full count", () => {
+  const many = Array.from({ length: 300 }, (_, i) => String(100000000000001000n + BigInt(i)));
+  const text = all(lfgPostView(post({ in: many }), game));
+  expect(text).toContain("In (300):");
+  expect(text.match(/<@\d+>/g)?.length).toBe(50 + 1); // 50 responders + the author
+  expect(text).toContain("…and 250 more");
+});
+
+test("worst-case when and note of escapable characters stay under 4000 per text display", () => {
+  const v = lfgPostView(post({ when: "*".repeat(100), note: "*".repeat(300) }), game);
+  for (const t of parts(v).texts) expect(t.length).toBeLessThanOrEqual(4000);
+  expect(all(v)).toContain(`<@&${game.roleId}>`);
+});

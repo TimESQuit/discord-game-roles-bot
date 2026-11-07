@@ -7,6 +7,7 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
+import type { Game } from "../db/types.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "../services/context.ts";
 import { createLfgPost, joinFromLfg, respondToLfg } from "../services/lfg.ts";
@@ -39,6 +40,17 @@ async function postHere(
     }
     throw error;
   }
+}
+
+/** Strictly parses a picked game ID and checks the game still exists (local read only). */
+export async function resolvePickedGame(ctx: AppContext, raw: string | undefined): Promise<Game> {
+  const trimmed = (raw ?? "").trim();
+  if (!/^\d{1,15}$/.test(trimmed) || Number(trimmed) <= 0) {
+    throw new UserFacingError("Pick a game from the list.");
+  }
+  const game = await ctx.repos.games.get(Number(trimmed));
+  if (!game) throw new UserFacingError("That game no longer exists.");
+  return game;
 }
 
 export const lfgHandlers: Handlers = {
@@ -76,10 +88,9 @@ export const lfgHandlers: Handlers = {
     await interaction.reply(forReply(pickGameView("lfg", categories, games)));
   },
 
-  "pick-lfg": async (_ctx, interaction: StringSelectMenuInteraction) => {
-    const gameId = Number(interaction.values[0]);
-    if (!Number.isInteger(gameId)) throw new UserFacingError("Pick a game from the list.");
-    await interaction.showModal(lfgModal(gameId, "news"));
+  "pick-lfg": async (ctx, interaction: StringSelectMenuInteraction) => {
+    const game = await resolvePickedGame(ctx, interaction.values[0]);
+    await interaction.showModal(lfgModal(game.id, "news"));
   },
 
   "lfg-modal": async (ctx, interaction: ModalSubmitInteraction) => {
@@ -93,7 +104,8 @@ export const lfgHandlers: Handlers = {
       if (!news) throw new UserFacingError("Run /gameadmin setup first.");
       channelId = news;
     } else {
-      channelId = interaction.channelId ?? "";
+      if (!interaction.channelId) throw new UserFacingError("I can't post in this channel.");
+      channelId = interaction.channelId;
     }
     await postHere(ctx, {
       authorId: interaction.user.id,
