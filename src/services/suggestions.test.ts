@@ -1,4 +1,3 @@
-import { ComponentType } from "discord.js";
 import { beforeEach, describe, expect, test } from "vitest";
 import type { Suggestion } from "../db/index.ts";
 import {
@@ -10,7 +9,17 @@ import {
   withdrawSuggestion,
 } from "./suggestions.ts";
 import { addGame } from "./games.ts";
-import { A1, A2, U1, U2, makeContext, sentTo, type TestContext } from "../testing/index.ts";
+import {
+  A1,
+  A2,
+  defined,
+  makeContext,
+  sentTo,
+  textOf,
+  U1,
+  U2,
+  type TestContext,
+} from "../testing/index.ts";
 
 let ctx: TestContext;
 let chill: { id: number; name: string };
@@ -19,32 +28,20 @@ let comp: { id: number; name: string };
 beforeEach(async () => {
   ctx = await makeContext();
   const cats = await ctx.repos.categories.list();
-  comp = cats.find((c) => c.name === "Competitive")!;
-  chill = cats.find((c) => c.name === "Chill")!;
+  comp = defined(cats.find((c) => c.name === "Competitive"));
+  chill = defined(cats.find((c) => c.name === "Chill"));
 });
 
 const suggest = (name = "Valheim", userId = U1): Promise<Suggestion> =>
   submitSuggestion(ctx, { userId, name, categoryId: chill.id, note: null });
 
-/** The text of a layout-V2 payload: every text display, joined. */
-function textOf(payload: { components?: unknown }): string {
-  const found: string[] = [];
-  const visit = (node: unknown): void => {
-    const n = node as { type?: number; content?: string; components?: unknown[] };
-    if (n.type === ComponentType.TextDisplay) found.push(String(n.content));
-    for (const child of n.components ?? []) visit(child);
-  };
-  for (const top of (payload.components ?? []) as unknown[]) visit(top);
-  return found.join("\n");
-}
-
 async function adminChannelId(): Promise<string> {
-  return (await ctx.repos.setup.get("adminChannelId"))!;
+  return defined(await ctx.repos.setup.get("adminChannelId"));
 }
 async function card(s: Suggestion) {
-  const reviewMessageId = (await ctx.repos.suggestions.get(s.id))!.reviewMessageId;
+  const reviewMessageId = defined(await ctx.repos.suggestions.get(s.id)).reviewMessageId;
   const list = ctx.gateway.messages.get(await adminChannelId()) ?? [];
-  return list.find((m) => m.id === reviewMessageId)!.payload;
+  return defined(list.find((m) => m.id === reviewMessageId)).payload;
 }
 
 describe("submit", () => {
@@ -71,7 +68,7 @@ describe("submit", () => {
     ).rejects.toThrow("That category doesn't exist.");
     const bare = await makeContext({ setup: false });
     await bare.repos.categories.add("Chill");
-    const cat = (await bare.repos.categories.list())[0]!;
+    const cat = defined((await bare.repos.categories.list())[0]);
     await expect(
       submitSuggestion(bare, { userId: U1, name: "X", categoryId: cat.id, note: null }),
     ).rejects.toThrow("Run /gameadmin setup first.");
@@ -108,13 +105,12 @@ describe("approve", () => {
     const s = await suggest();
     // Hold the edit's first category lookup until the approval has finished.
     const original = ctx.repos.categories.get.bind(ctx.repos.categories);
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => (release = resolve));
+    const gate = Promise.withResolvers<void>();
     let held = false;
     ctx.repos.categories.get = async (id) => {
       if (!held) {
         held = true;
-        await gate;
+        await gate.promise;
       }
       return original(id);
     };
@@ -125,7 +121,7 @@ describe("approve", () => {
     );
     await Promise.resolve();
     const game = await approveSuggestion(ctx, s.id, A1);
-    release();
+    gate.resolve();
     expect(await edited).toBe("This suggestion was already approved.");
     expect((await ctx.repos.suggestions.get(s.id))?.name).toBe(game.name);
     expect(ctx.logLines.some((l) => l.includes("edited suggestion"))).toBe(false);
@@ -138,7 +134,7 @@ describe("approve", () => {
     expect(ctx.gateway.memberRoleIds(U1).has(game.roleId)).toBe(true);
     const news = sentTo(ctx, "newsChannelId");
     expect(news).toHaveLength(1);
-    expect(textOf(news[0]!)).toBe(`New game: **Valheim** — <@&${game.roleId}>`);
+    expect(textOf(defined(news[0]))).toBe(`New game: **Valheim** — <@&${game.roleId}>`);
     expect(await ctx.repos.suggestions.get(s.id)).toMatchObject({
       status: "approved",
       reviewerId: A1,

@@ -2,6 +2,14 @@ import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
 import type { Category, Game } from "../db/index.ts";
 import { parseId } from "../domain/index.ts";
+import {
+  customIdButtons,
+  defined,
+  findComponents,
+  flagBits,
+  textOf,
+  type ComponentSource,
+} from "../testing/index.ts";
 import { countComponents, truncate } from "./limits.ts";
 import {
   addGamesPageCount,
@@ -17,22 +25,9 @@ import {
   removeGamesView,
 } from "./member.ts";
 
-type Node = { type: number; components?: Node[]; [key: string]: unknown };
-const json = (p: { components?: unknown }): Node[] => {
-  const items = (p.components ?? []) as { toJSON?: () => Node }[];
-  return items.map((c) => (typeof c.toJSON === "function" ? c.toJSON() : (c as unknown as Node)));
-};
-const walk = (nodes: Node[]): Node[] => nodes.flatMap((n) => [n, ...walk(n.components ?? [])]);
-const all = (p: { components?: unknown }) => walk(json(p));
-const allSelects = (p: { components?: unknown }) =>
-  all(p).filter((n) => n.type === ComponentType.StringSelect);
-const buttons = (p: { components?: unknown }) =>
-  all(p).filter((n) => n.type === ComponentType.Button);
-const texts = (p: { components?: unknown }) =>
-  all(p)
-    .filter((n) => n.type === ComponentType.TextDisplay)
-    .map((n) => String(n.content))
-    .join("\n");
+const allSelects = (p: ComponentSource) => findComponents(p, ComponentType.StringSelect);
+const buttons = customIdButtons;
+const texts = textOf;
 
 const cat = (id: number, name: string): Category => ({ id, name, position: id });
 const game = (id: number, name: string, categoryId: number): Game => ({
@@ -50,26 +45,26 @@ const chill = cat(1, "Chill");
 test("panel view has exactly one button with panel-open ID", () => {
   const p = panelView();
   expect(p.flags).toBeDefined();
-  expect(Number(p.flags) & MessageFlags.IsComponentsV2).toBeTruthy();
+  expect(flagBits(p) & MessageFlags.IsComponentsV2).toBeTruthy();
   expect(p.content).toBeUndefined();
   expect(buttons(p)).toHaveLength(1);
-  expect(buttons(p)[0]!.custom_id).toBe("gr:panel-open");
-  expect(buttons(p)[0]!.label).toBe("Open game roles");
+  expect(buttons(p)[0]?.custom_id).toBe("gr:panel-open");
+  expect(buttons(p)[0]?.label).toBe("Open game roles");
   expect(p.allowedMentions).toEqual({ parse: [] });
 });
 
 test("menu: 7 member buttons; admin row only for admins", () => {
   const member = menuView({ isAdmin: false });
   expect(buttons(member)).toHaveLength(7);
-  expect(Number(member.flags) & MessageFlags.Ephemeral).toBeTruthy();
-  expect(Number(member.flags) & MessageFlags.IsComponentsV2).toBeTruthy();
+  expect(flagBits(member) & MessageFlags.Ephemeral).toBeTruthy();
+  expect(flagBits(member) & MessageFlags.IsComponentsV2).toBeTruthy();
   const admin = menuView({ isAdmin: true });
   expect(buttons(admin)).toHaveLength(16);
   for (const p of [member, admin]) {
-    for (const row of all(p).filter((n) => n.type === ComponentType.ActionRow)) {
-      expect(row.components!.length).toBeLessThanOrEqual(5);
+    for (const row of findComponents(p, ComponentType.ActionRow)) {
+      expect(row.components.length).toBeLessThanOrEqual(5);
     }
-    for (const b of buttons(p)) expect(parseId(String(b.custom_id))).not.toBeNull();
+    for (const b of buttons(p)) expect(parseId(b.custom_id)).not.toBeNull();
     expect(countComponents(p)).toBeLessThanOrEqual(40);
   }
   expect(buttons(admin).map((b) => b.label)).toContain("Run setup");
@@ -85,18 +80,18 @@ test("category with 30 games gives two selects of 25 and 5, owned pre-ticked", (
   const games = Array.from({ length: 30 }, (_, i) =>
     game(i + 1, `Game ${String(i + 10)}`, chill.id),
   );
-  const owned = new Set([games[0]!.roleId, games[29]!.roleId]);
+  const owned = new Set([defined(games[0]).roleId, defined(games[29]).roleId]);
   const p = addGamesView([chill], games, owned, 0);
   const selects = allSelects(p);
   expect(selects).toHaveLength(2);
-  const options = selects.map((s) => s.options as { default?: boolean; value: string }[]);
+  const options = selects.map((s) => s.options);
   expect(options.map((o) => o.length)).toEqual([25, 5]);
   expect(selects.map((s) => s.max_values)).toEqual([25, 5]);
   expect(selects.every((s) => s.min_values === 0)).toBe(true);
-  expect(options[0]![0]!.default).toBe(true);
-  expect(options[1]![4]!.default).toBe(true);
+  expect(options[0]?.[0]?.default).toBe(true);
+  expect(options[1]?.[4]?.default).toBe(true);
   expect(options.flat().filter((o) => o.default)).toHaveLength(2);
-  expect(parseId(String(selects[1]!.custom_id))).toEqual({
+  expect(parseId(defined(selects[1]).custom_id)).toEqual({
     kind: "add-select",
     categoryId: 1,
     chunk: 1,
@@ -115,7 +110,7 @@ test("12 categories x 25 games stays at 40 components per page and pages", () =>
   );
   for (const p of pages) expect(countComponents(p)).toBeLessThanOrEqual(40);
   expect(pages.flatMap(allSelects)).toHaveLength(12);
-  const ids = pages.flatMap(buttons).map((b) => parseId(String(b.custom_id)));
+  const ids = pages.flatMap(buttons).map((b) => parseId(b.custom_id));
   expect(ids).toContainEqual({ kind: "add-page", page: 1 });
 });
 
@@ -128,7 +123,7 @@ test("a single page has no pager; the notice shows at the top", () => {
 test("labels and option text are truncated to 100 chars", () => {
   const long = "x".repeat(150);
   const p = addGamesView([chill], [game(1, long, 1)], new Set(), 0);
-  const opt = (allSelects(p)[0]!.options as { label: string }[])[0]!;
+  const opt = defined(allSelects(p)[0]?.options[0]);
   expect(opt.label).toHaveLength(100);
   expect(opt.label.endsWith("…")).toBe(true);
   expect(truncate("short", 100)).toBe("short");
@@ -142,10 +137,8 @@ test("remove view: nothing pre-ticked, chunks of 25; empty shows text", () => {
   const games = Array.from({ length: 30 }, (_, i) => game(i + 1, `G${String(i + 10)}`, 1));
   const p = removeGamesView(games);
   const selects = allSelects(p);
-  expect(selects.map((s) => (s.options as unknown[]).length)).toEqual([25, 5]);
-  expect(selects.flatMap((s) => s.options as { default?: boolean }[]).some((o) => o.default)).toBe(
-    false,
-  );
+  expect(selects.map((s) => s.options.length)).toEqual([25, 5]);
+  expect(selects.flatMap((s) => s.options).some((o) => o.default)).toBe(false);
   const empty = removeGamesView([]);
   expect(allSelects(empty)).toHaveLength(0);
   expect(texts(empty)).toContain("You haven't picked any games yet.");
@@ -154,7 +147,7 @@ test("remove view: nothing pre-ticked, chunks of 25; empty shows text", () => {
 test("my games lists names with Add and Remove buttons; empty text", () => {
   const p = myGamesView([game(1, "Minecraft", 1), game(2, "Valheim", 1)]);
   expect(texts(p)).toContain("Minecraft");
-  expect(buttons(p).map((b) => parseId(String(b.custom_id)))).toEqual([
+  expect(buttons(p).map((b) => parseId(b.custom_id))).toEqual([
     { kind: "menu", action: "add" },
     { kind: "menu", action: "remove" },
   ]);
@@ -177,7 +170,7 @@ test("people list: mentions, capped at 50 with a count, empty state", () => {
   expect(texts(peopleListView("T", [], "Nobody has this game yet."))).toContain(
     "Nobody has this game yet.",
   );
-  expect(Number(p.flags) & MessageFlags.Ephemeral).toBeTruthy();
+  expect(flagBits(p) & MessageFlags.Ephemeral).toBeTruthy();
 });
 
 test("game list view shows names or the empty text", () => {
@@ -199,32 +192,32 @@ test("pick view pages: 24 chunks give 2+ pages, each within 40, every game reach
     pickGameView("who", manyCategories, manyGames, i),
   );
   for (const p of pages) expect(countComponents(p)).toBeLessThanOrEqual(40);
-  const values = pages.flatMap(allSelects).flatMap((s) => s.options as { value: string }[]);
+  const values = pages.flatMap(allSelects).flatMap((s) => s.options);
   expect(new Set(values.map((o) => o.value)).size).toBe(manyGames.length);
-  const first = allSelects(pages[0]!)[0]!;
+  const first = defined(allSelects(defined(pages[0]))[0]);
   expect(first.max_values).toBe(1);
-  expect(parseId(String(first.custom_id))).toEqual({
+  expect(parseId(first.custom_id)).toEqual({
     kind: "pick",
     purpose: "who",
     categoryId: 1,
     chunk: 0,
   });
-  const ids0 = buttons(pages[0]!).map((b) => parseId(String(b.custom_id)));
+  const ids0 = buttons(defined(pages[0])).map((b) => parseId(b.custom_id));
   expect(ids0).toContainEqual({ kind: "pick-page", purpose: "who", page: 1 });
   expect(ids0).toContainEqual({ kind: "cancel" });
-  const last = buttons(pages[count - 1]!).map((b) => parseId(String(b.custom_id)));
+  const last = buttons(defined(pages[count - 1])).map((b) => parseId(b.custom_id));
   expect(last).toContainEqual({ kind: "pick-page", purpose: "who", page: count - 2 });
 });
 
 test("pick view with one page has a cancel button and no pager", () => {
   const p = pickGameView("lfg", [chill], [game(1, "Minecraft", 1)], 0);
-  expect(buttons(p).map((b) => parseId(String(b.custom_id)))).toEqual([{ kind: "cancel" }]);
+  expect(buttons(p).map((b) => parseId(b.custom_id))).toEqual([{ kind: "cancel" }]);
 });
 
 test("remove view with 60 games: three dropdowns, all games, within 40", () => {
   const games = Array.from({ length: 60 }, (_, i) => game(i + 1, `G${String(i + 100)}`, 1));
   const p = removeGamesView(games, "Removed X.");
-  expect(allSelects(p).map((s) => (s.options as unknown[]).length)).toEqual([25, 25, 10]);
+  expect(allSelects(p).map((s) => s.options.length)).toEqual([25, 25, 10]);
   expect(countComponents(p)).toBeLessThanOrEqual(40);
 });
 

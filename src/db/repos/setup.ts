@@ -28,7 +28,7 @@ export function createSetup(kysely: Kysely<DB>): SetupRepo {
     async all() {
       const result: Partial<Record<SetupKey, string>> = {};
       for (const row of await kysely.selectFrom("setup").select(["key", "value"]).execute()) {
-        result[row.key as SetupKey] = row.value;
+        result[row.key] = row.value;
       }
       return result;
     },

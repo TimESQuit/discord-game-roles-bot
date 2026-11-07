@@ -1,9 +1,7 @@
 import {
-  MessageFlags,
   type AutocompleteInteraction,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
-  type Interaction,
   type StringSelectMenuInteraction,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
@@ -33,7 +31,7 @@ import {
   pickGameView,
   removeGamesView,
 } from "../views/index.ts";
-import { forEdit, forReply } from "./replies.ts";
+import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
 import { memberRoleIds, type Handlers } from "./router.ts";
 
 const joinNames = (games: readonly { name: string }[]): string =>
@@ -54,9 +52,12 @@ function summary(result: {
   return parts.join(" ");
 }
 
-function openMenu(ctx: AppContext, interaction: Interaction): Promise<unknown> {
+function openMenu(
+  ctx: AppContext,
+  interaction: ButtonInteraction | ChatInputCommandInteraction,
+): Promise<unknown> {
   const admin = isAdmin(memberRoleIds(interaction), ctx.config.adminRoleId);
-  return (interaction as ButtonInteraction).reply(forReply(menuView({ isAdmin: admin })));
+  return interaction.reply(forReply(menuView({ isAdmin: admin })));
 }
 
 async function showAddGames(
@@ -107,7 +108,7 @@ async function commandJoinLeave(
   action: "join" | "leave",
 ): Promise<void> {
   const gameId = gameIdOption(interaction);
-  await interaction.deferReply({ flags: MessageFlags.Ephemeral | MessageFlags.IsComponentsV2 });
+  await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
   const name = await gameName(ctx, gameId);
   let reply: string;
   if (action === "join") {

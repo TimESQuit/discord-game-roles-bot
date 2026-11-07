@@ -1,6 +1,6 @@
 import { SELECT_OPTION_LIMIT, TEXT_LIMIT } from "../constants.ts";
 import { UserFacingError } from "../errors.ts";
-import { normalize } from "./search.ts";
+import { normalize } from "../normalize.ts";
 
 export function diffSelection(
   shownRoleIds: readonly string[],

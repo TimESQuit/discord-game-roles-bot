@@ -1,7 +1,19 @@
 import { describe, expect, test } from "vitest";
 import { FakeGateway } from "./fake-gateway.ts";
+import { defined } from "./payloads.ts";
 
 const opts = { color: 0, mentionable: false };
+
+async function stack(gw: FakeGateway) {
+  // member5, tpl4, zelda3, other2, apex1
+  const ids: Record<string, string> = {};
+  for (const name of ["member", "tpl", "zelda", "other", "apex"]) {
+    ids[name] = (await gw.createRole({ name, ...opts }, "t")).id;
+  }
+  const pos = () =>
+    Object.fromEntries(Object.entries(ids).map(([k, id]) => [k, gw.role(id)?.position]));
+  return { ids, pos };
+}
 
 describe("FakeGateway", () => {
   test("createRole puts the new role at position 1 and shifts others up", async () => {
@@ -38,23 +50,23 @@ describe("FakeGateway", () => {
     gw.setBotTopPosition(15);
     const a = await gw.createRole({ name: "a", ...opts }, "t");
     const b = await gw.createRole({ name: "b", ...opts }, "t");
-    const tBefore = gw.role("t")!.position;
-    const aBefore = gw.role(a.id)!.position;
+    const tBefore = defined(gw.role("t")).position;
+    const aBefore = defined(gw.role(a.id)).position;
     const gap = gw.botTopRolePosition() - tBefore;
     await gw.deleteRole(b.id, "t");
-    expect(gw.role("t")!.position).toBe(tBefore - 1);
-    expect(gw.role(a.id)!.position).toBe(aBefore - 1);
-    expect(gw.botTopRolePosition() - gw.role("t")!.position).toBe(gap);
-    expect(gw.role(gw.guildId)!.position).toBe(0);
+    expect(defined(gw.role("t")).position).toBe(tBefore - 1);
+    expect(defined(gw.role(a.id)).position).toBe(aBefore - 1);
+    expect(gw.botTopRolePosition() - defined(gw.role("t")).position).toBe(gap);
+    expect(defined(gw.role(gw.guildId)).position).toBe(0);
   });
 
   test("deleteRole leaves roles below it unchanged", async () => {
     const gw = new FakeGateway({});
     const a = await gw.createRole({ name: "a", ...opts }, "t");
     const b = await gw.createRole({ name: "b", ...opts }, "t");
-    const aPos = gw.role(a.id)!.position;
+    const aPos = defined(gw.role(a.id)).position;
     await gw.deleteRole(a.id, "t");
-    expect(gw.role(b.id)!.position).toBe(1);
+    expect(defined(gw.role(b.id)).position).toBe(1);
     expect(aPos).toBe(2);
   });
 
@@ -89,21 +101,10 @@ describe("FakeGateway", () => {
     expect(r.name).toBe("x");
   });
 
-  async function stack(gw: FakeGateway) {
-    // member5, tpl4, zelda3, other2, apex1
-    const ids: Record<string, string> = {};
-    for (const name of ["member", "tpl", "zelda", "other", "apex"]) {
-      ids[name] = (await gw.createRole({ name, ...opts }, "t")).id;
-    }
-    const pos = () =>
-      Object.fromEntries(Object.entries(ids).map(([k, id]) => [k, gw.role(id)?.position]));
-    return { ids, pos };
-  }
-
   test("setRolePositions up move places the mover exactly", async () => {
     const gw = new FakeGateway({});
     const { ids, pos } = await stack(gw);
-    await gw.setRolePositions([{ id: ids.apex!, position: 4 }], "t");
+    await gw.setRolePositions([{ id: defined(ids.apex), position: 4 }], "t");
     expect(pos()).toEqual({ member: 5, tpl: 3, zelda: 2, other: 1, apex: 4 });
     expect(gw.role(gw.guildId)?.position).toBe(0);
   });
@@ -111,7 +112,7 @@ describe("FakeGateway", () => {
   test("setRolePositions down move places the mover exactly", async () => {
     const gw = new FakeGateway({});
     const { ids, pos } = await stack(gw);
-    await gw.setRolePositions([{ id: ids.member!, position: 2 }], "t");
+    await gw.setRolePositions([{ id: defined(ids.member), position: 2 }], "t");
     expect(pos()).toEqual({ member: 2, tpl: 5, zelda: 4, other: 3, apex: 1 });
   });
 
@@ -120,8 +121,8 @@ describe("FakeGateway", () => {
     const { ids, pos } = await stack(gw);
     await gw.setRolePositions(
       [
-        { id: ids.apex!, position: 3 },
-        { id: ids.zelda!, position: 2 },
+        { id: defined(ids.apex), position: 3 },
+        { id: defined(ids.zelda), position: 2 },
       ],
       "t",
     );

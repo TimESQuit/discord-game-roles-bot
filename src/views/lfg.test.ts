@@ -1,6 +1,7 @@
-import { ComponentType, MessageFlags } from "discord.js";
+import { ComponentType, MessageFlags, TextInputStyle } from "discord.js";
 import { expect, test } from "vitest";
 import type { Game, LfgPost } from "../db/index.ts";
+import { customIdButtons, findComponents, flagBits, textOf } from "../testing/index.ts";
 import { lfgModal, lfgPostView } from "./lfg.ts";
 import { countComponents } from "./limits.ts";
 
@@ -9,7 +10,10 @@ const game: Game = {
   name: "Valheim",
   roleId: "100000000000000500",
   categoryId: 1,
-} as unknown as Game;
+  aliases: [],
+  addedBy: "100000000000000011",
+  addedAt: "2026-01-01T00:00:00Z",
+};
 
 const base: LfgPost = {
   messageId: "100000000000000950",
@@ -25,23 +29,12 @@ const base: LfgPost = {
 };
 const post = (over: Partial<LfgPost> = {}): LfgPost => ({ ...base, ...over });
 
-/** Every text display's content, in order, plus every button. */
-function walk(value: unknown, out: { texts: string[]; buttons: Record<string, unknown>[] }) {
-  if (Array.isArray(value)) for (const v of value) walk(v, out);
-  else if (value !== null && typeof value === "object") {
-    const c = value as { type?: number; content?: string; components?: unknown };
-    if (c.type === ComponentType.TextDisplay) out.texts.push(c.content ?? "");
-    if (c.type === ComponentType.Button) out.buttons.push(value as Record<string, unknown>);
-    walk(c.components, out);
-  }
-  return out;
-}
-const parts = (p: { components?: unknown }) => walk(p.components, { texts: [], buttons: [] });
-const all = (p: { components?: unknown }) => parts(p).texts.join("\n");
+const all = textOf;
+const textParts = (p: Parameters<typeof textOf>[0]) => findComponents(p, ComponentType.TextDisplay);
 
 test("is a layout-V2 message with no content or embeds", () => {
   const v = lfgPostView(post(), game);
-  expect((v.flags as number) & MessageFlags.IsComponentsV2).toBeTruthy();
+  expect(flagBits(v) & MessageFlags.IsComponentsV2).toBeTruthy();
   expect(v).not.toHaveProperty("content");
   expect(v).not.toHaveProperty("embeds");
   expect(countComponents(v)).toBeLessThanOrEqual(40);
@@ -83,12 +76,12 @@ test("In and Maybe counts and lists", () => {
 test("a very long In list stays under the text display limit", () => {
   const many = Array.from({ length: 300 }, (_, i) => String(100000000000001000n + BigInt(i)));
   const v = lfgPostView(post({ in: many }), game);
-  for (const t of parts(v).texts) expect(t.length).toBeLessThanOrEqual(4000);
+  for (const t of textParts(v)) expect(t.content.length).toBeLessThanOrEqual(4000);
   expect(all(v)).toContain("In (300):");
 });
 
 test("has the three buttons with fixed IDs", () => {
-  const { buttons } = parts(lfgPostView(post(), game));
+  const buttons = customIdButtons(lfgPostView(post(), game));
   expect(buttons.map((b) => [b.custom_id, b.label])).toEqual([
     ["gr:lfg-in", "I'm in"],
     ["gr:lfg-maybe", "Maybe"],
@@ -108,15 +101,13 @@ test("lfgModal has optional when (max 100) and note (max 300)", () => {
   const json = lfgModal(7, "news").toJSON();
   expect(json.custom_id).toBe("gr:lfg-modal:7:news");
   expect(JSON.stringify(json)).toContain("tonight 9pm");
-  const inputs = (json.components as unknown as { component: Record<string, unknown> }[]).map(
-    (l) => l.component,
-  );
+  const inputs = findComponents(json.components, ComponentType.TextInput);
   expect(inputs.map((i) => [i.required, i.max_length])).toEqual([
     [false, 100],
     [false, 300],
   ]);
-  expect(inputs[0]?.style).toBe(1);
-  expect(inputs[1]?.style).toBe(2);
+  expect(inputs[0]?.style).toBe(TextInputStyle.Short);
+  expect(inputs[1]?.style).toBe(TextInputStyle.Paragraph);
   expect(lfgModal(7, "here").toJSON().custom_id).toBe("gr:lfg-modal:7:here");
 });
 
@@ -130,6 +121,6 @@ test("300 responders show exactly 50 mentions, an overflow line and the full cou
 
 test("worst-case when and note of escapable characters stay under 4000 per text display", () => {
   const v = lfgPostView(post({ when: "*".repeat(100), note: "*".repeat(300) }), game);
-  for (const t of parts(v).texts) expect(t.length).toBeLessThanOrEqual(4000);
+  for (const t of textParts(v)) expect(t.content.length).toBeLessThanOrEqual(4000);
   expect(all(v)).toContain(`<@&${game.roleId}>`);
 });

@@ -33,7 +33,7 @@ test("game roles go directly below the template, A→Z, top to bottom", () => {
   for (const c of changes) after.set(c.id, c.position);
   const order = [...after]
     .filter(([id]) => id !== "everyone")
-    .sort((a, b) => b[1] - a[1])
+    .toSorted((a, b) => b[1] - a[1])
     .map(([id]) => id);
   expect(order).toEqual(["member", "tpl", "apex", "zelda", "other"]);
   expect(changes.some((c) => c.id === "member" || c.id === "everyone")).toBe(false);

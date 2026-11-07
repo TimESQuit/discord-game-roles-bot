@@ -10,10 +10,11 @@ test("openDatabase applies the generated migrations once", async () => {
   await closeDatabase(first);
   expect(first.sqlite.open).toBe(false);
   const second = openDatabase(path);
-  const applied = second.sqlite.prepare("SELECT COUNT(*) AS n FROM __drizzle_migrations").get() as {
-    n: number;
-  };
-  expect(applied.n).toBe(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).length);
+  const applied = second.sqlite
+    .prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM __drizzle_migrations")
+    .get();
+  expect(applied).toBeDefined();
+  expect(applied?.n).toBe(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).length);
   await closeDatabase(second);
 });
 

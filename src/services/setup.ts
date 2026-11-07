@@ -96,6 +96,8 @@ export async function applySetup(
   }
 }
 
+const list = (items: SetupItem[]): string => (items.length > 0 ? items.join(", ") : "none");
+
 async function runSetup(
   ctx: AppContext,
   actorId: string,
@@ -168,7 +170,8 @@ async function runSetup(
       case "adminChannel":
       case "logChannel":
       case "backupsChannel": {
-        const c = adminChannels.find((x) => x.item === item)!;
+        const c = adminChannels.find((x) => x.item === item);
+        if (!c) throw new Error(`No admin channel is defined for ${item}`);
         const parent = await repos.setup.get("adminCategoryId");
         await repos.setup.set(
           c.key,
@@ -180,14 +183,14 @@ async function runSetup(
         for (const name of STARTING_CATEGORIES) await repos.categories.add(name);
         break;
       case "panelMessage": {
-        const channelId = (await repos.setup.get("panelChannelId"))!;
+        const channelId = await repos.setup.get("panelChannelId");
+        if (channelId === undefined) throw new Error("The panel channel was not recorded");
         await repos.setup.set("panelMessageId", await gateway.send(channelId, panelView()));
         break;
       }
     }
   }
 
-  const list = (items: SetupItem[]): string => (items.length > 0 ? items.join(", ") : "none");
   await ctx.audit.log({
     kind: "setup",
     userId: actorId,

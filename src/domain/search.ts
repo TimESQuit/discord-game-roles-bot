@@ -1,8 +1,6 @@
 import Fuse from "fuse.js";
 import { normalize } from "../normalize.ts";
 
-export { normalize };
-
 export interface Searchable {
   name: string;
   aliases: readonly string[];
@@ -36,7 +34,7 @@ function search<T extends Searchable>(
   return fuse
     .search(q)
     .map((r) => ({ item: r.item.item, name: r.item.name, score: r.score ?? 1 }))
-    .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name, "en"));
+    .toSorted((a, b) => a.score - b.score || a.name.localeCompare(b.name, "en"));
 }
 
 export function rankGames<T extends Searchable>(

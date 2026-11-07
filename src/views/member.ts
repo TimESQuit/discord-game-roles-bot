@@ -24,8 +24,8 @@ import {
 } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
 
-const V2 = MessageFlags.IsComponentsV2 as const;
-const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;
+const V2 = [MessageFlags.IsComponentsV2] as const;
+const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;
 const TEXT_DISPLAY_MAX = 4000;
 const PEOPLE_CAP = 50;
@@ -61,12 +61,12 @@ const buttonRow = (
 
 const container = (...components: (APIComponentInContainer | Row)[]): APIContainerComponent => ({
   type: ComponentType.Container,
-  components: components as APIContainerComponent["components"],
+  components: components,
 });
 
 function payload(inner: APIContainerComponent, privateMessage: boolean): Payload {
   return {
-    flags: (privateMessage ? PRIVATE : V2) as typeof V2,
+    flags: privateMessage ? PRIVATE : V2,
     components: [inner],
     allowedMentions: NO_PINGS,
   };
@@ -89,13 +89,14 @@ export function panelView(): Payload {
   );
 }
 
+const m = (
+  action: MenuAction,
+  label: string,
+  style: ButtonStyle.Primary | ButtonStyle.Secondary = ButtonStyle.Secondary,
+) => button({ kind: "menu", action }, label, style);
+const a = (action: AdminAction, label: string) => button({ kind: "admin", action }, label);
+
 export function menuView({ isAdmin }: { isAdmin: boolean }): Payload {
-  const m = (
-    action: MenuAction,
-    label: string,
-    style: ButtonStyle.Primary | ButtonStyle.Secondary = ButtonStyle.Secondary,
-  ) => button({ kind: "menu", action }, label, style);
-  const a = (action: AdminAction, label: string) => button({ kind: "admin", action }, label);
   const parts: (APIComponentInContainer | Row)[] = [
     display("### Game roles\nWhat would you like to do?"),
     buttonRow(
@@ -208,7 +209,8 @@ type Unit = { category: Category; index: number; count: number; games: Game[] };
 const ADD_BODY_BUDGET = COMPONENT_LIMIT - 1 - 1 - 1 - 3;
 
 function addPages(categories: readonly Category[], games: readonly Game[]): Unit[][] {
-  const pages: Unit[][] = [[]];
+  let current: Unit[] = [];
+  const pages: Unit[][] = [current];
   let used = 0;
   for (const category of categories) {
     const chunks = categoryChunks(games, category.id);
@@ -217,11 +219,11 @@ function addPages(categories: readonly Category[], games: readonly Game[]): Unit
         ? [{ category, index: 0, count: 1, games: [] }]
         : chunks.map((chunk, index) => ({ category, index, count: chunks.length, games: chunk }));
     for (const unit of units) {
-      const current = pages.at(-1)!;
       const heading = unit.index === 0 || current.length === 0 ? 1 : 0;
       const cost = unit.games.length === 0 ? 1 : heading + 2;
       if (used + cost > ADD_BODY_BUDGET && current.length > 0) {
-        pages.push([unit]);
+        current = [unit];
+        pages.push(current);
         used = unit.games.length === 0 ? 1 : 3;
       } else {
         current.push(unit);
@@ -266,7 +268,7 @@ export function addGamesView(
     ),
   );
   let previous: Unit | undefined;
-  for (const unit of pages[current]!) {
+  for (const unit of pages[current] ?? []) {
     const name = text(unit.category.name);
     if (unit.games.length === 0) {
       parts.push(display(`### ${name}\n_No games yet._`));
@@ -292,7 +294,9 @@ export function addGamesView(
   }
   if (pages.length > 1) {
     parts.push(
-      buttonRow(...pagerButtons((page) => ({ kind: "add-page", page }), current, pages.length)),
+      buttonRow(
+        ...pagerButtons((target) => ({ kind: "add-page", page: target }), current, pages.length),
+      ),
     );
   }
   return payload(container(...parts), true);

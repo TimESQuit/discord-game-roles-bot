@@ -1,4 +1,9 @@
-import type { MessageCreateOptions, PermissionsString } from "discord.js";
+import type {
+  BaseMessageOptions,
+  MessageFlags,
+  MessageMentionOptions,
+  PermissionsString,
+} from "discord.js";
 
 export interface RoleSnapshot {
   id: string;
@@ -12,7 +17,17 @@ export interface Overwrite {
   allow: PermissionsString[];
   deny: PermissionsString[];
 }
-export type Payload = MessageCreateOptions;
+/**
+ * A message body that creates, edits and replies can all take. Flags are a list, so the
+ * private (ephemeral) variants type-check against the reply options without a cast.
+ */
+export interface Payload {
+  content?: string;
+  components?: BaseMessageOptions["components"];
+  allowedMentions?: MessageMentionOptions;
+  files?: BaseMessageOptions["files"];
+  flags?: readonly (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral)[];
+}
 export interface OwnMessage {
   id: string;
   createdAt: Date;

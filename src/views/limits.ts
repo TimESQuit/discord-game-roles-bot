@@ -1,8 +1,13 @@
-type Node = { toJSON?: () => unknown; components?: unknown };
+type Node = Record<string, unknown>;
 
+const isNode = (value: unknown): value is Node => typeof value === "object" && value !== null;
+
+/** Builders expose their payload through toJSON(); plain API objects are used as they are. */
 const toNode = (value: unknown): Node => {
-  const node = value as Node;
-  return typeof node.toJSON === "function" ? (node.toJSON() as Node) : node;
+  if (!isNode(value)) return {};
+  if (typeof value.toJSON !== "function") return value;
+  const json: unknown = value.toJSON();
+  return isNode(json) ? json : {};
 };
 
 function countNode(value: unknown): number {

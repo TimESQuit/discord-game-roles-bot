@@ -111,7 +111,7 @@ export class FakeGateway implements Gateway {
   }
   async ownMessages(channelId: string, limit: number): Promise<OwnMessage[]> {
     return [...(this.messages.get(channelId) ?? [])]
-      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+      .toSorted((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
       .slice(0, limit)
       .map((m) => ({ id: m.id, createdAt: m.createdAt, hasAttachment: m.hasAttachment }));
   }
@@ -164,7 +164,9 @@ export class FakeGateway implements Gateway {
       pinned.set(Math.min(Math.max(c.position, 1), n), c.id);
     }
     const pinnedIds = new Set(pinned.values());
-    const rest = others.filter((r) => !pinnedIds.has(r.id)).sort((x, y) => x.position - y.position);
+    const rest = others
+      .filter((r) => !pinnedIds.has(r.id))
+      .toSorted((x, y) => x.position - y.position);
     for (let pos = 1; pos <= n; pos++) {
       const id = pinned.get(pos);
       const role = id ? this.#roles.get(id) : rest.shift();

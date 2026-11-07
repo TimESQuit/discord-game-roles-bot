@@ -7,7 +7,7 @@ import { closeDatabase, openDatabase, createRepos, type Db } from "../db/index.t
 import { UserFacingError } from "../errors.ts";
 import { runBackup, scheduleNightlyBackups } from "./backup.ts";
 import { createAudit } from "./audit.ts";
-import { A1, makeContext, sentTo, type TestContext } from "../testing/index.ts";
+import { A1, defined, makeContext, sentTo, type TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let dir: string;
@@ -38,11 +38,31 @@ afterEach(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-const backupsId = async () => (await ctx.repos.setup.get("backupsChannelId"))!;
-const bytes = (a: unknown): Buffer => a as Buffer;
+const backupsId = async () => defined(await ctx.repos.setup.get("backupsChannelId"));
+
+/** The buffer and name of an attachment the bot posted. */
+function bufferAttachment(file: unknown): { attachment: Buffer; name: string } {
+  if (
+    typeof file !== "object" ||
+    file === null ||
+    !("attachment" in file) ||
+    !Buffer.isBuffer(file.attachment) ||
+    !("name" in file) ||
+    typeof file.name !== "string"
+  ) {
+    throw new Error("Expected a buffer attachment with a name");
+  }
+  return { attachment: file.attachment, name: file.name };
+}
+
+/** Whether a recorded send call carried files. */
+function sentFiles(args: unknown[]): boolean {
+  const payload = args[1];
+  return typeof payload === "object" && payload !== null && "files" in payload && !!payload.files;
+}
 
 test("runBackup posts a readable copy named game-roles-YYYY-MM-DD-HHmm.sqlite and prunes old posts", async () => {
-  const cat = (await ctx.repos.categories.add("Chill")) as { id: number };
+  const cat = await ctx.repos.categories.add("Chill");
   await ctx.repos.games.add({
     name: "Valheim",
     categoryId: cat.id,
@@ -67,14 +87,14 @@ test("runBackup posts a readable copy named game-roles-YYYY-MM-DD-HHmm.sqlite an
   const ids = (ctx.gateway.messages.get(channel) ?? []).map((m) => m.id);
   expect(ids).not.toContain(old);
   expect(ids).toContain(recent);
-  const sent = sentTo(ctx, "backupsChannelId").at(-1)!;
+  const sent = defined(sentTo(ctx, "backupsChannelId").at(-1));
   expect(sent.content).toBe("Nightly backup");
   expect(sent.allowedMentions).toEqual({ parse: [] });
-  const file = sent.files![0] as { attachment: unknown; name: string };
+  const file = bufferAttachment(defined(sent.files)[0]);
   expect(file.name).toBe(result.file);
 
   const copy = join(dir, "copy.sqlite");
-  writeFileSync(copy, bytes(file.attachment));
+  writeFileSync(copy, file.attachment);
   const sqlite = new BetterSqlite3(copy, { readonly: true });
   expect(sqlite.prepare("SELECT name FROM games").all()).toEqual([{ name: "Valheim" }]);
   sqlite.close();
@@ -83,7 +103,7 @@ test("runBackup posts a readable copy named game-roles-YYYY-MM-DD-HHmm.sqlite an
 
 test("manual backup mentions nobody and logs the actor", async () => {
   await runBackup(ctx, fileDb, A1);
-  const sent = sentTo(ctx, "backupsChannelId").at(-1)!;
+  const sent = defined(sentTo(ctx, "backupsChannelId").at(-1));
   expect(sent.content).toBe(`Backup requested by <@${A1}>`);
   expect(ctx.logLines.at(-1)).toContain(`<@${A1}> created backup`);
 });
@@ -125,8 +145,7 @@ test("scheduleNightlyBackups runs at the configured hour, reports failures, resc
     await settle();
   };
   const backups = (): number =>
-    ctx.gateway.calls.filter((c) => c.method === "send" && (c.args[1] as { files?: unknown }).files)
-      .length;
+    ctx.gateway.calls.filter((c) => c.method === "send" && sentFiles(c.args)).length;
 
   const cancel = scheduleNightlyBackups(ctx, fileDb);
   await advance(3_600_000 - 1);

@@ -154,7 +154,7 @@ const COMMAND_SUBCOMMANDS: Record<string, readonly string[]> = {
     "refresh-panel",
   ],
 };
-const CATEGORY_SUBCOMMANDS = ["add", "rename", "move"];
+const CATEGORY_SUBCOMMANDS = new Set(["add", "rename", "move"]);
 
 function commandHandlerName(input: RouteInput): string | null {
   const { command, subcommand, subcommandGroup } = input;
@@ -163,7 +163,7 @@ function commandHandlerName(input: RouteInput): string | null {
   if (command === "lfg") return "lfg";
   if (subcommand === undefined || subcommand === null) return null;
   if (command === "gameadmin" && subcommandGroup) {
-    if (subcommandGroup !== "category" || !CATEGORY_SUBCOMMANDS.includes(subcommand)) return null;
+    if (subcommandGroup !== "category" || !CATEGORY_SUBCOMMANDS.has(subcommand)) return null;
     return `gameadmin-category-${subcommand}`;
   }
   if (subcommandGroup || !COMMAND_SUBCOMMANDS[command]?.includes(subcommand)) return null;
@@ -213,18 +213,15 @@ export function route(input: RouteInput, adminRoleId: string): RouteResult {
 const GENERIC_ERROR = "Something went wrong. The admins have been told.";
 const EXPIRED = "That button has expired. Open the menu again.";
 
-function routeInput(
-  interaction: Interaction,
-  memberRoleIds: ReadonlySet<string>,
-): RouteInput | null {
+function routeInput(interaction: Interaction, roleIds: ReadonlySet<string>): RouteInput | null {
   if (interaction.isButton()) {
-    return { type: "button", customId: interaction.customId, memberRoleIds };
+    return { type: "button", customId: interaction.customId, memberRoleIds: roleIds };
   }
   if (interaction.isAnySelectMenu()) {
-    return { type: "select", customId: interaction.customId, memberRoleIds };
+    return { type: "select", customId: interaction.customId, memberRoleIds: roleIds };
   }
   if (interaction.isModalSubmit()) {
-    return { type: "modal", customId: interaction.customId, memberRoleIds };
+    return { type: "modal", customId: interaction.customId, memberRoleIds: roleIds };
   }
   if (interaction.isAutocomplete() || interaction.isChatInputCommand()) {
     return {
@@ -232,11 +229,11 @@ function routeInput(
       command: interaction.commandName,
       subcommandGroup: interaction.options.getSubcommandGroup(false),
       subcommand: interaction.options.getSubcommand(false),
-      memberRoleIds,
+      memberRoleIds: roleIds,
     };
   }
   if (interaction.isUserContextMenuCommand()) {
-    return { type: "user-context", command: interaction.commandName, memberRoleIds };
+    return { type: "user-context", command: interaction.commandName, memberRoleIds: roleIds };
   }
   return null;
 }

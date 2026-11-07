@@ -11,7 +11,7 @@ import {
   leave,
   whoPlays,
 } from "./membership.ts";
-import { A1, U1, U2, U3, makeContext, type TestContext } from "../testing/index.ts";
+import { A1, defined, makeContext, U1, U2, U3, type TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let valheim: Game;
@@ -22,7 +22,7 @@ beforeEach(async () => {
   ctx = await makeContext();
   const cats = await ctx.repos.categories.list();
   const mk = (name: string, i: number) =>
-    addGame(ctx, { name, categoryId: cats[i]!.id, aliases: "", actorId: A1 });
+    addGame(ctx, { name, categoryId: defined(cats[i]).id, aliases: "", actorId: A1 });
   valheim = await mk("Valheim", 1);
   minecraft = await mk("Minecraft", 1);
   chess = await mk("Chess", 0);
@@ -182,7 +182,7 @@ describe("lookups", () => {
   });
 
   test("autocomplete returns at most 25", async () => {
-    const cat = (await ctx.repos.categories.list())[0]!;
+    const cat = defined((await ctx.repos.categories.list())[0]);
     for (let i = 0; i < 30; i++) {
       await addGame(ctx, { name: `Extra ${i}`, categoryId: cat.id, aliases: "", actorId: A1 });
     }

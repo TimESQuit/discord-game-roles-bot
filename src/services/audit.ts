@@ -71,6 +71,10 @@ export function formatAuditLine(e: AuditEvent): string {
         : `${user(e.userId)} created backup ${text(e.file)}`;
     case "setup":
       return `${user(e.userId)} ran setup: ${text(e.detail)}`;
+    default: {
+      const unhandled: never = e;
+      throw new Error(`Unhandled audit event: ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 

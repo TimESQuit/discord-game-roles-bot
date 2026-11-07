@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { startHeartbeat } from "./heartbeat.ts";
+import { defined } from "../testing/index.ts";
 
 beforeEach(() => {
   vi.useFakeTimers();
@@ -22,7 +23,7 @@ test("heartbeat pings only while connected; no URL → never", async () => {
     fetch: fetchFn,
   });
   expect(fetchFn).toHaveBeenCalledTimes(1);
-  expect(fetchFn.mock.calls[0]![0]).toBe("https://hc.example/ping");
+  expect(defined(fetchFn.mock.calls[0])[0]).toBe("https://hc.example/ping");
   connected = false;
   await vi.advanceTimersByTimeAsync(3000);
   expect(fetchFn).toHaveBeenCalledTimes(1);

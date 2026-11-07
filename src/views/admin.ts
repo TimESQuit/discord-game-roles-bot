@@ -21,9 +21,9 @@ import {
   type CustomId,
 } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
-import { FIELD, categoryLabel, inputLabel, reviewCardView, textInput } from "./suggestions.ts";
+import { FIELD, categoryLabel, inputLabel, reviewCardParts, textInput } from "./suggestions.ts";
 
-const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;
+const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;
 const TEXT_DISPLAY_MAX = 4000;
 
@@ -56,10 +56,10 @@ const row = (...buttons: APIButtonComponent[]): Row => ({
 function privateView(parts: (Part | Row)[]): Payload {
   const inner: APIContainerComponent = {
     type: ComponentType.Container,
-    components: parts as APIContainerComponent["components"],
+    components: parts,
   };
   return {
-    flags: PRIVATE as MessageFlags.IsComponentsV2,
+    flags: PRIVATE,
     components: [inner],
     allowedMentions: NO_PINGS,
   };
@@ -81,8 +81,7 @@ export function reviewListView(
   let chars = 0;
   let shown = 0;
   for (const s of pending) {
-    const card = reviewCardView(s, categoriesById.get(s.categoryId)?.name ?? "Unknown");
-    const inner = (card.components![0] as APIContainerComponent).components;
+    const inner = reviewCardParts(s, categoriesById.get(s.categoryId)?.name ?? "Unknown");
     // each nested component counts, rows include their buttons
     const cost = inner.reduce(
       (sum, c) => sum + 1 + ("components" in c ? c.components.length : 0),
@@ -93,7 +92,7 @@ export function reviewListView(
       0,
     );
     if (used + cost > REVIEW_BUDGET || chars + length > REVIEW_TEXT_BUDGET) break;
-    parts.push(...(inner as (Part | Row)[]));
+    parts.push(...inner);
     used += cost;
     chars += length;
     shown += 1;

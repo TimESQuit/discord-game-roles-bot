@@ -1,4 +1,11 @@
-import { MessageFlags } from "discord.js";
+import {
+  ApplicationCommandType,
+  BaseInteraction,
+  ComponentType,
+  InteractionType,
+  MessageFlags,
+  type Interaction,
+} from "discord.js";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { UserFacingError } from "../errors.ts";
 import { encodeId } from "../domain/index.ts";
@@ -9,6 +16,16 @@ import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../testing/index.ts";
 type RouteInputType = Parameters<typeof route>[0]["type"];
 const none = new Set<string>();
 const admins = new Set([ADMIN]);
+
+const routeMember = (customId: string, type: "button" | "select" | "modal" = "button") =>
+  route({ type, customId, memberRoleIds: none }, ADMIN);
+
+const routeCommand = (
+  type: "command" | "autocomplete" | "user-context",
+  command: string,
+  subcommand?: string,
+  subcommandGroup?: string,
+) => route({ type, command, subcommand, subcommandGroup, memberRoleIds: admins }, ADMIN);
 
 describe("route", () => {
   test("admin IDs and /gameadmin are denied without the admin role", () => {
@@ -34,30 +51,30 @@ describe("route", () => {
   });
 
   test("member IDs and compound handler names", () => {
-    const r = (customId: string, type: "button" | "select" | "modal" = "button") =>
-      route({ type, customId, memberRoleIds: none }, ADMIN);
-    expect(r(encodeId({ kind: "menu", action: "mysug" }))).toEqual({ handler: "menu-mysug" });
-    expect(r(encodeId({ kind: "panel-open" }))).toEqual({ handler: "panel-open" });
+    expect(routeMember(encodeId({ kind: "menu", action: "mysug" }))).toEqual({
+      handler: "menu-mysug",
+    });
+    expect(routeMember(encodeId({ kind: "panel-open" }))).toEqual({ handler: "panel-open" });
     expect(
-      r(encodeId({ kind: "pick", purpose: "who", categoryId: 1, chunk: 0 }), "select"),
+      routeMember(encodeId({ kind: "pick", purpose: "who", categoryId: 1, chunk: 0 }), "select"),
     ).toEqual({ handler: "pick-who" });
     expect(
-      r(encodeId({ kind: "pick", purpose: "edit", categoryId: 1, chunk: 0 }), "select"),
+      routeMember(encodeId({ kind: "pick", purpose: "edit", categoryId: 1, chunk: 0 }), "select"),
     ).toEqual({ denied: true });
-    expect(r(encodeId({ kind: "pick-page", purpose: "who", page: 1 }))).toEqual({
+    expect(routeMember(encodeId({ kind: "pick-page", purpose: "who", page: 1 }))).toEqual({
       handler: "pick-page-who",
     });
-    expect(r(encodeId({ kind: "pick-page", purpose: "lfg", page: 1 }))).toEqual({
+    expect(routeMember(encodeId({ kind: "pick-page", purpose: "lfg", page: 1 }))).toEqual({
       handler: "pick-page-lfg",
     });
     for (const purpose of ["edit", "remove"] as const) {
       const customId = encodeId({ kind: "pick-page", purpose, page: 1 });
-      expect(r(customId)).toEqual({ denied: true });
+      expect(routeMember(customId)).toEqual({ denied: true });
       expect(route({ type: "button", customId, memberRoleIds: admins }, ADMIN)).toEqual({
         handler: `pick-page-${purpose}`,
       });
     }
-    expect(r(encodeId({ kind: "admin", action: "reapply" }))).toEqual({ denied: true });
+    expect(routeMember(encodeId({ kind: "admin", action: "reapply" }))).toEqual({ denied: true });
     expect(
       route(
         {
@@ -71,26 +88,24 @@ describe("route", () => {
   });
 
   test("commands, autocomplete and context menus", () => {
-    const c = (
-      type: "command" | "autocomplete" | "user-context",
-      command: string,
-      subcommand?: string,
-      subcommandGroup?: string,
-    ) => route({ type, command, subcommand, subcommandGroup, memberRoleIds: admins }, ADMIN);
-    expect(c("command", "games", "menu")).toEqual({ handler: "games-menu" });
-    expect(c("command", "games", "suggestions")).toEqual({ handler: "games-suggestions" });
-    expect(c("command", "lfg")).toEqual({ handler: "lfg" });
-    expect(c("command", "gameadmin", "reapply-template")).toEqual({
+    expect(routeCommand("command", "games", "menu")).toEqual({ handler: "games-menu" });
+    expect(routeCommand("command", "games", "suggestions")).toEqual({
+      handler: "games-suggestions",
+    });
+    expect(routeCommand("command", "lfg")).toEqual({ handler: "lfg" });
+    expect(routeCommand("command", "gameadmin", "reapply-template")).toEqual({
       handler: "gameadmin-reapply-template",
     });
-    expect(c("command", "gameadmin", "move", "category")).toEqual({
+    expect(routeCommand("command", "gameadmin", "move", "category")).toEqual({
       handler: "gameadmin-category-move",
     });
-    expect(c("autocomplete", "games", "add")).toEqual({ handler: "autocomplete-games" });
-    expect(c("autocomplete", "lfg")).toEqual({ handler: "autocomplete-lfg" });
-    expect(c("autocomplete", "gameadmin", "edit")).toEqual({ handler: "autocomplete-gameadmin" });
-    expect(c("user-context", "See their games")).toEqual({ handler: "ctx-see-games" });
-    expect(c("user-context", "Games in common")).toEqual({ handler: "ctx-in-common" });
+    expect(routeCommand("autocomplete", "games", "add")).toEqual({ handler: "autocomplete-games" });
+    expect(routeCommand("autocomplete", "lfg")).toEqual({ handler: "autocomplete-lfg" });
+    expect(routeCommand("autocomplete", "gameadmin", "edit")).toEqual({
+      handler: "autocomplete-gameadmin",
+    });
+    expect(routeCommand("user-context", "See their games")).toEqual({ handler: "ctx-see-games" });
+    expect(routeCommand("user-context", "Games in common")).toEqual({ handler: "ctx-in-common" });
   });
 
   test("command names cannot spell admin or custom-ID handlers", () => {
@@ -179,36 +194,46 @@ type FakeOpts = {
   failReplies?: boolean;
 };
 
-function fake(o: FakeOpts) {
+/** The fields discord.js's own type checks (isButton() and friends) read. */
+const KINDS: Record<FakeOpts["type"], object> = {
+  button: { type: InteractionType.MessageComponent, componentType: ComponentType.Button },
+  select: { type: InteractionType.MessageComponent, componentType: ComponentType.StringSelect },
+  modal: { type: InteractionType.ModalSubmit },
+  command: {
+    type: InteractionType.ApplicationCommand,
+    commandType: ApplicationCommandType.ChatInput,
+  },
+  autocomplete: { type: InteractionType.ApplicationCommandAutocomplete },
+  other: { type: InteractionType.Ping },
+};
+
+/** A real interaction prototype with just the data the router reads, so type checks such as
+ * isButton() run discord.js's own code. Replies are recorded instead of sent.
+ */
+function fake(o: FakeOpts): { i: Interaction; calls: { method: string; arg: unknown }[] } {
   const calls: { method: string; arg: unknown }[] = [];
   const record = (method: string) => async (arg?: unknown) => {
     calls.push({ method, arg });
     o.log?.push(method);
     if (o.failReplies && method !== "respond") throw new Error("discord down");
   };
-  const i = {
+  const i: Interaction = Object.create(BaseInteraction.prototype);
+  Object.assign(i, {
+    ...KINDS[o.type],
     deferred: o.deferred ?? false,
     replied: false,
     customId: o.customId,
     commandName: o.commandName,
-    type: 0,
     member: { roles: o.roles ?? [] },
     options: {
       getSubcommand: () => o.subcommand ?? null,
       getSubcommandGroup: () => o.subcommandGroup ?? null,
     },
-    isRepliable: () => o.type !== "autocomplete",
-    isButton: () => o.type === "button",
-    isAnySelectMenu: () => o.type === "select",
-    isModalSubmit: () => o.type === "modal",
-    isAutocomplete: () => o.type === "autocomplete",
-    isUserContextMenuCommand: () => false,
-    isChatInputCommand: () => o.type === "command",
     reply: record("reply"),
     followUp: record("followUp"),
     respond: record("respond"),
-  };
-  return { i: i as never, calls };
+  });
+  return { i, calls };
 }
 
 const reply = (content: string) => noticeView(content);
@@ -254,7 +279,7 @@ describe("handleInteraction", () => {
       type: "button",
       customId: encodeId({ kind: "admin", action: "backup" }),
     });
-    (i as { member: unknown }).member = { roles: { cache: new Map([[ADMIN, {}]]) } };
+    Object.assign(i, { member: { roles: { cache: new Map([[ADMIN, {}]]) } } });
     await handleInteraction(ctx, { "admin-backup": handler }, i);
     expect(handler).toHaveBeenCalled();
   });
@@ -309,7 +334,7 @@ describe("handleInteraction", () => {
     expect(ctx.adminNotices).toHaveLength(1);
     expect(ctx.adminNotices[0]).toContain("cancel");
     expect(ctx.adminNotices[0]).toContain("boom secret detail");
-    expect(ctx.adminNotices[0]!.length).toBeLessThanOrEqual(1700);
+    expect(ctx.adminNotices[0]?.length).toBeLessThanOrEqual(1700);
   });
 
   test("autocomplete errors respond with no choices and notify no one", async () => {
@@ -405,10 +430,9 @@ describe("handleInteraction", () => {
       deferred: true,
     });
     await handleInteraction(ctx, {}, i);
-    const arg = calls[0]?.arg as { content?: string; flags: number };
-    expect(arg.content).toBeUndefined();
-    expect(arg.flags & MessageFlags.IsComponentsV2).toBeTruthy();
-    expect(arg.flags & MessageFlags.Ephemeral).toBeTruthy();
+    const arg = calls[0]?.arg;
+    expect(arg).not.toHaveProperty("content");
+    expect(arg).toMatchObject({ flags: [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] });
   });
 
   test("a throwing reply in the generic-error branch still notifies the admins", async () => {

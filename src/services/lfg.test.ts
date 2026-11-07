@@ -3,7 +3,19 @@ import type { Game } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { addGame, removeGame } from "./games.ts";
 import { createLfgPost, joinFromLfg, respondToLfg } from "./lfg.ts";
-import { A1, U1, U2, U3, lastSend, makeContext, type TestContext } from "../testing/index.ts";
+import type { Payload } from "../discord/index.ts";
+import {
+  A1,
+  defined,
+  lastEdit,
+  lastSend,
+  makeContext,
+  textOf,
+  U1,
+  U2,
+  U3,
+  type TestContext,
+} from "../testing/index.ts";
 
 const CH = "100000000000000900";
 let ctx: TestContext;
@@ -15,7 +27,7 @@ beforeEach(async () => {
   const cats = await ctx.repos.categories.list();
   valheim = await addGame(ctx, {
     name: "Valheim",
-    categoryId: cats[1]!.id,
+    categoryId: defined(cats[1]).id,
     aliases: "",
     actorId: A1,
   });
@@ -30,20 +42,7 @@ beforeEach(async () => {
   ctx.gateway.messages.clear();
 });
 
-/** All text-display content of a layout-V2 payload, joined. */
-const content = (p: { components?: unknown }): string => {
-  const out: string[] = [];
-  const walk = (v: unknown): void => {
-    if (Array.isArray(v)) v.forEach(walk);
-    else if (v && typeof v === "object") {
-      const c = v as { type?: number; content?: string; components?: unknown };
-      if (c.type === 10) out.push(c.content ?? "");
-      walk(c.components);
-    }
-  };
-  walk(p.components);
-  return out.join("\n");
-};
+const content = textOf;
 
 describe("createLfgPost", () => {
   test("pings only the game role and stores the post", async () => {
@@ -114,10 +113,10 @@ describe("respondToLfg", () => {
     const post = await respondToLfg(ctx, id, U3, "maybe");
     expect(post.in).toEqual([U2]);
     expect(post.maybe).toEqual([U3]);
-    const edit = ctx.gateway.calls.findLast((c) => c.method === "edit")!;
-    expect(edit.args[0]).toBe(CH);
-    expect(edit.args[1]).toBe(id);
-    const payload = edit.args[2] as { components?: unknown; allowedMentions?: unknown };
+    const edit = lastEdit(ctx);
+    expect(edit.channelId).toBe(CH);
+    expect(edit.messageId).toBe(id);
+    const payload = edit.payload;
     expect(payload.allowedMentions).toEqual({ parse: [] });
     expect(content(payload)).toContain(`In (1): <@${U2}>`);
     expect(content(payload)).toContain(`Maybe (1): <@${U3}>`);
@@ -139,7 +138,7 @@ describe("respondToLfg", () => {
   test("simultaneous clicks leave the visible lists complete", async () => {
     const originalEdit = ctx.gateway.edit.bind(ctx.gateway);
     const originalGet = ctx.repos.games.get.bind(ctx.repos.games);
-    let landedLast: { components?: unknown } = {};
+    let landedLast: Payload = {};
     vi.spyOn(ctx.gateway, "edit").mockImplementation(async (...args) => {
       const result = await originalEdit(...args);
       landedLast = args[2];
@@ -165,7 +164,7 @@ describe("respondToLfg", () => {
   test("unknown post → UserFacingError, not a crash", async () => {
     const err = await respondToLfg(ctx, "999", U2, "in").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(UserFacingError);
-    expect((err as Error).message).toBe("That post is no longer active.");
+    expect(err).toMatchObject({ message: "That post is no longer active." });
     await expect(joinFromLfg(ctx, "999", U2)).rejects.toThrow("That post is no longer active.");
   });
 });

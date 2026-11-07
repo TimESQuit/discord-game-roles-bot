@@ -5,7 +5,7 @@ export { diffGameEdit } from "./game-edit.ts";
 export { toggleResponse } from "./lfg.ts";
 export { computeRoleOrder, diffSelection, isAdmin, validateGameName } from "./roles.ts";
 export { msUntilNextRun, selectExpiredBackups } from "./schedule.ts";
-export { byName, findCloseMatches, normalize, parseAliases, rankGames } from "./search.ts";
+export { byName, findCloseMatches, parseAliases, rankGames } from "./search.ts";
 export { planSetup } from "./setup-plan.ts";
 export type { SetupItem } from "./setup-plan.ts";
 export { text } from "./text.ts";

@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
-import { findCloseMatches, normalize, parseAliases, rankGames } from "./search.ts";
+import { normalize } from "../normalize.ts";
+import { findCloseMatches, parseAliases, rankGames } from "./search.ts";
 
 const g = (name: string, aliases: string[] = []) => ({ name, aliases });
 const games = [

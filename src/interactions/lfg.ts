@@ -1,6 +1,5 @@
 import {
   DiscordAPIError,
-  MessageFlags,
   type AutocompleteInteraction,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
@@ -19,12 +18,11 @@ import {
 import { LFG_FIELD, lfgModal, truncate, noticeView, pickGameView } from "../views/index.ts";
 import { text, parseId } from "../domain/index.ts";
 import { parsePositiveId } from "./parse.ts";
-import { forEdit, forReply } from "./replies.ts";
+import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
 import type { Handlers } from "./router.ts";
 
 const MISSING_ACCESS = 50001;
 const MISSING_PERMISSIONS = 50013;
-const PRIVATE_V2 = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
 
 /** Posts, turning Discord's "no access / no permission" refusals into a private explanation. */
 async function postHere(
@@ -56,7 +54,7 @@ export const lfgHandlers: Handlers = {
   lfg: async (ctx, interaction: ChatInputCommandInteraction) => {
     const raw = interaction.options.getString("game", true).trim();
     if (!/^\d{1,15}$/.test(raw)) throw new UserFacingError("Pick a game from the list.");
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     await postHere(ctx, {
       authorId: interaction.user.id,
       gameId: Number(raw),
@@ -96,7 +94,7 @@ export const lfgHandlers: Handlers = {
     const id = parseId(interaction.customId);
     if (id?.kind !== "lfg-modal")
       throw new UserFacingError("That form has expired. Open it again.");
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     let channelId: string;
     if (id.target === "news") {
       const news = await ctx.repos.setup.get("newsChannelId");
@@ -126,7 +124,7 @@ export const lfgHandlers: Handlers = {
   },
 
   "lfg-join": async (ctx, interaction: ButtonInteraction) => {
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const post = await ctx.repos.lfg.get(interaction.message.id);
     const result = await joinFromLfg(ctx, interaction.message.id, interaction.user.id);
     const name = text(post?.gameName ?? "this game");

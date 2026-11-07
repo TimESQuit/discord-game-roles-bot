@@ -18,8 +18,8 @@ import type { Payload } from "../discord/index.ts";
 import { encodeId, text, type CustomId } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
 
-const V2 = MessageFlags.IsComponentsV2 as const;
-const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;
+const V2 = [MessageFlags.IsComponentsV2] as const;
+const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;
 const TEXT_DISPLAY_MAX = 4000;
 const DECIDED_SHOWN = 10;
@@ -61,10 +61,10 @@ const row = (...buttons: APIButtonComponent[]): Row => ({
 function payload(parts: (APIComponentInContainer | Row)[], privateMessage: boolean): Payload {
   const inner: APIContainerComponent = {
     type: ComponentType.Container,
-    components: parts as APIContainerComponent["components"],
+    components: parts,
   };
   return {
-    flags: (privateMessage ? PRIVATE : V2) as typeof V2,
+    flags: privateMessage ? PRIVATE : V2,
     components: [inner],
     allowedMentions: NO_PINGS,
   };
@@ -80,11 +80,19 @@ function statusLine(s: Suggestion): string {
       return `Rejected by <@${s.reviewerId}>${s.rejectionReason ? `: ${text(s.rejectionReason)}` : ""}`;
     case "withdrawn":
       return `Withdrawn by <@${s.suggesterId}>`;
+    default: {
+      const unhandled: never = s.status;
+      throw new Error(`Unhandled suggestion status: ${String(unhandled)}`);
+    }
   }
 }
 
-/** The #bot-admin card. Independent of the channel, so the review list can reuse it. */
-export function reviewCardView(s: Suggestion, categoryName: string, aliases?: string): Payload {
+/** The parts of the review card, so the review list can reuse them without unwrapping a payload. */
+export function reviewCardParts(
+  s: Suggestion,
+  categoryName: string,
+  aliases?: string,
+): (APIComponentInContainer | Row)[] {
   const shownAliases = aliases ?? s.aliases;
   const lines = [
     `**Suggestion #${s.id}:** **${text(s.name)}** from <@${s.suggesterId}>`,
@@ -103,7 +111,12 @@ export function reviewCardView(s: Suggestion, categoryName: string, aliases?: st
       ),
     );
   }
-  return payload(parts, false);
+  return parts;
+}
+
+/** The #bot-admin card. Independent of the channel, so the review list can reuse it. */
+export function reviewCardView(s: Suggestion, categoryName: string, aliases?: string): Payload {
+  return payload(reviewCardParts(s, categoryName, aliases), false);
 }
 
 /** Posted in #game-news. The role mention shows but does not ping. */

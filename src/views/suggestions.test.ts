@@ -2,6 +2,7 @@ import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
 import type { Category, Game, Suggestion } from "../db/index.ts";
 import { parseId } from "../domain/index.ts";
+import { customIdButtons, defined, findComponents, flagBits, textOf } from "../testing/index.ts";
 import { countComponents } from "./limits.ts";
 import {
   announcementView,
@@ -13,21 +14,8 @@ import {
   suggestModal,
 } from "./suggestions.ts";
 
-type Node = { type: number; components?: Node[]; component?: Node; [key: string]: unknown };
-const json = (p: { components?: unknown }): Node[] => {
-  const items = (p.components ?? []) as { toJSON?: () => Node }[];
-  return items.map((c) => (typeof c.toJSON === "function" ? c.toJSON() : (c as unknown as Node)));
-};
-const walk = (nodes: Node[]): Node[] =>
-  nodes.flatMap((n) => [n, ...walk(n.components ?? (n.component ? [n.component] : []))]);
-const all = (p: { components?: unknown }) => walk(json(p));
-const buttons = (p: { components?: unknown }) =>
-  all(p).filter((n) => n.type === ComponentType.Button);
-const texts = (p: { components?: unknown }) =>
-  all(p)
-    .filter((n) => n.type === ComponentType.TextDisplay)
-    .map((n) => String(n.content))
-    .join("\n");
+const buttons = customIdButtons;
+const texts = textOf;
 
 const cats: Category[] = [
   { id: 1, name: "Chill", position: 1 },
@@ -62,7 +50,7 @@ const game = (id: number, name: string): Game => ({
 test("review card and announcement never ping", () => {
   const card = reviewCardView(sugg({ name: "@everyone", note: "<@&123>" }), "Chill");
   expect(card.allowedMentions).toEqual({ parse: [] });
-  expect(card.flags).toBe(MessageFlags.IsComponentsV2);
+  expect(flagBits(card)).toBe(MessageFlags.IsComponentsV2);
   expect("content" in card).toBe(false);
   expect(texts(card)).not.toContain("@everyone");
   expect(announcementView(game(1, "Valheim")).allowedMentions).toEqual({ parse: [] });
@@ -72,7 +60,7 @@ test("review card and announcement never ping", () => {
 });
 
 test("pending card has Approve, Edit and Reject with the suggestion ID", () => {
-  const ids = buttons(reviewCardView(sugg(), "Chill")).map((b) => parseId(String(b.custom_id)));
+  const ids = buttons(reviewCardView(sugg(), "Chill")).map((b) => parseId(b.custom_id));
   expect(ids).toEqual([
     { kind: "review-approve", suggestionId: 7 },
     { kind: "review-edit", suggestionId: 7 },
@@ -104,12 +92,12 @@ test("card shows aliases from the argument and the note", () => {
 test("duplicate prompt: one Join per game (max 5), Submit anyway and Cancel", () => {
   const games = [1, 2, 3, 4, 5, 6, 7].map((i) => game(i, `Game ${String(i)}`));
   const view = duplicatePromptView({ games, pending: [{ id: 3, name: "Valhalla" }] });
-  const ids = buttons(view).map((b) => parseId(String(b.custom_id)));
+  const ids = buttons(view).map((b) => parseId(b.custom_id));
   expect(ids.filter((i) => i?.kind === "dup-join")).toHaveLength(5);
   expect(ids.map((i) => i?.kind).slice(-2)).toEqual(["dup-submit", "cancel"]);
   expect(texts(view)).toContain("Did you mean");
   expect(texts(view)).toContain("Valhalla");
-  expect(view.flags).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
+  expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
 });
 
 test("my suggestions: Withdraw only on pending; rejected shows reason; within 40 components with 10+10", () => {
@@ -123,14 +111,14 @@ test("my suggestions: Withdraw only on pending; rejected shows reason; within 40
     }),
   );
   const view = mySuggestionsView([...pending, ...decided], new Map(cats.map((c) => [c.id, c])));
-  const withdraw = buttons(view).map((b) => parseId(String(b.custom_id)));
+  const withdraw = buttons(view).map((b) => parseId(b.custom_id));
   expect(withdraw).toHaveLength(10);
   expect(withdraw.every((i) => i?.kind === "withdraw")).toBe(true);
   expect(countComponents(view)).toBeLessThanOrEqual(40);
   expect(texts(view)).toContain("not a game");
   expect(texts(view)).toContain("D4");
   expect(texts(view)).not.toContain("D3");
-  expect(view.flags).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
+  expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
 });
 
 test("my suggestions: empty", () => {
@@ -140,10 +128,9 @@ test("my suggestions: empty", () => {
 test("suggest modal offers every category in the select", () => {
   const modal = suggestModal(cats).toJSON();
   expect(parseId(modal.custom_id)).toEqual({ kind: "suggest-modal" });
-  const nodes = walk(modal.components as unknown as Node[]);
-  const select = nodes.find((n) => n.type === ComponentType.StringSelect)!;
-  expect((select.options as { value: string }[]).map((o) => o.value)).toEqual(["1", "2"]);
-  const inputs = nodes.filter((n) => n.type === ComponentType.TextInput);
+  const select = defined(findComponents(modal.components, ComponentType.StringSelect)[0]);
+  expect(select.options.map((o) => o.value)).toEqual(["1", "2"]);
+  const inputs = findComponents(modal.components, ComponentType.TextInput);
   expect(inputs.map((i) => i.max_length)).toEqual([100, 300]);
   expect(inputs.map((i) => i.required)).toEqual([true, false]);
 });
@@ -151,22 +138,16 @@ test("suggest modal offers every category in the select", () => {
 test("review edit modal prefills and marks the current category", () => {
   const modal = reviewEditModal(sugg({ aliases: "vh" }), cats).toJSON();
   expect(parseId(modal.custom_id)).toEqual({ kind: "review-edit-modal", suggestionId: 7 });
-  const nodes = walk(modal.components as unknown as Node[]);
-  const values = nodes.filter((n) => n.type === ComponentType.TextInput).map((n) => n.value);
+  const values = findComponents(modal.components, ComponentType.TextInput).map((n) => n.value);
   expect(values).toEqual(["Valheim", "vh"]);
-  const select = nodes.find((n) => n.type === ComponentType.StringSelect)!;
-  expect((select.options as { default?: boolean }[]).map((o) => o.default === true)).toEqual([
-    true,
-    false,
-  ]);
+  const select = defined(findComponents(modal.components, ComponentType.StringSelect)[0]);
+  expect(select.options.map((o) => o.default === true)).toEqual([true, false]);
 });
 
 test("reject modal needs a reason of at most 300 characters", () => {
   const modal = rejectModal(sugg()).toJSON();
   expect(parseId(modal.custom_id)).toEqual({ kind: "review-reject-modal", suggestionId: 7 });
-  const input = walk(modal.components as unknown as Node[]).find(
-    (n) => n.type === ComponentType.TextInput,
-  )!;
+  const input = defined(findComponents(modal.components, ComponentType.TextInput)[0]);
   expect(input.required).toBe(true);
   expect(input.max_length).toBe(300);
 });

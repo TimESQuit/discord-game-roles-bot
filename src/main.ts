@@ -16,9 +16,17 @@ import { registerCommands, handleInteraction } from "./interactions/index.ts";
 import { createAudit, type AppContext } from "./services/index.ts";
 
 function readVersion(): string {
-  const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")) as {
-    version: string;
-  };
+  const pkg: unknown = JSON.parse(
+    readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+  );
+  if (
+    typeof pkg !== "object" ||
+    pkg === null ||
+    !("version" in pkg) ||
+    typeof pkg.version !== "string"
+  ) {
+    throw new Error("package.json has no version");
+  }
   const sha = process.env["GIT_SHA"];
   return sha ? `${pkg.version}+${sha.slice(0, 7)}` : pkg.version;
 }

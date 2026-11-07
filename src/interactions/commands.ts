@@ -61,9 +61,10 @@ function lfg(): Buildable {
 const categoryOption = (required: boolean) => (o: SlashCommandStringOption) =>
   o.setName("category").setDescription("The category").setRequired(required).setAutocomplete(true);
 
+const sub = (name: string, description: string) => (s: SlashCommandSubcommandBuilder) =>
+  s.setName(name).setDescription(description);
+
 function gameadmin(): Buildable {
-  const sub = (name: string, description: string) => (s: SlashCommandSubcommandBuilder) =>
-    s.setName(name).setDescription(description);
   return new SlashCommandBuilder()
     .setName("gameadmin")
     .setDescription("Manage the game roles")

@@ -40,7 +40,7 @@ function toSuggestion(row: Selectable<DB["suggestions"]>): Suggestion {
     name: row.name,
     categoryId: row.category_id,
     note: row.note,
-    status: row.status as SuggestionStatus,
+    status: row.status,
     reviewerId: row.reviewer_id,
     rejectionReason: row.rejection_reason,
     decidedAt: row.decided_at,
@@ -99,7 +99,7 @@ export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
         .where("suggester_id", "=", userId)
         .where("status", "=", "pending")
         .executeTakeFirstOrThrow();
-      return Number(row.n);
+      return row.n;
     },
     async pendingNames() {
       return kysely

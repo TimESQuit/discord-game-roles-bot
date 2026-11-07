@@ -26,7 +26,7 @@ import {
   suggestModal,
 } from "../views/index.ts";
 import { text, parseId } from "../domain/index.ts";
-import { forEdit, forReply } from "./replies.ts";
+import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
 import type { Handlers } from "./router.ts";
 
 export type Draft = { name: string; categoryId: number; note: string | null };
@@ -54,7 +54,6 @@ export const draftStore = {
   },
 };
 
-const PRIVATE_V2 = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
 const EXPIRED_MENU = "That menu has expired. Open it again.";
 
 async function requireCategories(ctx: AppContext): Promise<Category[]> {
@@ -105,8 +104,8 @@ function suggestionId(
     | "review-reject-modal",
 ): number {
   const id = parseId(raw);
-  if (id?.kind !== kind) throw new UserFacingError(EXPIRED_MENU);
-  return (id as { suggestionId: number }).suggestionId;
+  if (id?.kind !== kind || !("suggestionId" in id)) throw new UserFacingError(EXPIRED_MENU);
+  return id.suggestionId;
 }
 
 export const suggestHandlers: Handlers = {
@@ -122,7 +121,7 @@ export const suggestHandlers: Handlers = {
   },
 
   "suggest-modal": async (ctx, interaction: ModalSubmitInteraction) => {
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
     if (!Number.isInteger(categoryId)) throw new UserFacingError("Pick a category.");
     const draft: Draft = {
@@ -207,7 +206,7 @@ export const suggestHandlers: Handlers = {
   },
   "review-edit-modal": async (ctx, interaction: ModalSubmitInteraction) => {
     const id = suggestionId(interaction.customId, "review-edit-modal");
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
     if (!Number.isInteger(categoryId)) throw new UserFacingError("Pick a category.");
     const updated = await editSuggestion(
@@ -224,7 +223,7 @@ export const suggestHandlers: Handlers = {
   },
   "review-reject-modal": async (ctx, interaction: ModalSubmitInteraction) => {
     const id = suggestionId(interaction.customId, "review-reject-modal");
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const s = await ctx.repos.suggestions.get(id);
     await rejectSuggestion(
       ctx,

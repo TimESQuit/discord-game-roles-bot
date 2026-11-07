@@ -1,13 +1,8 @@
 import { UserFacingError } from "../errors.ts";
 import type { Game } from "../db/index.ts";
 import type { RoleSnapshot } from "../discord/index.ts";
-import {
-  computeRoleOrder,
-  validateGameName,
-  normalize,
-  parseAliases,
-  text,
-} from "../domain/index.ts";
+import { computeRoleOrder, validateGameName, parseAliases, text } from "../domain/index.ts";
+import { normalize } from "../normalize.ts";
 import type { AppContext } from "./context.ts";
 
 /** Returns the template role, or throws the exact fix for the admin. */
@@ -123,7 +118,7 @@ export async function editGame(
   const name = patch.name === undefined ? game.name : validateGameName(patch.name);
   const nameChanged = name !== game.name;
   const aliases = patch.aliases === undefined ? game.aliases : parseAliases(patch.aliases);
-  const aliasesChanged = [...aliases].sort().join("\n") !== [...game.aliases].sort().join("\n");
+  const aliasesChanged = aliases.toSorted().join("\n") !== game.aliases.toSorted().join("\n");
   const category =
     patch.categoryId === undefined ? undefined : await requireCategory(ctx, patch.categoryId);
   const categoryChanged = category !== undefined && category.id !== game.categoryId;

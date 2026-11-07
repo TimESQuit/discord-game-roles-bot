@@ -26,9 +26,9 @@ const CHANNEL_KEYS = [
 
 /** Reads the setup table directly, so it must track src/db/schema.ts. Synchronous read of a setup value, so the `logLines` and `adminNotices` getters stay synchronous. */
 function setupValue(db: Db, key: SetupKey): string | undefined {
-  const row = db.sqlite.prepare("SELECT value FROM setup WHERE key = ?").get(key) as
-    | { value: string }
-    | undefined;
+  const row = db.sqlite
+    .prepare<[string], { value: string }>("SELECT value FROM setup WHERE key = ?")
+    .get(key);
   return row?.value;
 }
 
@@ -76,10 +76,10 @@ export async function makeContext(
     }
   }
 
-  const sentTo = (key: SetupKey): string[] => {
+  const messagesIn = (key: SetupKey): string[] => {
     const channelId = setupValue(db, key);
-    return (channelId ? (gateway.messages.get(channelId) ?? []) : []).map((m) =>
-      String(m.payload.content ?? ""),
+    return (channelId ? (gateway.messages.get(channelId) ?? []) : []).map(
+      (m) => m.payload.content ?? "",
     );
   };
 
@@ -91,10 +91,10 @@ export async function makeContext(
     audit: createAudit(repos, gateway),
     now: () => new Date(now),
     get logLines() {
-      return sentTo("logChannelId");
+      return messagesIn("logChannelId");
     },
     get adminNotices() {
-      return sentTo("adminChannelId");
+      return messagesIn("adminChannelId");
     },
   };
 }
@@ -104,8 +104,29 @@ export function sentTo(ctx: TestContext, key: SetupKey): Payload[] {
   return channelId ? (ctx.gateway.messages.get(channelId) ?? []).map((m) => m.payload) : [];
 }
 
+/** Every Payload field is optional, so any object is one. */
+const isPayload = (value: unknown): value is Payload => typeof value === "object" && value !== null;
+
+export function lastEdit(ctx: TestContext): {
+  channelId: string;
+  messageId: string;
+  payload: Payload;
+} {
+  const call = ctx.gateway.calls.findLast((c) => c.method === "edit");
+  if (!call) throw new Error("No message was edited");
+  const [channelId, messageId, payload] = call.args;
+  if (typeof channelId !== "string" || typeof messageId !== "string" || !isPayload(payload)) {
+    throw new Error("The last edit call has unexpected arguments");
+  }
+  return { channelId, messageId, payload };
+}
+
 export function lastSend(ctx: TestContext): { channelId: string; payload: Payload } {
   const call = ctx.gateway.calls.findLast((c) => c.method === "send");
   if (!call) throw new Error("No message was sent");
-  return { channelId: call.args[0] as string, payload: call.args[1] as Payload };
+  const [channelId, payload] = call.args;
+  if (typeof channelId !== "string" || !isPayload(payload)) {
+    throw new Error("The last send call has unexpected arguments");
+  }
+  return { channelId, payload };
 }

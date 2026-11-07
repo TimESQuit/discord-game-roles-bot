@@ -66,9 +66,12 @@ test("upgrading from the previous migration keeps every row and foreign key", as
   const old = join(dir, "old");
   cpSync(MIGRATIONS_DIR, old, { recursive: true });
   const journalPath = join(old, "meta", "_journal.json");
-  const journal = JSON.parse(readFileSync(journalPath, "utf8")) as { entries: unknown[] };
-  journal.entries = journal.entries.slice(0, 2);
-  writeFileSync(journalPath, JSON.stringify(journal));
+  const journal: unknown = JSON.parse(readFileSync(journalPath, "utf8"));
+  if (typeof journal !== "object" || journal === null || !("entries" in journal)) {
+    throw new Error("The migration journal has no entries");
+  }
+  if (!Array.isArray(journal.entries)) throw new Error("The migration journal has no entries");
+  writeFileSync(journalPath, JSON.stringify({ ...journal, entries: journal.entries.slice(0, 2) }));
 
   const path = join(dir, "bot.sqlite");
   const raw = new BetterSqlite3(path);
@@ -92,7 +95,7 @@ test("upgrading from the previous migration keeps every row and foreign key", as
 
   const db = openDatabase(path);
   const count = (table: string) =>
-    (db.sqlite.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
+    db.sqlite.prepare<[], { n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).get()?.n;
   expect(count("categories")).toBe(2);
   expect(count("games")).toBe(2);
   expect(count("game_aliases")).toBe(2);

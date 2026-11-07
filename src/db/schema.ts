@@ -1,6 +1,19 @@
 import { sql } from "drizzle-orm";
 import { check, index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const SETUP_KEYS = [
+  "templateRoleId",
+  "panelChannelId",
+  "panelMessageId",
+  "newsChannelId",
+  "adminCategoryId",
+  "adminChannelId",
+  "logChannelId",
+  "backupsChannelId",
+] as const;
+
+export const SUGGESTION_STATUSES = ["pending", "approved", "rejected", "withdrawn"] as const;
+
 export const categories = sqliteTable("categories", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
@@ -31,7 +44,7 @@ export const gameAliases = sqliteTable(
 );
 
 export const setup = sqliteTable("setup", {
-  key: text("key").primaryKey(),
+  key: text("key", { enum: SETUP_KEYS }).primaryKey(),
   value: text("value").notNull(),
 });
 
@@ -45,7 +58,7 @@ export const suggestions = sqliteTable(
       .notNull()
       .references(() => categories.id),
     note: text("note"),
-    status: text("status").notNull().default("pending"),
+    status: text("status", { enum: SUGGESTION_STATUSES }).notNull().default("pending"),
     reviewerId: text("reviewer_id"),
     rejectionReason: text("rejection_reason"),
     decidedAt: text("decided_at"),

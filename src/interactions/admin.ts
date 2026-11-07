@@ -1,5 +1,4 @@
 import {
-  MessageFlags,
   type AutocompleteInteraction,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
@@ -7,7 +6,8 @@ import {
   type StringSelectMenuInteraction,
 } from "discord.js";
 import type { Category, Game } from "../db/index.ts";
-import { validateCategoryName, diffGameEdit, normalize, text, parseId } from "../domain/index.ts";
+import { validateCategoryName, diffGameEdit, text, parseId } from "../domain/index.ts";
+import { normalize } from "../normalize.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   runBackup,
@@ -36,10 +36,9 @@ import {
 } from "../views/index.ts";
 import { parsePositiveId } from "./parse.ts";
 import { resolvePickedGame } from "./lfg.ts";
-import { forEdit, forReply } from "./replies.ts";
+import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
 import type { Handlers } from "./router.ts";
 
-const PRIVATE_V2 = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
 const EXPIRED_FORM = "That form has expired. Open it again.";
 const BAD_CATEGORY = "Pick a category from the list.";
 
@@ -85,8 +84,8 @@ async function moveCategory(
 ): Promise<string> {
   const categories = await ctx.repos.categories.list();
   const index = categories.findIndex((c) => c.id === categoryId);
-  if (index < 0) throw new UserFacingError("That category doesn't exist.");
-  const category = categories[index]!;
+  const category = categories[index];
+  if (!category) throw new UserFacingError("That category doesn't exist.");
   if (dir === "up" ? index === 0 : index === categories.length - 1) {
     throw new UserFacingError(
       `${text(category.name)} is already ${dir === "up" ? "first" : "last"}.`,
@@ -154,7 +153,7 @@ async function answerCategoryModal(
 ): Promise<void> {
   const fromMenu = interaction.isFromMessage();
   if (fromMenu) await interaction.deferUpdate();
-  else await interaction.deferReply({ flags: PRIVATE_V2 });
+  else await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
   const notice = await run();
   await interaction.editReply(forEdit(fromMenu ? await showCategories(ctx) : noticeView(notice)));
 }
@@ -163,7 +162,7 @@ async function replyPrivately(
   interaction: ChatInputCommandInteraction,
   run: () => Promise<string>,
 ): Promise<void> {
-  await interaction.deferReply({ flags: PRIVATE_V2 });
+  await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
   await interaction.editReply(forEdit(noticeView(await run())));
 }
 
@@ -171,7 +170,7 @@ async function previewInto(
   ctx: AppContext,
   interaction: ButtonInteraction | ChatInputCommandInteraction,
 ): Promise<void> {
-  await interaction.deferReply({ flags: PRIVATE_V2 });
+  await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
   const { problems, plan } = await previewSetup(ctx);
   await interaction.editReply(forEdit(setupPreviewView(problems, plan)));
 }
@@ -191,7 +190,7 @@ type AnyInteraction = ButtonInteraction | ChatInputCommandInteraction;
 const privateAction =
   (make: (ctx: AppContext, userId: string) => () => Promise<string>) =>
   async (ctx: AppContext, interaction: AnyInteraction): Promise<void> => {
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     await interaction.editReply(forEdit(noticeView(await make(ctx, interaction.user.id)())));
   };
 
@@ -240,7 +239,7 @@ export const adminHandlers: Handlers = {
     if (parseId(interaction.customId)?.kind !== "game-add-modal") {
       throw new UserFacingError(EXPIRED_FORM);
     }
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const game = await addGame(ctx, {
       name: interaction.fields.getTextInputValue(FIELD.name),
       categoryId: modalCategory(interaction),
@@ -252,7 +251,7 @@ export const adminHandlers: Handlers = {
   "game-edit-modal": async (ctx, interaction: ModalSubmitInteraction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "game-edit-modal") throw new UserFacingError(EXPIRED_FORM);
-    await interaction.deferReply({ flags: PRIVATE_V2 });
+    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
     const game = await ctx.repos.games.get(id.gameId);
     if (!game) throw new UserFacingError("That game no longer exists.");
     // Aliases are left out of the modal when they are too long to prefill.

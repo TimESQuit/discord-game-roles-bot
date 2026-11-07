@@ -4,8 +4,9 @@ import type { Game } from "../db/index.ts";
 import { addGame, editGame, reapplyTemplate, removeGame, sortGameRoles } from "./games.ts";
 import {
   A1,
-  TEMPLATE_COLOR,
+  defined,
   makeContext,
+  TEMPLATE_COLOR,
   templatePosition,
   type TestContext,
 } from "../testing/index.ts";
@@ -17,8 +18,8 @@ let comp: { id: number };
 beforeEach(async () => {
   ctx = await makeContext();
   const cats = await ctx.repos.categories.list();
-  comp = cats[0]!;
-  chill = cats.find((c) => c.name === "Chill")!;
+  comp = defined(cats[0]);
+  chill = defined(cats.find((c) => c.name === "Chill"));
 });
 
 const add = (name: string, aliases = ""): Promise<Game> =>
@@ -64,7 +65,7 @@ describe("addGame", () => {
     expect(await ctx.repos.games.ownsRole(game.roleId)).toBe(true);
     expect(game.aliases).toEqual(["vh"]);
     expect(ctx.logLines).toContain(`<@${A1}> added game **Valheim**`);
-    expect(ctx.gateway.role(game.roleId)!.position).toBeLessThan(templatePosition + 1);
+    expect(defined(ctx.gateway.role(game.roleId)).position).toBeLessThan(templatePosition + 1);
   });
 
   test("refuses a name or alias that collides with an existing game", async () => {
@@ -139,7 +140,7 @@ describe("editGame", () => {
     const g = await add("Alpha");
     const edited = await editGame(ctx, g.id, { name: "Zulu" }, A1);
     expect(edited.name).toBe("Zulu");
-    expect(ctx.gateway.role(g.roleId)!.name).toBe("Zulu");
+    expect(defined(ctx.gateway.role(g.roleId)).name).toBe("Zulu");
     expect(calls("setRolePositions").length).toBeGreaterThan(0);
     expect(ctx.logLines).toContain(`<@${A1}> edited game **Zulu**: renamed Alpha → Zulu`);
   });
@@ -147,7 +148,7 @@ describe("editGame", () => {
   test("reports each changed part", async () => {
     const g = await add("Valheim");
     await editGame(ctx, g.id, { name: "Valheim 2", categoryId: comp.id, aliases: "vh, val" }, A1);
-    const last = ctx.logLines.at(-1)!;
+    const last = defined(ctx.logLines.at(-1));
     expect(last).toContain("renamed Valheim → Valheim 2; moved to Competitive; aliases: vh, val");
   });
 

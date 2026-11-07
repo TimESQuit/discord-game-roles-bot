@@ -123,8 +123,20 @@ function isKind(value: string): value is CustomIdKind {
   return Object.hasOwn(SPECS, value);
 }
 
+/** Checks a parsed record against the spec of its kind: the same rules parseId applies. */
+function isCustomId(value: unknown): value is CustomId {
+  if (typeof value !== "object" || value === null) return false;
+  const kind: unknown = Reflect.get(value, "kind");
+  if (typeof kind !== "string" || !isKind(kind)) return false;
+  return SPECS[kind].every((spec) => {
+    const arg: unknown = Reflect.get(value, spec.name);
+    if (spec.words === null) return typeof arg === "number" && Number.isInteger(arg) && arg >= 0;
+    return typeof arg === "string" && spec.words.includes(arg);
+  });
+}
+
 export function encodeId(id: CustomId): string {
-  const fields = id as unknown as Record<string, string | number>;
+  const fields: Record<string, unknown> = id;
   const parts = SPECS[id.kind].map((spec) => String(fields[spec.name]));
   const raw = [PREFIX + id.kind, ...parts].join(":");
   if (raw.length > 100) throw new RangeError("Custom ID is longer than 100 characters");
@@ -139,7 +151,8 @@ export function parseId(raw: string): CustomId | null {
   if (args.length !== specs.length) return null;
   const out: Record<string, string | number> = { kind };
   for (const [index, spec] of specs.entries()) {
-    const arg = args[index] as string;
+    const arg = args[index];
+    if (arg === undefined) return null;
     if (spec.words === null) {
       if (!/^\d{1,15}$/.test(arg)) return null;
       out[spec.name] = Number(arg);
@@ -148,7 +161,7 @@ export function parseId(raw: string): CustomId | null {
       out[spec.name] = arg;
     }
   }
-  return out as unknown as CustomId;
+  return isCustomId(out) ? out : null;
 }
 
 export function isAdminId(id: CustomId): boolean {

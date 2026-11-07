@@ -22,7 +22,7 @@ export function openDatabase(path: string): Db {
   // is switched off here, outside it. Table rebuilds would otherwise fire ON DELETE actions.
   sqlite.pragma("foreign_keys = OFF");
   migrate(drizzle(sqlite), { migrationsFolder: MIGRATIONS_DIR });
-  const broken = sqlite.pragma("foreign_key_check") as unknown[];
+  const broken = sqlite.prepare("PRAGMA foreign_key_check").all();
   if (broken.length > 0) {
     sqlite.close();
     throw new Error("The database has rows that break a foreign key after migrating.");

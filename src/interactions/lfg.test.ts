@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { resolvePickedGame } from "./lfg.ts";
 import { addGame, removeGame } from "../services/index.ts";
-import { A1, makeContext, type TestContext } from "../testing/index.ts";
+import { A1, defined, makeContext, type TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let gameId: number;
@@ -10,7 +10,12 @@ beforeEach(async () => {
   ctx = await makeContext();
   const cats = await ctx.repos.categories.list();
   gameId = (
-    await addGame(ctx, { name: "Valheim", categoryId: cats[1]!.id, aliases: "", actorId: A1 })
+    await addGame(ctx, {
+      name: "Valheim",
+      categoryId: defined(cats[1]).id,
+      aliases: "",
+      actorId: A1,
+    })
   ).id;
 });
 

@@ -1,3 +1,5 @@
+import type { SETUP_KEYS, SUGGESTION_STATUSES } from "./schema.ts";
+
 export type Category = { id: number; name: string; position: number };
 
 export type Game = {
@@ -10,17 +12,9 @@ export type Game = {
   addedAt: string;
 };
 
-export type SetupKey =
-  | "templateRoleId"
-  | "panelChannelId"
-  | "panelMessageId"
-  | "newsChannelId"
-  | "adminCategoryId"
-  | "adminChannelId"
-  | "logChannelId"
-  | "backupsChannelId";
+export type SetupKey = (typeof SETUP_KEYS)[number];
 
-export type SuggestionStatus = "pending" | "approved" | "rejected" | "withdrawn";
+export type SuggestionStatus = (typeof SUGGESTION_STATUSES)[number];
 
 export type Suggestion = {
   id: number;

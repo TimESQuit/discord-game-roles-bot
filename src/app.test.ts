@@ -9,6 +9,38 @@ import {
 import { HANDLER_NAMES } from "./interactions/index.ts";
 import { makeContext } from "./testing/index.ts";
 
+const noop = async (): Promise<void> => {};
+
+const deps = (calls: string[], over: Partial<ReadyDeps> = {}): ReadyDeps => ({
+  registerCommands: async () => {
+    calls.push("register");
+  },
+  fetchMembers: async () => {
+    calls.push("fetch");
+  },
+  isConnected: () => true,
+  isStopping: () => false,
+  version: "1.2.3",
+  ...over,
+});
+
+const makeShutdown = (over: Partial<Parameters<typeof createShutdown>[0]> = {}) => {
+  const calls: string[] = [];
+  const exit = vi.fn<(code: number) => void>();
+  const shutdown = createShutdown({
+    stopTimers: () => () => calls.push("timers"),
+    destroyClient: async () => {
+      calls.push("destroy");
+    },
+    closeDb: async () => {
+      calls.push("db");
+    },
+    exit,
+    ...over,
+  });
+  return { calls, exit, shutdown };
+};
+
 describe("buildHandlers", () => {
   test("every handler name the router can return is implemented", () => {
     const handlers = buildHandlers();
@@ -17,7 +49,6 @@ describe("buildHandlers", () => {
   });
 
   test("a duplicate key across handler maps throws", () => {
-    const noop = async (): Promise<void> => {};
     expect(() => buildHandlers([{ cancel: noop }, { cancel: noop }])).toThrow("cancel");
   });
 });
@@ -29,19 +60,6 @@ describe("onReady", () => {
   });
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  const deps = (calls: string[], over: Partial<ReadyDeps> = {}): ReadyDeps => ({
-    registerCommands: async () => {
-      calls.push("register");
-    },
-    fetchMembers: async () => {
-      calls.push("fetch");
-    },
-    isConnected: () => true,
-    isStopping: () => false,
-    version: "1.2.3",
-    ...over,
   });
 
   test("registers, fetches members, then posts the started notice", async () => {
@@ -114,39 +132,19 @@ describe("onReady and shutdown", () => {
     const ctx = await makeContext();
     vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
     let stopping = false;
-    let release: () => void = () => {};
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
+    const gate = Promise.withResolvers<void>();
     const pending = onReady(ctx, {
       ...deps0([]),
-      registerCommands: () => gate,
+      registerCommands: () => gate.promise,
       isStopping: () => stopping,
     });
     stopping = true;
-    release();
+    gate.resolve();
     const stop = await pending;
     expect(vi.getTimerCount()).toBe(0);
     stop();
     vi.useRealTimers();
   });
-
-  const makeShutdown = (over: Partial<Parameters<typeof createShutdown>[0]> = {}) => {
-    const calls: string[] = [];
-    const exit = vi.fn<(code: number) => void>();
-    const shutdown = createShutdown({
-      stopTimers: () => () => calls.push("timers"),
-      destroyClient: async () => {
-        calls.push("destroy");
-      },
-      closeDb: async () => {
-        calls.push("db");
-      },
-      exit,
-      ...over,
-    });
-    return { calls, exit, shutdown };
-  };
 
   test("shutdown stops timers, destroys, closes, exits 0", async () => {
     const { calls, exit, shutdown } = makeShutdown();

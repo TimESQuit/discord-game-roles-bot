@@ -1,12 +1,5 @@
-import { ChannelType, DiscordAPIError, PermissionsBitField } from "discord.js";
-import type {
-  Client,
-  Guild,
-  MessageEditOptions,
-  OverwriteResolvable,
-  PermissionsString,
-  Role,
-} from "discord.js";
+import { ChannelType, DiscordAPIError, MessageFlags, PermissionsBitField } from "discord.js";
+import type { Client, Guild, OverwriteResolvable, PermissionsString, Role } from "discord.js";
 import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "./gateway.ts";
 
 const UNKNOWN_MESSAGE = 10008;
@@ -19,6 +12,25 @@ function snapshot(role: Role): RoleSnapshot {
     position: role.position,
     color: role.color,
     mentionable: role.mentionable,
+  };
+}
+
+const isLayoutFlag = (
+  flag: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
+): flag is MessageFlags.IsComponentsV2 => flag === MessageFlags.IsComponentsV2;
+
+/**
+ * The part of a payload a channel message can carry. Create and edit options share these
+ * fields; edit rejects only fields such as reply/stickers that the bot never sets on these
+ * posts. The ephemeral flag only exists on interaction replies.
+ */
+function channelBody(payload: Payload) {
+  return {
+    content: payload.content,
+    components: payload.components,
+    allowedMentions: payload.allowedMentions,
+    files: payload.files,
+    flags: payload.flags?.filter(isLayoutFlag),
   };
 }
 
@@ -131,14 +143,12 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
     async send(channelId, payload: Payload) {
       const ch = await textChannel(channelId);
       if (!ch.isSendable()) throw new Error(`Channel ${channelId} is not sendable`);
-      return (await ch.send(payload)).id;
+      return (await ch.send(channelBody(payload))).id;
     },
     async edit(channelId, messageId, payload: Payload) {
       const ch = await textChannel(channelId);
       try {
-        // Create options carry the same V2 flags and components; edit rejects only
-        // fields such as reply/stickers that the bot never sets on these posts.
-        await ch.messages.edit(messageId, payload as MessageEditOptions);
+        await ch.messages.edit(messageId, channelBody(payload));
         return true;
       } catch (error) {
         if (error instanceof DiscordAPIError && error.code === UNKNOWN_MESSAGE) return false;
@@ -150,7 +160,7 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
       const fetched = await ch.messages.fetch({ limit });
       return [...fetched.values()]
         .filter((m) => m.author.id === client.user.id)
-        .sort((a, b) => b.createdTimestamp - a.createdTimestamp)
+        .toSorted((a, b) => b.createdTimestamp - a.createdTimestamp)
         .map((m) => ({
           id: m.id,
           createdAt: m.createdAt,

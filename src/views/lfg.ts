@@ -72,7 +72,7 @@ export function lfgPostView(post: LfgPost, game: Game | null): Payload {
     ],
   };
   return {
-    flags: MessageFlags.IsComponentsV2,
+    flags: [MessageFlags.IsComponentsV2],
     components: [inner],
     allowedMentions: game ? { roles: [game.roleId], parse: [] } : { parse: [] },
   };

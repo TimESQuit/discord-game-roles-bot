@@ -76,8 +76,8 @@ test("removing a game removes its aliases", async () => {
   await repos.games.remove(game.id);
   expect(await repos.games.get(game.id)).toBeUndefined();
   expect(await repos.games.ownsRole("200000000000000001")).toBe(false);
-  const row = db.sqlite.prepare("SELECT COUNT(*) AS n FROM game_aliases").get() as { n: number };
-  expect(row.n).toBe(0);
+  const row = db.sqlite.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM game_aliases").get();
+  expect(row?.n).toBe(0);
 });
 
 test("setup keys round-trip", async () => {

@@ -17,7 +17,7 @@ import {
   refreshPanel,
   REQUIRED_PERMISSIONS,
 } from "./setup.ts";
-import { A1, ADMIN_ROLE_ID, makeContext } from "../testing/index.ts";
+import { A1, ADMIN_ROLE_ID, defined, makeContext } from "../testing/index.ts";
 
 const readOnlyForEveryone = (botId: string): Overwrite[] => [
   {
@@ -91,10 +91,10 @@ describe("applySetup", () => {
   test("two concurrent runs create one set; the second is refused", async () => {
     const ctx = await makeContext({ setup: false });
     const results = await Promise.allSettled([applySetup(ctx, A1), applySetup(ctx, A1)]);
-    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
-    expect(
-      (results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason.message,
-    ).toBe("Setup is already running.");
+    expect(results.map((r) => r.status).toSorted()).toEqual(["fulfilled", "rejected"]);
+    expect(results.find((r) => r.status === "rejected")?.reason).toMatchObject({
+      message: "Setup is already running.",
+    });
     expect(creates(ctx, "createRole")).toHaveLength(1);
     expect(creates(ctx, "createCategory")).toHaveLength(1);
     await expect(applySetup(ctx, A1)).resolves.toBeDefined();
@@ -107,7 +107,7 @@ describe("applySetup", () => {
     expect(result.fine).toEqual([]);
 
     const all = await ctx.repos.setup.all();
-    expect(Object.keys(all).sort()).toEqual([
+    expect(Object.keys(all).toSorted()).toEqual([
       "adminCategoryId",
       "adminChannelId",
       "backupsChannelId",
@@ -117,17 +117,17 @@ describe("applySetup", () => {
       "panelMessageId",
       "templateRoleId",
     ]);
-    expect(ctx.gateway.role(all.templateRoleId!)?.name).toBe(TEMPLATE_ROLE_NAME);
+    expect(ctx.gateway.role(defined(all.templateRoleId))?.name).toBe(TEMPLATE_ROLE_NAME);
     expect((await ctx.repos.categories.list()).map((c) => c.name)).toEqual([
       ...STARTING_CATEGORIES,
     ]);
 
-    const role = creates(ctx, "createRole")[0]!;
+    const role = defined(creates(ctx, "createRole")[0]);
     expect(role.args[0]).toEqual({ name: TEMPLATE_ROLE_NAME, color: 0, mentionable: true });
 
-    const panel = ctx.gateway.messages.get(all.panelChannelId!)!;
+    const panel = defined(ctx.gateway.messages.get(defined(all.panelChannelId)));
     expect(panel).toHaveLength(1);
-    expect(panel[0]!.id).toBe(all.panelMessageId);
+    expect(defined(panel[0]).id).toBe(all.panelMessageId);
     expect(ctx.logLines).toHaveLength(1);
     expect(ctx.logLines[0]).toContain("ran setup");
   });
@@ -141,7 +141,7 @@ describe("applySetup", () => {
     expect(text.get(PANEL_CHANNEL_NAME)?.[1]).toBeNull();
     expect(text.get(PANEL_CHANNEL_NAME)?.[2]).toEqual(readOnlyForEveryone(bot));
     expect(text.get(NEWS_CHANNEL_NAME)?.[2]).toEqual(readOnlyForEveryone(bot));
-    const category = creates(ctx, "createCategory")[0]!;
+    const category = defined(creates(ctx, "createCategory")[0]);
     expect(category.args).toEqual([ADMIN_CATEGORY_NAME, adminOnly(bot)]);
     for (const name of [ADMIN_CHANNEL_NAME, LOG_CHANNEL_NAME, BACKUPS_CHANNEL_NAME]) {
       expect(text.get(name)?.[1]).toBe(all.adminCategoryId);
@@ -165,7 +165,7 @@ describe("applySetup", () => {
   test("repairs a deleted news channel and nothing else", async () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
-    const old = (await ctx.repos.setup.get("newsChannelId"))!;
+    const old = defined(await ctx.repos.setup.get("newsChannelId"));
     ctx.gateway.deleteChannelBehindBotsBack(old);
     const before = ctx.gateway.calls.length;
     const result = await applySetup(ctx, A1);
@@ -179,13 +179,13 @@ describe("applySetup", () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
     const s = await ctx.repos.setup.all();
-    ctx.gateway.deleteChannelBehindBotsBack(s.adminCategoryId!);
+    ctx.gateway.deleteChannelBehindBotsBack(defined(s.adminCategoryId));
     const before = ctx.gateway.calls.length;
     const result = await applySetup(ctx, A1);
     expect(result.created).toEqual(["adminCategory"]);
     const fresh = ctx.gateway.calls.slice(before);
     expect(fresh.filter((c) => c.method === "createTextChannel")).toEqual([]);
-    const newCategory = (await ctx.repos.setup.get("adminCategoryId"))!;
+    const newCategory = defined(await ctx.repos.setup.get("adminCategoryId"));
     expect(newCategory).not.toBe(s.adminCategoryId);
     expect(fresh.filter((c) => c.method === "setChannelParent").map((c) => c.args)).toEqual([
       [s.adminChannelId, newCategory],
@@ -216,16 +216,16 @@ describe("refreshPanel", () => {
   test("two concurrent refreshes post one panel; the second is refused", async () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
-    const channel = (await ctx.repos.setup.get("panelChannelId"))!;
+    const channel = defined(await ctx.repos.setup.get("panelChannelId"));
     ctx.gateway.deleteMessageBehindBotsBack(
       channel,
-      (await ctx.repos.setup.get("panelMessageId"))!,
+      defined(await ctx.repos.setup.get("panelMessageId")),
     );
     const results = await Promise.allSettled([refreshPanel(ctx, A1), refreshPanel(ctx, A1)]);
-    expect(results.map((r) => r.status).sort()).toEqual(["fulfilled", "rejected"]);
-    expect(
-      (results.find((r) => r.status === "rejected") as PromiseRejectedResult).reason.message,
-    ).toBe("The panel is already being refreshed.");
+    expect(results.map((r) => r.status).toSorted()).toEqual(["fulfilled", "rejected"]);
+    expect(results.find((r) => r.status === "rejected")?.reason).toMatchObject({
+      message: "The panel is already being refreshed.",
+    });
     expect(ctx.gateway.messages.get(channel)).toHaveLength(1);
     await expect(refreshPanel(ctx, A1)).resolves.toBe("updated");
   });
@@ -242,13 +242,13 @@ describe("refreshPanel", () => {
   test("reposts and records a new ID if the message was deleted", async () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
-    const channel = (await ctx.repos.setup.get("panelChannelId"))!;
-    const id = (await ctx.repos.setup.get("panelMessageId"))!;
+    const channel = defined(await ctx.repos.setup.get("panelChannelId"));
+    const id = defined(await ctx.repos.setup.get("panelMessageId"));
     ctx.gateway.deleteMessageBehindBotsBack(channel, id);
     expect(await refreshPanel(ctx, A1)).toBe("reposted");
     const fresh = await ctx.repos.setup.get("panelMessageId");
     expect(fresh).not.toBe(id);
-    expect(ctx.gateway.messages.get(channel)!.map((m) => m.id)).toEqual([fresh]);
+    expect(defined(ctx.gateway.messages.get(channel)).map((m) => m.id)).toEqual([fresh]);
   });
 
   test("without a panel channel it asks for setup", async () => {
@@ -259,7 +259,7 @@ describe("refreshPanel", () => {
   test("a recorded but deleted panel channel asks for setup", async () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
-    ctx.gateway.deleteChannelBehindBotsBack((await ctx.repos.setup.get("panelChannelId"))!);
+    ctx.gateway.deleteChannelBehindBotsBack(defined(await ctx.repos.setup.get("panelChannelId")));
     await expect(refreshPanel(ctx, A1)).rejects.toThrow("Run /gameadmin setup first.");
   });
 
@@ -267,10 +267,10 @@ describe("refreshPanel", () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
     await refreshPanel(ctx, A1);
-    const channel = (await ctx.repos.setup.get("panelChannelId"))!;
+    const channel = defined(await ctx.repos.setup.get("panelChannelId"));
     ctx.gateway.deleteMessageBehindBotsBack(
       channel,
-      (await ctx.repos.setup.get("panelMessageId"))!,
+      defined(await ctx.repos.setup.get("panelMessageId")),
     );
     await refreshPanel(ctx, A1);
     expect(ctx.logLines.slice(-2)).toEqual([
@@ -280,9 +280,9 @@ describe("refreshPanel", () => {
   });
 });
 
-describe("setup failure handling", () => {
-  const missingAccess = () => new Error("Missing Access");
+const missingAccess = () => new Error("Missing Access");
 
+describe("setup failure handling", () => {
   test("missing permissions beat a failing message lookup", async () => {
     const ctx = await makeContext();
     await ctx.repos.setup.set("panelMessageId", "100000000000000900");
@@ -314,7 +314,7 @@ describe("setup failure handling", () => {
     const ctx = await makeContext({ setup: false });
     await applySetup(ctx, A1);
     const s = await ctx.repos.setup.all();
-    ctx.gateway.deleteChannelBehindBotsBack(s.adminCategoryId!);
+    ctx.gateway.deleteChannelBehindBotsBack(defined(s.adminCategoryId));
     ctx.gateway.failNext("setChannelParent", new Error("boom"));
     await expect(applySetup(ctx, A1)).rejects.toThrow("boom");
     expect(await ctx.repos.setup.get("adminCategoryId")).toBe(s.adminCategoryId);

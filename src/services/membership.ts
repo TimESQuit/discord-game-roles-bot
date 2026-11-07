@@ -120,7 +120,9 @@ export async function autocompleteGames(
   if (mode === "remove") pool = pool.filter((g) => roles.has(g.roleId));
   if (mode === "add" && query.trim() === "") {
     const counts = new Map(pool.map((g) => [g.id, ctx.gateway.roleMemberIds(g.roleId).length]));
-    pool = pool.toSorted((a, b) => counts.get(b.id)! - counts.get(a.id)! || byName(a, b));
+    pool = pool.toSorted(
+      (a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0) || byName(a, b),
+    );
   }
   return rankGames(query, pool, SELECT_OPTION_LIMIT);
 }
