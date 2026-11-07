@@ -1,5 +1,5 @@
 import { UserFacingError } from "../errors.ts";
-import { text } from "../views/text.ts";
+import { text } from "./text.ts";
 
 export const CATEGORY_NAME_MAX = 50;
 

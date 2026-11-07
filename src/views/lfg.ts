@@ -12,9 +12,9 @@ import {
 } from "discord.js";
 import type { Game, LfgPost } from "../db/types.ts";
 import type { Payload } from "../discord/gateway.ts";
-import { encodeId, type CustomId } from "../interactions/custom-ids.ts";
+import { encodeId, type CustomId } from "../domain/custom-ids.ts";
 import { truncate } from "./limits.ts";
-import { text } from "./text.ts";
+import { text } from "../domain/text.ts";
 
 /** Field IDs inside the LFG modal (read back with `interaction.fields`). */
 export const LFG_FIELD = { when: "when", note: "note" } as const;

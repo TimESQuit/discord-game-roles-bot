@@ -3,7 +3,7 @@ import type { Game } from "../db/types.ts";
 import type { RoleSnapshot } from "../discord/gateway.ts";
 import { computeRoleOrder, validateGameName } from "../domain/roles.ts";
 import { normalize, parseAliases } from "../domain/search.ts";
-import { text } from "../views/text.ts";
+import { text } from "../domain/text.ts";
 import type { AppContext } from "./context.ts";
 
 /** Returns the template role, or throws the exact fix for the admin. */

@@ -15,10 +15,10 @@ import type { Category, Game, Suggestion } from "../db/types.ts";
 import type { Payload } from "../discord/gateway.ts";
 import { CATEGORY_NAME_MAX } from "../domain/categories.ts";
 import type { SetupItem } from "../domain/setup-plan.ts";
-import { encodeId, type CustomId } from "../interactions/custom-ids.ts";
+import { encodeId, type CustomId } from "../domain/custom-ids.ts";
 import { truncate } from "./limits.ts";
 import { FIELD, categoryLabel, inputLabel, reviewCardView, textInput } from "./suggestions.ts";
-import { text } from "./text.ts";
+import { text } from "../domain/text.ts";
 
 const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;
 const NO_PINGS = { parse: [] } as const;

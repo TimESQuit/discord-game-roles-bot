@@ -4,7 +4,7 @@ import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "../services/context.ts";
 import { noticeView } from "../views/member.ts";
 import { forReply } from "./member.ts";
-import { isAdminId, parseId, type CustomId } from "./custom-ids.ts";
+import { isAdminId, parseId, type CustomId } from "../domain/custom-ids.ts";
 
 export const HANDLER_NAMES = [
   "panel-open",

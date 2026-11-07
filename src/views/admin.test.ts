@@ -1,7 +1,7 @@
 import { ButtonStyle, ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
 import type { Category, Game, Suggestion } from "../db/types.ts";
-import { parseId } from "../interactions/custom-ids.ts";
+import { parseId } from "../domain/custom-ids.ts";
 import {
   categoriesView,
   categoryModal,

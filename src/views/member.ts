@@ -20,9 +20,9 @@ import {
   type AdminAction,
   type CustomId,
   type MenuAction,
-} from "../interactions/custom-ids.ts";
+} from "../domain/custom-ids.ts";
 import { truncate } from "./limits.ts";
-import { text } from "./text.ts";
+import { text } from "../domain/text.ts";
 
 const V2 = MessageFlags.IsComponentsV2 as const;
 const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;

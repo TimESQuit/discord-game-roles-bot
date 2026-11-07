@@ -25,8 +25,8 @@ import {
   reviewEditModal,
   suggestModal,
 } from "../views/suggestions.ts";
-import { text } from "../views/text.ts";
-import { parseId } from "./custom-ids.ts";
+import { text } from "../domain/text.ts";
+import { parseId } from "../domain/custom-ids.ts";
 import { forEdit, forReply } from "./member.ts";
 import type { Handlers } from "./router.ts";
 

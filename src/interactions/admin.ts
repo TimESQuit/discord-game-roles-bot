@@ -28,8 +28,8 @@ import {
 import { truncate } from "../views/limits.ts";
 import { noticeView, pickGameView } from "../views/member.ts";
 import { FIELD } from "../views/suggestions.ts";
-import { text } from "../views/text.ts";
-import { parseId } from "./custom-ids.ts";
+import { text } from "../domain/text.ts";
+import { parseId } from "../domain/custom-ids.ts";
 import { parsePositiveId } from "./parse.ts";
 import { resolvePickedGame } from "./lfg.ts";
 import { forEdit, forReply } from "./member.ts";

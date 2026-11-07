@@ -15,9 +15,9 @@ import {
 import { TEXT_LIMIT } from "../constants.ts";
 import type { Category, Game, Suggestion } from "../db/types.ts";
 import type { Payload } from "../discord/gateway.ts";
-import { encodeId, type CustomId } from "../interactions/custom-ids.ts";
+import { encodeId, type CustomId } from "../domain/custom-ids.ts";
 import { truncate } from "./limits.ts";
-import { text } from "./text.ts";
+import { text } from "../domain/text.ts";
 
 const V2 = MessageFlags.IsComponentsV2 as const;
 const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;
