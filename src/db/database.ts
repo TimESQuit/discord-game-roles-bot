@@ -25,4 +25,6 @@ export function openDatabase(path: string): Db {
 
 export async function closeDatabase(db: Db): Promise<void> {
   await db.kysely.destroy();
+  // Kysely only closes the handle once it has run a query.
+  if (db.sqlite.open) db.sqlite.close();
 }

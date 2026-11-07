@@ -27,7 +27,7 @@ const CHANNEL_KEYS = [
   "backupsChannelId",
 ] as const satisfies readonly SetupKey[];
 
-/** Synchronous read of a setup value, so the `logLines` and `adminNotices` getters stay synchronous. */
+/** Reads the setup table directly, so it must track src/db/schema.ts. Synchronous read of a setup value, so the `logLines` and `adminNotices` getters stay synchronous. */
 function setupValue(db: Db, key: SetupKey): string | undefined {
   const row = db.sqlite.prepare("SELECT value FROM setup WHERE key = ?").get(key) as
     | { value: string }
