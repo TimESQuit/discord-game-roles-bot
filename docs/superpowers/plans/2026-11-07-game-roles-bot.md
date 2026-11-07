@@ -6,7 +6,7 @@
 
 **Architecture:** Pure decision logic (`src/domain/`) and SQLite repositories (`src/db/`) are covered by Vitest. Services (`src/services/`) combine them through a thin `Gateway` interface over discord.js, so tests run against an in-memory fake. Views (`src/views/`) build message payloads. Interaction handlers (`src/interactions/`) parse, check admin rights, acknowledge the interaction and call one service. `src/main.ts` wires it all together.
 
-**Tech Stack:** Node.js 26 running `.ts` directly, TypeScript 7.0 (type-check only), discord.js 14.28.1, `node:sqlite`, Vitest 5, oxlint and oxlint-tsgolint (type-aware), oxfmt, pnpm 12, Docker Compose and GitHub Actions.
+**Tech Stack:** Node.js 26 running `.ts` directly, TypeScript 7.0 (type-check only), discord.js 14.28.1, SQLite through better-sqlite3 (Drizzle for the schema and migrations, Kysely for queries), Vitest 5, oxlint and oxlint-tsgolint (type-aware), oxfmt, pnpm 12, Docker Compose and GitHub Actions.
 
 **Spec:** `docs/design.md`, exported from the Claude Docs doc "Game Roles Bot — Design". The live doc wins if they differ.
 
@@ -20,7 +20,8 @@ These are defaults so that work can start. Each sits in one place and is cheap t
 | --- | --- | --- |
 | Panel channel name | `game-roles` | `PANEL_CHANNEL_NAME` in `src/constants.ts` |
 | LFG channel limits, expiry, threads, author edits | None in v1, as the spec says | — |
-| SQLite driver | `node:sqlite`: nothing to compile, and it has `backup()` for consistent snapshots | `src/db/database.ts` |
+| SQLite driver | better-sqlite3, chosen by the user after Task 9 (Task 9b replaces the first `node:sqlite` version). It has `backup()` for consistent snapshots | `src/db/database.ts` |
+| Schema and migrations | Tables are described in `src/db/schema.ts` with Drizzle. `pnpm db:generate` (drizzle-kit) writes each migration as SQL from the schema change, like Django's `makemigrations`. Queries use Kysely, with table types derived from the same schema. `pnpm check` fails if the schema changed without a migration | `src/db/schema.ts`, `drizzle/` |
 | Fuzzy matching | Neither library. A small tiered matcher, because the spec fixes a tier order (prefix → word start → substring → typo → acronym) that fuse.js and fast-fuzzy scores don't follow | `src/domain/search.ts` |
 | Nightly backup time | 04:00 UTC | `BACKUP_HOUR_UTC` env var |
 | healthchecks.io | Ping every 5 min. Set the check's period to 5 min and its grace to 10 min | `HEARTBEAT_INTERVAL_MS` in `src/constants.ts` |
@@ -37,7 +38,8 @@ Three things Discord forces:
 ## Global Constraints
 
 - Node ≥ 26, `"type": "module"`. Relative imports end in `.ts`. `erasableSyntaxOnly` is on: no `enum`, no `namespace`, no constructor parameter properties.
-- Exact versions with no `^` or `~`: `discord.js@14.28.1`, `typescript@7.0.2`, `oxlint@1.92.0`, `oxlint-tsgolint@7.0.2006`, `oxfmt@0.77.0`, `vitest@5.1.0`, `@types/node@26.6.6`, `packageManager: pnpm@12.18.0`.
+- Exact versions with no `^` or `~`: `discord.js@14.28.1`, `typescript@7.0.2`, `oxlint@1.92.0`, `oxlint-tsgolint@7.0.2006`, `oxfmt@0.77.0`, `vitest@5.1.0`, `@types/node@26.6.6`, `better-sqlite3@13.0.3`, `@types/better-sqlite3@9.6.0`, `kysely@0.29.8`, `drizzle-orm@0.45.4`, `drizzle-kit@0.31.11`, `packageManager: pnpm@12.18.0`.
+- Database access goes through the repos, and every repo method is async (Kysely). Tables change only through a migration generated from `src/db/schema.ts`.
 - The bot adds, removes, renames or deletes only roles whose IDs are in the `games` table. It reads the template role and never changes it after creating it.
 - No DMs, ever. Private answers are ephemeral replies (`MessageFlags.Ephemeral`).
 - Every member and admin action writes exactly one `#bot-log` line (see `AuditEvent`, Task 8).
@@ -73,9 +75,13 @@ src/
     setup-plan.ts            planSetup (Task 13)
     schedule.ts              msUntilNextRun, selectExpiredBackups (Task 14)
   db/
-    database.ts              openDatabase, migrations (Task 5)
+    schema.ts                Drizzle table definitions: the source of truth for tables (Task 9b)
+    kysely-types.ts          DB type for Kysely, derived from schema.ts (Task 9b)
+    database.ts              openDatabase → Db, runs migrations from drizzle/ (Task 9b)
     types.ts                 Category, Game, Suggestion, LfgPost, SetupKey (Tasks 5–6)
-    repos.ts                 createRepos → Repos (Tasks 5–6)
+    repos/                   one repo per area + index.ts with createRepos → Repos (Task 9b)
+drizzle/                     generated SQL migrations + drizzle-kit snapshots, committed (Task 9b)
+drizzle.config.ts            drizzle-kit settings (Task 9b)
   discord/
     gateway.ts               Gateway interface (Task 7)
     discord-gateway.ts       discord.js implementation (Task 7)
@@ -771,6 +777,83 @@ Run `pnpm vitest run tests/services/games.test.ts`. Expected: PASS.
 
 ---
 
+### Task 9b: Drizzle schema, generated migrations and Kysely repos
+
+This replaces the database layer built in Tasks 5 and 6. The user chose better-sqlite3, Drizzle and Kysely after Task 9. No database has been deployed yet, so the old hand-written migrations are deleted and replaced by one generated initial migration. Repo names, method names, arguments and app types (`src/db/types.ts`) stay the same. Only the return types become `Promise`s.
+
+**Files:**
+- Create: `src/db/schema.ts`, `src/db/kysely-types.ts`, `drizzle.config.ts`, `drizzle/` (generated), `src/db/repos/categories.ts`, `src/db/repos/games.ts`, `src/db/repos/setup.ts`, `src/db/repos/suggestions.ts`, `src/db/repos/lfg.ts`, `src/db/repos/index.ts`, `scripts/check-migrations.ts`
+- Modify: `package.json`, `src/db/database.ts`, `tests/db/*.test.ts`, `tests/fakes/context.ts`, `src/services/games.ts`, `tests/services/games.test.ts`, `src/services/audit.ts` (if it reads repos)
+- Delete: `src/db/repos.ts`
+- Test: `tests/db/database.test.ts`, plus the existing `tests/db/*.test.ts`, which now `await`
+
+**Interfaces:**
+- Produces:
+  - `src/db/schema.ts`: Drizzle `sqliteTable` definitions for `categories`, `games`, `game_aliases`, `setup`, `suggestions`, `lfg_posts` and `lfg_responses`. They have exactly the columns and constraints of Tasks 5–6's migrations: the UNIQUE columns, the CHECKs on `suggestions.status` and `lfg_responses.kind`, `ON DELETE CASCADE` on aliases and responses, `ON DELETE SET NULL` on both `game_id`s, the composite primary keys, and the `suggestions_by_user` index. Database column names stay snake_case.
+  - `src/db/kysely-types.ts`: `export interface DB { categories: Kyselify<typeof categories>; … }`, one entry per table, using `Kyselify` from `drizzle-orm/kysely`.
+  - `src/db/database.ts`:
+    - `interface Db { sqlite: Database; kysely: Kysely<DB> }`, where `Database` is from better-sqlite3
+    - `openDatabase(path: string): Db`. It sets `busy_timeout = 5000`, then WAL (except `":memory:"`), then `foreign_keys = ON`. It runs Drizzle's better-sqlite3 migrator on `drizzle/`, resolved from `import.meta.dirname` so it works from tests, `pnpm dev` and the container.
+    - `closeDatabase(db: Db): Promise<void>`
+  - `src/db/repos/index.ts`: `createRepos(kysely: Kysely<DB>): Repos`. `Repos` keeps the same members and method names as Tasks 5–6, now returning `Promise`s. `suggestions.decide` stays a single `UPDATE … WHERE id = ? AND status = 'pending'` and returns `numUpdatedRows > 0n`. Multi-row writes use `kysely.transaction()`.
+  - Scripts:
+    - `db:generate`: `drizzle-kit generate`
+    - `db:check`: `node scripts/check-migrations.ts`. It runs `drizzle-kit generate` and fails with "Schema changed without a migration: run pnpm db:generate and commit drizzle/" if `git status --porcelain drizzle` is non-empty afterwards.
+    - `check` becomes `pnpm typecheck && pnpm lint && pnpm format:check && pnpm db:check && pnpm test`.
+
+- [ ] **Step 1: Install the pinned packages**
+
+Install `better-sqlite3@13.0.3`, `kysely@0.29.8` and `drizzle-orm@0.45.4` as dependencies, and `drizzle-kit@0.31.11` and `@types/better-sqlite3@9.6.0` as dev dependencies, all exact. If pnpm's release-age protection blocks one, add it to `minimumReleaseAgeExclude` as Task 1 did. Confirm better-sqlite3 loads: `node -e "new (require('better-sqlite3'))(':memory:'); console.log('ok')"`.
+
+- [ ] **Step 2: Write `src/db/schema.ts` and `drizzle.config.ts`, then run `pnpm db:generate`**
+
+`drizzle.config.ts`: `dialect: "sqlite"`, `schema: "./src/db/schema.ts"`, `out: "./drizzle"`.
+
+Read the generated `drizzle/0000_*.sql` before going on.
+
+- [ ] **Step 3: Verify the generated schema matches the old one**
+
+Run the old migrations (from `git show HEAD:src/db/database.ts`) on one scratch file and the new migration on another. Compare `PRAGMA table_info`, `PRAGMA foreign_key_list` and `PRAGMA index_list` for every table, plus the CHECK clauses in `sqlite_master`. Expected: no differences apart from Drizzle's own migrations table. Put the comparison output in the report. The comparison script is scratch: don't commit it.
+
+- [ ] **Step 4: Write the failing database test**
+
+```ts
+test("openDatabase applies the generated migrations once", async () => {
+  const path = join(mkdtempSync(join(tmpdir(), "gr-")), "bot.sqlite");
+  const first = openDatabase(path); await closeDatabase(first);
+  const second = openDatabase(path);
+  const applied = second.sqlite.prepare("SELECT COUNT(*) AS n FROM __drizzle_migrations").get() as { n: number };
+  expect(applied.n).toBe(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).length);
+  await closeDatabase(second);
+});
+test("foreign keys are enforced", async () => { /* inserting a game with an unknown category_id rejects */ });
+```
+
+Export `MIGRATIONS_DIR` from `database.ts` for this test.
+
+- [ ] **Step 5: Rewrite the repos with Kysely, one file per area, and delete `src/db/repos.ts`**
+
+Change the existing tests in `tests/db/` only to add `await`. Their assertions must not change. They prove the rewrite behaves the same.
+
+- [ ] **Step 6: Update the callers**
+
+`tests/fakes/context.ts` (`makeContext` may become `async`; if so, update every test that calls it), plus `src/services/games.ts` and its tests. Every repo call gets an `await`.
+
+- [ ] **Step 7: Add `scripts/check-migrations.ts` and wire it into `check`**
+
+Verify it both ways:
+1. `pnpm db:check` passes on a clean tree.
+2. Add a scratch column to `schema.ts`. `pnpm db:check` must fail with the message above.
+3. Revert the column and delete the migration it generated.
+
+- [ ] **Step 8: Run everything and commit**
+
+Run `pnpm check`. Expected: every earlier test passes, plus the new database tests.
+
+`git commit -m "refactor: Drizzle schema with generated migrations, Kysely repos on better-sqlite3"`
+
+---
+
 ### Task 10: Membership service
 
 **Files:**
@@ -1007,12 +1090,12 @@ The template role is created with `color: 0`, `mentionable: true`, and no permis
 - Test: `tests/domain/schedule.test.ts`, `tests/services/backup.test.ts`, `tests/services/heartbeat.test.ts`
 
 **Interfaces:**
-- Consumes: `AppContext`, `DatabaseSync`, `backup` from `node:sqlite`
+- Consumes: `AppContext`, `Db` (Task 9b): `db.sqlite.backup(path)` from better-sqlite3
 - Produces:
   - `msUntilNextRun(now: Date, hourUtc: number): number`. It is always > 0.
   - `selectExpiredBackups(messages: readonly OwnMessage[], now: Date, maxAgeDays: number): string[]`. Only messages with attachments count.
-  - `runBackup(ctx, db: DatabaseSync, actorId: string | null): Promise<{ file: string; pruned: number }>`
-  - `scheduleNightlyBackups(ctx, db: DatabaseSync): () => void`, which returns a cancel function
+  - `runBackup(ctx, db: Db, actorId: string | null): Promise<{ file: string; pruned: number }>`
+  - `scheduleNightlyBackups(ctx, db: Db): () => void`, which returns a cancel function
   - `startHeartbeat(opts: { url: string | null; intervalMs: number; isConnected: () => boolean; fetch?: typeof fetch }): () => void`
 
 - [ ] **Step 1: Write the failing tests**
@@ -1031,7 +1114,7 @@ test("expired = older than 30 days, with attachment", () => {
   expect(selectExpiredBackups(msgs, now, 30)).toEqual(["old"]);
 });
 test("runBackup posts a readable copy named game-roles-YYYY-MM-DD-HHmm.sqlite and prunes old posts", async () => {
-  // file-backed temp DB under os.tmpdir(); open the attachment buffer with new DatabaseSync(tmp) and count games
+  // file-backed temp DB under os.tmpdir(); write the attachment buffer to a file, open it with better-sqlite3 and count games
 });
 test("heartbeat pings only while connected; no URL → never", async () => { /* vi.useFakeTimers(); fake fetch */ });
 test("heartbeat survives fetch rejecting", async () => {});
@@ -1042,7 +1125,7 @@ test("heartbeat survives fetch rejecting", async () => {});
 Run `pnpm vitest run tests/domain/schedule.test.ts tests/services/backup.test.ts tests/services/heartbeat.test.ts`.
 
 `runBackup`:
-1. `await backup(db, tmpPath)` into `os.tmpdir()`.
+1. `await db.sqlite.backup(tmpPath)` into `os.tmpdir()`.
 2. Send it as `files: [{ attachment: buffer, name }]`.
 3. Delete the temp file in `finally`.
 4. Prune `selectExpiredBackups(await ownMessages(backupsChannel, 100), now, 30)`.
@@ -1386,12 +1469,14 @@ If no dev bot is set up yet, mark this step blocked and continue. The user runs 
 - [ ] **Step 1: Write the `Dockerfile` and `.dockerignore`**
 
 `Dockerfile`:
-- `FROM node:26-slim`
-- `RUN npm install -g pnpm@12.18.0`
-- copy the manifest and lockfile, then `pnpm install --prod --frozen-lockfile`
-- copy `src/`
-- `USER node`
-- `CMD ["node", "src/main.ts"]`
+- **Build stage** `FROM node:26-slim`:
+  - install `python3 make g++`, in case better-sqlite3 has no prebuilt binary
+  - `RUN npm install -g pnpm@12.18.0`
+  - copy the manifest, lockfile and `pnpm-workspace.yaml`, then `pnpm install --prod --frozen-lockfile`
+- **Runtime stage** `FROM node:26-slim`, with no build tools:
+  - copy `node_modules` from the build stage, plus `package.json`, `src/` and `drizzle/`
+  - `USER node`
+  - `CMD ["node", "src/main.ts"]`
 
 `.dockerignore` excludes `.env*`, `data/`, `.git`, `tests/` and `docs/`.
 
@@ -1413,7 +1498,7 @@ No `ports`. Compose gives the project its own network.
 
 - [ ] **Step 3: Verify the image**
 
-Run `docker compose build && docker compose run --rm bot node -e "require('node:sqlite'); console.log('ok')"`. Expected: `ok`.
+Run `docker compose build && docker compose run --rm bot node -e "new (require('better-sqlite3'))(':memory:'); console.log('ok')"`. Expected: `ok`.
 
 - [ ] **Step 4: Write `.github/workflows/deploy.yml`**
 

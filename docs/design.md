@@ -299,7 +299,7 @@ Everything uses the latest compatible release as of November 2026; exact version
 | Formatter | oxfmt | Still 0.x with near-weekly releases, so pinned exactly |
 | Package manager | pnpm |  |
 | Tests | Vitest |  |
-| Database | SQLite | Driver still to be chosen (open items) |
+| Database | SQLite through better-sqlite3 | Tables are described in TypeScript with Drizzle. drizzle-kit generates each SQL migration from schema changes, much like Django's `makemigrations`. Queries are written with Kysely |
 | Container | Official Node 26 slim image | Keeps Node off the Ubuntu 22.04 host |
 
 **What running `.ts` directly means:** Node removes type annotations at startup. TypeScript features that generate code (enums, namespaces, constructor parameter properties) are off-limits, and the `erasableSyntaxOnly` setting enforces that. TypeScript 7 also makes `strict` the default.
@@ -319,7 +319,7 @@ The bot runs in its own Docker Compose project on the existing droplet (1 vCPU, 
 **Deploying (GitHub Actions)**
 
 1. Push to `main`.
-2. GitHub Actions runs type-check, lint and tests. If any fail, nothing is deployed.
+2. GitHub Actions runs type-check, lint, tests and a check that every schema change has a migration. If any fail, nothing is deployed.
 3. Actions connects to the droplet over SSH as a dedicated deploy user, with a key that can only run the deploy script.
 4. The deploy script pulls the latest `main`, then rebuilds and restarts the bot's compose project, using the env file already on the droplet. The repo is public, so pulling needs no GitHub credentials on the droplet.
 5. Check the run in the Actions tab and the "bot started" notice in #bot-admin.
@@ -428,7 +428,7 @@ These are the decisions still to make before or during the build.
 
 - [ ] Name of the panel channel.
 - [ ] LFG: which channels allow `/lfg`, whether posts close or expire, threads, whether the author can edit.
-- [ ] SQLite driver: Node's built-in `node:sqlite` (nothing to compile) or `better-sqlite3`.
+- [x] SQLite driver: better-sqlite3, with Drizzle for the schema and migrations and Kysely for queries.
 - [ ] Fuzzy matching library: `fuse.js` or `fast-fuzzy`.
 - [ ] Time of day for the nightly backup.
 - [ ] healthchecks.io check-in interval and how long to wait before alerting.
