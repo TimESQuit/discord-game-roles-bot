@@ -24,24 +24,26 @@ export function computeRoleOrder(
   templateId: string,
   gameRoleIdsAlphabetical: readonly string[],
 ): { id: string; position: number }[] {
-  const gameIds = new Set(gameRoleIdsAlphabetical);
+  const uniqueGames = [...new Set(gameRoleIdsAlphabetical)];
+  const gameIds = new Set(uniqueGames);
   const known = new Set(roles.map((r) => r.id));
   const top = roles.filter((r) => r.position !== 0).toSorted((a, b) => b.position - a.position);
   const rest = top.filter((r) => !gameIds.has(r.id)).map((r) => r.id);
   const templateIndex = rest.indexOf(templateId);
   if (templateIndex === -1) throw new Error("Template role not found in role list.");
-  const games = gameRoleIdsAlphabetical.filter((id) => known.has(id));
+  const games = uniqueGames.filter((id) => known.has(id));
   const ordered = [...rest.slice(0, templateIndex + 1), ...games, ...rest.slice(templateIndex + 1)];
   const oldPositions = new Map(roles.map((r) => [r.id, r.position]));
   const changes: { id: string; position: number }[] = [];
   ordered.forEach((id, index) => {
     const position = ordered.length - index;
-    if (oldPositions.get(id) !== position) changes.push({ id, position });
+    if (gameIds.has(id) && oldPositions.get(id) !== position) changes.push({ id, position });
   });
   return changes;
 }
 
 export function chunk<T>(items: readonly T[], size: number = SELECT_OPTION_LIMIT): T[][] {
+  if (!Number.isInteger(size) || size < 1) throw new RangeError("chunk size must be at least 1");
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
   return out;

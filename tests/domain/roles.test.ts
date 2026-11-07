@@ -43,6 +43,36 @@ test("game roles go directly below the template, A→Z, top to bottom", () => {
     .map(([id]) => id);
   expect(order).toEqual(["member", "tpl", "apex", "zelda", "other"]);
   expect(changes.some((c) => c.id === "member" || c.id === "everyone")).toBe(false);
+  expect(changes).toEqual([
+    { id: "apex", position: 3 },
+    { id: "zelda", position: 2 },
+  ]);
+});
+
+test("a game role above the template only changes the game role", () => {
+  const changes = computeRoleOrder(
+    [
+      { id: "everyone", position: 0 },
+      { id: "g", position: 6 },
+      { id: "member", position: 5 },
+      { id: "tpl", position: 4 },
+    ],
+    "tpl",
+    ["g"],
+  );
+  expect(changes).toEqual([{ id: "g", position: 1 }]);
+});
+
+test("duplicate game ids do not produce duplicate entries", () => {
+  const roles = [
+    { id: "tpl", position: 3 },
+    { id: "b", position: 2 },
+    { id: "a", position: 1 },
+  ];
+  expect(computeRoleOrder(roles, "tpl", ["a", "b", "a"])).toEqual([
+    { id: "a", position: 2 },
+    { id: "b", position: 1 },
+  ]);
 });
 
 test("already sorted → no changes", () => {
@@ -62,6 +92,7 @@ test("already sorted → no changes", () => {
 test("chunk", () => {
   expect(chunk([1, 2, 3], 2)).toEqual([[1, 2], [3]]);
   expect(chunk([], 25)).toEqual([]);
+  expect(() => chunk([1], 0)).toThrow(RangeError);
 });
 
 test("isAdmin", () => {
