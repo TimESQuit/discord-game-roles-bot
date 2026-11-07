@@ -1,4 +1,4 @@
-import { DiscordAPIError, PermissionsBitField } from "discord.js";
+import { ChannelType, DiscordAPIError, PermissionsBitField } from "discord.js";
 import type {
   Client,
   Guild,
@@ -7,7 +7,6 @@ import type {
   PermissionsString,
   Role,
 } from "discord.js";
-import { ChannelType } from "discord.js";
 import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "./gateway.ts";
 
 const UNKNOWN_MESSAGE = 10008;

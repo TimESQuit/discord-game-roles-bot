@@ -46,17 +46,77 @@ describe("FakeGateway", () => {
     expect(r.name).toBe("x");
   });
 
-  test("setRolePositions keeps positions unique", async () => {
+  async function stack(gw: FakeGateway) {
+    // member5, tpl4, zelda3, other2, apex1
+    const ids: Record<string, string> = {};
+    for (const name of ["member", "tpl", "zelda", "other", "apex"]) {
+      ids[name] = (await gw.createRole({ name, ...opts }, "t")).id;
+    }
+    const pos = () =>
+      Object.fromEntries(Object.entries(ids).map(([k, id]) => [k, gw.role(id)?.position]));
+    return { ids, pos };
+  }
+
+  test("setRolePositions up move places the mover exactly", async () => {
     const gw = new FakeGateway({});
-    const a = await gw.createRole({ name: "a", ...opts }, "t");
-    const b = await gw.createRole({ name: "b", ...opts }, "t");
-    const c = await gw.createRole({ name: "c", ...opts }, "t");
-    await gw.setRolePositions([{ id: c.id, position: 3 }], "t");
-    await gw.setRolePositions([{ id: a.id, position: 3 }], "t");
+    const { ids, pos } = await stack(gw);
+    await gw.setRolePositions([{ id: ids.apex!, position: 4 }], "t");
+    expect(pos()).toEqual({ member: 5, tpl: 3, zelda: 2, other: 1, apex: 4 });
+    expect(gw.role(gw.guildId)?.position).toBe(0);
+  });
+
+  test("setRolePositions down move places the mover exactly", async () => {
+    const gw = new FakeGateway({});
+    const { ids, pos } = await stack(gw);
+    await gw.setRolePositions([{ id: ids.member!, position: 2 }], "t");
+    expect(pos()).toEqual({ member: 2, tpl: 5, zelda: 4, other: 3, apex: 1 });
+  });
+
+  test("setRolePositions batch places every mover exactly", async () => {
+    const gw = new FakeGateway({});
+    const { ids, pos } = await stack(gw);
+    await gw.setRolePositions(
+      [
+        { id: ids.apex!, position: 3 },
+        { id: ids.zelda!, position: 2 },
+      ],
+      "t",
+    );
+    expect(pos()).toEqual({ member: 5, tpl: 4, apex: 3, zelda: 2, other: 1 });
     const positions = gw.roles().map((r) => r.position);
     expect(new Set(positions).size).toBe(positions.length);
-    expect(gw.role(gw.guildId)?.position).toBe(0);
-    expect(gw.role(a.id)?.position).toBeGreaterThan(gw.role(b.id)?.position ?? 99);
+  });
+
+  test("missingBotPermissions filters the configured list to required", () => {
+    const gw = new FakeGateway({});
+    gw.setMissingPermissions(["ManageRoles", "ManageChannels"]);
+    expect(gw.missingBotPermissions(["ManageRoles", "SendMessages"])).toEqual(["ManageRoles"]);
+  });
+
+  test("created categories and channels exist and accept messages", async () => {
+    const gw = new FakeGateway({});
+    const cat = await gw.createCategory("c", []);
+    const ch = await gw.createTextChannel("t", cat, []);
+    expect(gw.channelExists(cat)).toBe(true);
+    expect(gw.channelExists(ch)).toBe(true);
+    await gw.send(ch, { content: "x" });
+    expect(gw.messages.get(ch)).toHaveLength(1);
+  });
+
+  test("ownMessages returns newest first and respects the limit", async () => {
+    const gw = new FakeGateway({});
+    const ch = "100000000000000010";
+    const old = gw.addOwnMessage(ch, { createdAt: new Date(1000), hasAttachment: false });
+    const mid = gw.addOwnMessage(ch, { createdAt: new Date(2000), hasAttachment: true });
+    const recent = gw.addOwnMessage(ch, { createdAt: new Date(3000), hasAttachment: false });
+    expect((await gw.ownMessages(ch, 10)).map((m) => m.id)).toEqual([recent, mid, old]);
+    expect((await gw.ownMessages(ch, 2)).map((m) => m.id)).toEqual([recent, mid]);
+  });
+
+  test("a send to a missing channel is not recorded", async () => {
+    const gw = new FakeGateway({});
+    await expect(gw.send("100000000000000404", {})).rejects.toThrow("Unknown channel");
+    expect(gw.calls).toEqual([]);
   });
 
   test("send rejects for an unknown channel and records attachments", async () => {

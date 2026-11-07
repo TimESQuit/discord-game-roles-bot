@@ -153,17 +153,21 @@ export class FakeGateway implements Gateway {
     reason: string,
   ): Promise<void> {
     this.#begin("setRolePositions", [changes, reason]);
-    const previous = new Map([...this.#roles].map(([id, r]) => [id, r.position]));
+    const others = [...this.#roles.values()].filter((r) => r.id !== this.guildId);
+    const n = others.length;
+    const pinned = new Map<number, string>();
     for (const c of changes) {
-      const r = this.#roles.get(c.id);
-      if (r) r.position = c.position;
+      if (!this.#roles.has(c.id) || c.id === this.guildId) continue;
+      for (const [pos, id] of pinned) if (id === c.id) pinned.delete(pos);
+      pinned.set(Math.min(Math.max(c.position, 1), n), c.id);
     }
-    const sorted = [...this.#roles.values()]
-      .filter((r) => r.id !== this.guildId)
-      .sort((a, b) => a.position - b.position || previous.get(a.id)! - previous.get(b.id)!);
-    sorted.forEach((r, i) => {
-      r.position = i + 1;
-    });
+    const pinnedIds = new Set(pinned.values());
+    const rest = others.filter((r) => !pinnedIds.has(r.id)).sort((x, y) => x.position - y.position);
+    for (let pos = 1; pos <= n; pos++) {
+      const id = pinned.get(pos);
+      const role = id ? this.#roles.get(id) : rest.shift();
+      if (role) role.position = pos;
+    }
     const everyone = this.#roles.get(this.guildId);
     if (everyone) everyone.position = 0;
   }
@@ -194,8 +198,8 @@ export class FakeGateway implements Gateway {
     return id;
   }
   async send(channelId: string, payload: Payload): Promise<string> {
-    this.#begin("send", [channelId, payload]);
     if (!this.#channels.has(channelId)) throw new Error(`Unknown channel ${channelId}`);
+    this.#begin("send", [channelId, payload]);
     const id = this.#newId();
     this.#list(channelId).push({
       id,
