@@ -187,7 +187,7 @@ export function mySuggestionsView(
   return payload(parts, true);
 }
 
-const textInput = (
+export const textInput = (
   id: string,
   style: TextInputStyle,
   max: number,
@@ -203,7 +203,7 @@ const textInput = (
   return input;
 };
 
-function categoryLabel(categories: readonly Category[], currentId?: number): LabelBuilder {
+export function categoryLabel(categories: readonly Category[], currentId?: number): LabelBuilder {
   return new LabelBuilder().setLabel("Category").setStringSelectMenuComponent(
     new StringSelectMenuBuilder()
       .setCustomId(FIELD.category)
@@ -220,7 +220,7 @@ function categoryLabel(categories: readonly Category[], currentId?: number): Lab
   );
 }
 
-const inputLabel = (label: string, input: TextInputBuilder): LabelBuilder =>
+export const inputLabel = (label: string, input: TextInputBuilder): LabelBuilder =>
   new LabelBuilder().setLabel(label).setTextInputComponent(input);
 
 export function suggestModal(categories: readonly Category[]): ModalBuilder {
