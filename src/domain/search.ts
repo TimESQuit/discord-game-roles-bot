@@ -60,6 +60,9 @@ export function rankGames<T extends Searchable>(
     .map((r) => r.item);
 }
 
+/** Names shorter than this (after normalizing) only count as duplicates on an exact match. */
+export const MIN_FUZZY_SUGGESTION_LENGTH = 5;
+
 export function findCloseMatches<T extends Searchable>(name: string, items: readonly T[]): T[] {
   const q = normalize(name);
   if (q === "") return [];
@@ -72,8 +75,10 @@ export function findCloseMatches<T extends Searchable>(name: string, items: read
       }),
     ),
   );
-  // Too-short queries only count on exact equality, or "go" would suggest nearly every game.
-  const fuzzy = q.length >= 3 ? search(q, items, 0.3, 2).map((r) => r.item) : [];
+  // Short names only prompt on exact equality: fuzzy matching a 4-letter name like "Rust"
+  // or "Rain" against scattered letters in longer names suggests unrelated games.
+  const fuzzy =
+    q.length >= MIN_FUZZY_SUGGESTION_LENGTH ? search(q, items, 0.3, 2).map((r) => r.item) : [];
   const found = new Set<T>([...exact, ...fuzzy]);
   return items.filter((item) => found.has(item));
 }

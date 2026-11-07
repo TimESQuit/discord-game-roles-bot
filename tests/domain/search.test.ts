@@ -66,6 +66,24 @@ test("close matches for suggestions", () => {
   expect(findCloseMatches("go", games)).toEqual([]);
 });
 
+test("short names only prompt on an exact match, not a fuzzy one", () => {
+  const library = [
+    g("Counter-Strike 2"),
+    g("Call of Duty"),
+    g("Destiny 2"),
+    g("Lethal Company"),
+    g("Elden Ring"),
+    g("Grand Theft Auto V"),
+    g("Stardew Valley"),
+    g("Rust"),
+  ];
+  for (const name of ["Dust", "Hale", "Risk", "Fall", "Rain"]) {
+    expect({ name, matches: findCloseMatches(name, library) }).toEqual({ name, matches: [] });
+  }
+  expect(findCloseMatches("rust", library).map((x) => x.name)).toEqual(["Rust"]);
+  expect(findCloseMatches("Terarria", [g("Terraria")]).map((x) => x.name)).toEqual(["Terraria"]);
+});
+
 test("parseAliases: comma list, normalized, de-duplicated, empties dropped", () => {
   expect(parseAliases(" CoD, cod ,, Warzone ")).toEqual(["cod", "warzone"]);
 });
