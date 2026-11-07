@@ -150,7 +150,7 @@ The admin band appears only for members with the admin role; everyone else sees 
 
 **Finding a game by typing (autocomplete)**
 
-- Results are ranked in tiers: starts with, start of any word, anywhere in the name, typos, acronyms (`rdr2`).
+- Matching is fuzzy (fuse.js), covers names and admin-set aliases, and tolerates typos.
 - Admin-set **aliases** catch nicknames like `cod` or `wow`.
 - Text is normalized first: case, accents, punctuation, `&` as "and".
 - Suggestions fit the command: `add` hides games the person has; `remove` shows only theirs.
@@ -429,7 +429,7 @@ These are the decisions still to make before or during the build.
 - [ ] Name of the panel channel.
 - [ ] LFG: which channels allow `/lfg`, whether posts close or expire, threads, whether the author can edit.
 - [x] SQLite driver: better-sqlite3, with Drizzle for the schema and migrations and Kysely for queries.
-- [ ] Fuzzy matching library: `fuse.js` or `fast-fuzzy`.
+- [x] Fuzzy matching library: fuse.js.
 - [ ] Time of day for the nightly backup.
 - [ ] healthchecks.io check-in interval and how long to wait before alerting.
 - [ ] Container memory limit, after checking the droplet's memory and swap.

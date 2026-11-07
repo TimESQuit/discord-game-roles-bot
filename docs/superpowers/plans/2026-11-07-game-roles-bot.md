@@ -22,7 +22,7 @@ These are defaults so that work can start. Each sits in one place and is cheap t
 | LFG channel limits, expiry, threads, author edits | None in v1, as the spec says | — |
 | SQLite driver | better-sqlite3, chosen by the user after Task 9 (Task 9b replaces the first `node:sqlite` version). It has `backup()` for consistent snapshots | `src/db/database.ts` |
 | Schema and migrations | Tables are described in `src/db/schema.ts` with Drizzle. `pnpm db:generate` (drizzle-kit) writes each migration as SQL from the schema change, like Django's `makemigrations`. Queries use Kysely, with table types derived from the same schema. `pnpm check` fails if the schema changed without a migration | `src/db/schema.ts`, `drizzle/` |
-| Fuzzy matching | Neither library. A small tiered matcher, because the spec fixes a tier order (prefix → word start → substring → typo → acronym) that fuse.js and fast-fuzzy scores don't follow | `src/domain/search.ts` |
+| Fuzzy matching | fuse.js (changed after the build at the user's request; replaces the hand-written tiered matcher) | `src/domain/search.ts` |
 | Nightly backup time | 04:00 UTC | `BACKUP_HOUR_UTC` env var |
 | healthchecks.io | Ping every 5 min. Set the check's period to 5 min and its grace to 10 min | `HEARTBEAT_INTERVAL_MS` in `src/constants.ts` |
 | Container memory limit | `256m` (revisit after checking the droplet) | `compose.yaml` |

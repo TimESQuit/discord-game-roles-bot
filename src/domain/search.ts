@@ -1,9 +1,9 @@
+import Fuse from "fuse.js";
+
 export interface Searchable {
   name: string;
   aliases: readonly string[];
 }
-
-type Tier = 0 | 1 | 2 | 3 | 4;
 
 export function normalize(text: string): string {
   return text
@@ -16,61 +16,35 @@ export function normalize(text: string): string {
     .trim();
 }
 
-/** Optimal string alignment distance: an adjacent swap counts as 1. */
-export function editDistance(a: string, b: string): number {
-  const rows = a.length + 1;
-  const cols = b.length + 1;
-  const d: number[][] = Array.from({ length: rows }, () => Array.from({ length: cols }, () => 0));
-  for (let i = 0; i < rows; i++) d[i]![0] = i;
-  for (let j = 0; j < cols; j++) d[0]![j] = j;
-  for (let i = 1; i < rows; i++) {
-    for (let j = 1; j < cols; j++) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      let best = Math.min(d[i - 1]![j]! + 1, d[i]![j - 1]! + 1, d[i - 1]![j - 1]! + cost);
-      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
-        best = Math.min(best, d[i - 2]![j - 2]! + 1);
-      }
-      d[i]![j] = best;
-    }
-  }
-  return d[a.length]![b.length]!;
+interface Indexed<T> {
+  item: T;
+  name: string;
+  aliases: string[];
 }
 
-function typoThreshold(queryLength: number): number {
-  return queryLength <= 5 ? 1 : 2;
-}
-
-function acronym(name: string): string {
-  return name
-    .split(" ")
-    .filter((w) => w !== "")
-    .map((w) => (/^[0-9]+$/.test(w) ? w : w[0]!))
-    .join("");
-}
-
-function smallestDistance(query: string, name: string): number {
-  const candidates = [name, ...name.split(" "), name.slice(0, query.length)];
-  return Math.min(...candidates.map((c) => editDistance(query, c)));
-}
-
-function tierForName(query: string, name: string): Tier | null {
-  if (name.startsWith(query)) return 0;
-  if (name.split(" ").some((w) => w.startsWith(query))) return 1;
-  if (name.includes(query)) return 2;
-  if (query.length >= 3 && smallestDistance(query, name) <= typoThreshold(query.length)) return 3;
-  if (acronym(name) === query) return 4;
-  return null;
-}
-
-export function matchTier(query: string, item: Searchable): Tier | null {
-  const q = normalize(query);
-  if (q === "") return null;
-  let best: Tier | null = null;
-  for (const raw of [item.name, ...item.aliases]) {
-    const tier = tierForName(q, normalize(raw));
-    if (tier !== null && (best === null || tier < best)) best = tier;
-  }
-  return best;
+function search<T extends Searchable>(
+  q: string,
+  items: readonly T[],
+  threshold: number,
+  minMatchCharLength: number,
+): { item: T; name: string; score: number }[] {
+  const records: Indexed<T>[] = items.map((item) => ({
+    item,
+    name: normalize(item.name),
+    aliases: item.aliases.map(normalize),
+  }));
+  const fuse = new Fuse(records, {
+    keys: ["name", "aliases"],
+    ignoreLocation: true,
+    includeScore: true,
+    shouldSort: true,
+    minMatchCharLength,
+    threshold,
+  });
+  return fuse
+    .search(q)
+    .map((r) => ({ item: r.item.item, name: r.item.name, score: r.score ?? 1 }))
+    .sort((a, b) => a.score - b.score || a.name.localeCompare(b.name, "en"));
 }
 
 export function rankGames<T extends Searchable>(
@@ -79,32 +53,29 @@ export function rankGames<T extends Searchable>(
   limit = 25,
 ): T[] {
   if (query.trim() === "") return items.slice(0, limit);
-  const scored: { item: T; tier: Tier }[] = [];
-  for (const item of items) {
-    const tier = matchTier(query, item);
-    if (tier !== null) scored.push({ item, tier });
-  }
-  scored.sort(
-    (a, b) => a.tier - b.tier || normalize(a.item.name).localeCompare(normalize(b.item.name), "en"),
-  );
-  return scored.slice(0, limit).map((s) => s.item);
+  const q = normalize(query);
+  if (q === "") return [];
+  return search(q, items, 0.35, 1)
+    .slice(0, limit)
+    .map((r) => r.item);
 }
 
 export function findCloseMatches<T extends Searchable>(name: string, items: readonly T[]): T[] {
   const q = normalize(name);
   if (q === "") return [];
   const squashed = q.replaceAll(" ", "");
-  return items.filter((item) =>
-    [item.name, ...item.aliases].some((raw) => {
-      const n = normalize(raw);
-      return (
-        n === q ||
-        n.replaceAll(" ", "") === squashed ||
-        editDistance(q, n) <= typoThreshold(q.length) ||
-        acronym(n) === q
-      );
-    }),
+  const exact = new Set<T>(
+    items.filter((item) =>
+      [item.name, ...item.aliases].some((raw) => {
+        const n = normalize(raw);
+        return n === q || n.replaceAll(" ", "") === squashed;
+      }),
+    ),
   );
+  // Too-short queries only count on exact equality, or "go" would suggest nearly every game.
+  const fuzzy = q.length >= 3 ? search(q, items, 0.3, 2).map((r) => r.item) : [];
+  const found = new Set<T>([...exact, ...fuzzy]);
+  return items.filter((item) => found.has(item));
 }
 
 export function parseAliases(raw: string): string[] {
