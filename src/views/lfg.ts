@@ -10,11 +10,11 @@ import {
   type APIButtonComponent,
   type APIContainerComponent,
 } from "discord.js";
-import type { Game, LfgPost } from "../db/types.ts";
-import type { Payload } from "../discord/gateway.ts";
-import { encodeId, type CustomId } from "../domain/custom-ids.ts";
+import type { Game, LfgPost } from "../db/index.ts";
+import type { Payload } from "../discord/index.ts";
+import { encodeId, type CustomId } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
-import { text } from "../domain/text.ts";
+import { text } from "../domain/index.ts";
 
 /** Field IDs inside the LFG modal (read back with `interaction.fields`). */
 export const LFG_FIELD = { when: "when", note: "note" } as const;

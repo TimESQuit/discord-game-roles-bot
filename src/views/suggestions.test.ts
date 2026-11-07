@@ -1,7 +1,7 @@
 import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
-import type { Category, Game, Suggestion } from "../db/types.ts";
-import { parseId } from "../domain/custom-ids.ts";
+import type { Category, Game, Suggestion } from "../db/index.ts";
+import { parseId } from "../domain/index.ts";
 import { countComponents } from "./limits.ts";
 import {
   announcementView,

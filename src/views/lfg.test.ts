@@ -1,6 +1,6 @@
 import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
-import type { Game, LfgPost } from "../db/types.ts";
+import type { Game, LfgPost } from "../db/index.ts";
 import { lfgModal, lfgPostView } from "./lfg.ts";
 import { countComponents } from "./limits.ts";
 

@@ -2,8 +2,8 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { BACKUP_RETENTION_DAYS } from "../constants.ts";
-import type { Db } from "../db/database.ts";
-import { msUntilNextRun, selectExpiredBackups } from "../domain/schedule.ts";
+import type { Db } from "../db/index.ts";
+import { msUntilNextRun, selectExpiredBackups } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "./context.ts";
 

@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { UserFacingError } from "../errors.ts";
-import type { Game } from "../db/types.ts";
+import type { Game } from "../db/index.ts";
 import { addGame, removeGame } from "./games.ts";
 import {
   applySelection,
@@ -11,8 +11,8 @@ import {
   leave,
   whoPlays,
 } from "./membership.ts";
-import { A1, U1, U2, U3, makeContext } from "../testing/context.ts";
-import type { TestContext } from "../testing/context.ts";
+import { A1, U1, U2, U3, makeContext } from "../testing/index.ts";
+import type { TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let valheim: Game;

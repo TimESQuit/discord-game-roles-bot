@@ -11,18 +11,18 @@ import {
   type APITextDisplayComponent,
 } from "discord.js";
 import { COMPONENT_LIMIT, SELECT_OPTION_LIMIT, TEXT_LIMIT } from "../constants.ts";
-import type { Category, Game } from "../db/types.ts";
-import type { Payload } from "../discord/gateway.ts";
-import { byName } from "../domain/search.ts";
+import type { Category, Game } from "../db/index.ts";
+import type { Payload } from "../discord/index.ts";
+import { byName } from "../domain/index.ts";
 import {
   encodeId,
   type PickPurpose,
   type AdminAction,
   type CustomId,
   type MenuAction,
-} from "../domain/custom-ids.ts";
+} from "../domain/index.ts";
 import { truncate } from "./limits.ts";
-import { text } from "../domain/text.ts";
+import { text } from "../domain/index.ts";
 
 const V2 = MessageFlags.IsComponentsV2 as const;
 const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;

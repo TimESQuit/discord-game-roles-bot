@@ -11,14 +11,14 @@ import {
   type APIContainerComponent,
 } from "discord.js";
 import { COMPONENT_LIMIT, TEXT_LIMIT } from "../constants.ts";
-import type { Category, Game, Suggestion } from "../db/types.ts";
-import type { Payload } from "../discord/gateway.ts";
-import { CATEGORY_NAME_MAX } from "../domain/categories.ts";
-import type { SetupItem } from "../domain/setup-plan.ts";
-import { encodeId, type CustomId } from "../domain/custom-ids.ts";
+import type { Category, Game, Suggestion } from "../db/index.ts";
+import type { Payload } from "../discord/index.ts";
+import { CATEGORY_NAME_MAX } from "../domain/index.ts";
+import type { SetupItem } from "../domain/index.ts";
+import { encodeId, type CustomId } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
 import { FIELD, categoryLabel, inputLabel, reviewCardView, textInput } from "./suggestions.ts";
-import { text } from "../domain/text.ts";
+import { text } from "../domain/index.ts";
 
 const PRIVATE = (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral) as number;
 const NO_PINGS = { parse: [] } as const;

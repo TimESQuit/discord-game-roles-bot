@@ -3,12 +3,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import BetterSqlite3 from "better-sqlite3";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { closeDatabase, openDatabase, type Db } from "../db/database.ts";
-import { createRepos } from "../db/repos/index.ts";
+import { closeDatabase, openDatabase, type Db } from "../db/index.ts";
+import { createRepos } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { runBackup, scheduleNightlyBackups } from "./backup.ts";
 import { createAudit } from "./audit.ts";
-import { A1, makeContext, sentTo, type TestContext } from "../testing/context.ts";
+import { A1, makeContext, sentTo, type TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let dir: string;

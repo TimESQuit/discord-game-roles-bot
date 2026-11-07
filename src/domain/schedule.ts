@@ -1,4 +1,4 @@
-import type { OwnMessage } from "../discord/gateway.ts";
+import type { OwnMessage } from "../discord/index.ts";
 
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;

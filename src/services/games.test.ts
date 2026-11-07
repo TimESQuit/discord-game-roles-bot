@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, test } from "vitest";
 import { UserFacingError } from "../errors.ts";
-import type { Game } from "../db/types.ts";
+import type { Game } from "../db/index.ts";
 import { addGame, editGame, reapplyTemplate, removeGame, sortGameRoles } from "./games.ts";
-import { A1, TEMPLATE_COLOR, makeContext, templatePosition } from "../testing/context.ts";
-import type { TestContext } from "../testing/context.ts";
+import { A1, TEMPLATE_COLOR, makeContext, templatePosition } from "../testing/index.ts";
+import type { TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let chill: { id: number };

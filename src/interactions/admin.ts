@@ -6,16 +6,16 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
-import type { Category, Game } from "../db/types.ts";
-import { validateCategoryName } from "../domain/categories.ts";
-import { diffGameEdit } from "../domain/game-edit.ts";
-import { normalize } from "../domain/search.ts";
+import type { Category, Game } from "../db/index.ts";
+import { validateCategoryName } from "../domain/index.ts";
+import { diffGameEdit } from "../domain/index.ts";
+import { normalize } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { runBackup } from "../services/backup.ts";
-import type { AppContext } from "../services/context.ts";
-import { addGame, editGame, reapplyTemplate, removeGame } from "../services/games.ts";
-import { autocompleteGames } from "../services/membership.ts";
-import { applySetup, previewSetup, refreshPanel } from "../services/setup.ts";
+import { runBackup } from "../services/index.ts";
+import type { AppContext } from "../services/index.ts";
+import { addGame, editGame, reapplyTemplate, removeGame } from "../services/index.ts";
+import { autocompleteGames } from "../services/index.ts";
+import { applySetup, previewSetup, refreshPanel } from "../services/index.ts";
 import {
   categoriesView,
   categoryModal,
@@ -24,12 +24,12 @@ import {
   reviewListView,
   setupPreviewView,
   setupReportView,
-} from "../views/admin.ts";
-import { truncate } from "../views/limits.ts";
-import { noticeView, pickGameView } from "../views/member.ts";
-import { FIELD } from "../views/suggestions.ts";
-import { text } from "../domain/text.ts";
-import { parseId } from "../domain/custom-ids.ts";
+} from "../views/index.ts";
+import { truncate } from "../views/index.ts";
+import { noticeView, pickGameView } from "../views/index.ts";
+import { FIELD } from "../views/index.ts";
+import { text } from "../domain/index.ts";
+import { parseId } from "../domain/index.ts";
 import { parsePositiveId } from "./parse.ts";
 import { resolvePickedGame } from "./lfg.ts";
 import { forEdit, forReply } from "./member.ts";

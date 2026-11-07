@@ -1,5 +1,5 @@
 import type { PermissionsString } from "discord.js";
-import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "../discord/gateway.ts";
+import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "../discord/index.ts";
 
 export interface FakeMessage {
   id: string;

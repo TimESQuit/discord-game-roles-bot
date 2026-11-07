@@ -1,9 +1,9 @@
 import { UserFacingError } from "../errors.ts";
-import type { Game } from "../db/types.ts";
-import type { RoleSnapshot } from "../discord/gateway.ts";
-import { computeRoleOrder, validateGameName } from "../domain/roles.ts";
-import { normalize, parseAliases } from "../domain/search.ts";
-import { text } from "../domain/text.ts";
+import type { Game } from "../db/index.ts";
+import type { RoleSnapshot } from "../discord/index.ts";
+import { computeRoleOrder, validateGameName } from "../domain/index.ts";
+import { normalize, parseAliases } from "../domain/index.ts";
+import { text } from "../domain/index.ts";
 import type { AppContext } from "./context.ts";
 
 /** Returns the template role, or throws the exact fix for the admin. */

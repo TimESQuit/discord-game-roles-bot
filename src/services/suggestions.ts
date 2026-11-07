@@ -1,9 +1,9 @@
 import { MAX_PENDING_SUGGESTIONS } from "../constants.ts";
-import type { Game, Suggestion } from "../db/types.ts";
-import { validateGameName } from "../domain/roles.ts";
-import { findCloseMatches } from "../domain/search.ts";
+import type { Game, Suggestion } from "../db/index.ts";
+import { validateGameName } from "../domain/index.ts";
+import { findCloseMatches } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { announcementView, reviewCardView } from "../views/suggestions.ts";
+import { announcementView, reviewCardView } from "../views/index.ts";
 import type { AppContext } from "./context.ts";
 import { addGame } from "./games.ts";
 import { join } from "./membership.ts";

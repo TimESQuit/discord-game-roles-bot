@@ -1,6 +1,6 @@
 import { ComponentType } from "discord.js";
 import { beforeEach, describe, expect, test } from "vitest";
-import type { Suggestion } from "../db/types.ts";
+import type { Suggestion } from "../db/index.ts";
 import {
   approveSuggestion,
   closeMatches,
@@ -10,8 +10,8 @@ import {
   withdrawSuggestion,
 } from "./suggestions.ts";
 import { addGame } from "./games.ts";
-import { A1, A2, U1, U2, makeContext, sentTo } from "../testing/context.ts";
-import type { TestContext } from "../testing/context.ts";
+import { A1, A2, U1, U2, makeContext, sentTo } from "../testing/index.ts";
+import type { TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let chill: { id: number; name: string };

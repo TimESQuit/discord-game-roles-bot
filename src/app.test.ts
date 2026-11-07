@@ -6,8 +6,8 @@ import {
   onReady,
   type ReadyDeps,
 } from "./app.ts";
-import { HANDLER_NAMES } from "./interactions/router.ts";
-import { makeContext } from "./testing/context.ts";
+import { HANDLER_NAMES } from "./interactions/index.ts";
+import { makeContext } from "./testing/index.ts";
 
 describe("buildHandlers", () => {
   test("every handler name the router can return is implemented", () => {

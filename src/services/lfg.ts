@@ -1,7 +1,7 @@
-import type { LfgPost } from "../db/types.ts";
-import { toggleResponse } from "../domain/lfg.ts";
+import type { LfgPost } from "../db/index.ts";
+import { toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { lfgPostView } from "../views/lfg.ts";
+import { lfgPostView } from "../views/index.ts";
 import type { AppContext } from "./context.ts";
 import { join } from "./membership.ts";
 

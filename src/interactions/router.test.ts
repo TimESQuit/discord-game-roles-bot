@@ -1,10 +1,10 @@
 import { MessageFlags } from "discord.js";
 import { afterEach, describe, expect, test, vi } from "vitest";
 import { UserFacingError } from "../errors.ts";
-import { encodeId } from "../domain/custom-ids.ts";
+import { encodeId } from "../domain/index.ts";
 import { handleInteraction, route } from "./router.ts";
-import { noticeView } from "../views/member.ts";
-import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../testing/context.ts";
+import { noticeView } from "../views/index.ts";
+import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../testing/index.ts";
 
 type RouteInputType = Parameters<typeof route>[0]["type"];
 const none = new Set<string>();

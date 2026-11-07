@@ -7,16 +7,16 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
-import type { Game } from "../db/types.ts";
+import type { Game } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
-import type { AppContext } from "../services/context.ts";
-import { createLfgPost, joinFromLfg, respondToLfg } from "../services/lfg.ts";
-import { autocompleteGames } from "../services/membership.ts";
-import { LFG_FIELD, lfgModal } from "../views/lfg.ts";
-import { truncate } from "../views/limits.ts";
-import { noticeView, pickGameView } from "../views/member.ts";
-import { text } from "../domain/text.ts";
-import { parseId } from "../domain/custom-ids.ts";
+import type { AppContext } from "../services/index.ts";
+import { createLfgPost, joinFromLfg, respondToLfg } from "../services/index.ts";
+import { autocompleteGames } from "../services/index.ts";
+import { LFG_FIELD, lfgModal } from "../views/index.ts";
+import { truncate } from "../views/index.ts";
+import { noticeView, pickGameView } from "../views/index.ts";
+import { text } from "../domain/index.ts";
+import { parseId } from "../domain/index.ts";
 import { parsePositiveId } from "./parse.ts";
 import { forEdit, forReply } from "./member.ts";
 import type { Handlers } from "./router.ts";

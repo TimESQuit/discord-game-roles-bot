@@ -1,6 +1,6 @@
 import { afterEach, expect, test, vi } from "vitest";
 import { createAudit, formatAuditLine } from "./audit.ts";
-import { A1, lastSend, makeContext, sentTo, U1 } from "../testing/context.ts";
+import { A1, lastSend, makeContext, sentTo, U1 } from "../testing/index.ts";
 
 afterEach(() => vi.restoreAllMocks());
 

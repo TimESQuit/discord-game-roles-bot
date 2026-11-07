@@ -4,10 +4,10 @@ import {
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
 } from "discord.js";
-import type { Category, Suggestion } from "../db/types.ts";
+import type { Category, Suggestion } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
-import type { AppContext } from "../services/context.ts";
-import { join } from "../services/membership.ts";
+import type { AppContext } from "../services/index.ts";
+import { join } from "../services/index.ts";
 import {
   approveSuggestion,
   closeMatches,
@@ -15,8 +15,8 @@ import {
   rejectSuggestion,
   submitSuggestion,
   withdrawSuggestion,
-} from "../services/suggestions.ts";
-import { noticeView } from "../views/member.ts";
+} from "../services/index.ts";
+import { noticeView } from "../views/index.ts";
 import {
   FIELD,
   duplicatePromptView,
@@ -24,9 +24,9 @@ import {
   rejectModal,
   reviewEditModal,
   suggestModal,
-} from "../views/suggestions.ts";
-import { text } from "../domain/text.ts";
-import { parseId } from "../domain/custom-ids.ts";
+} from "../views/index.ts";
+import { text } from "../domain/index.ts";
+import { parseId } from "../domain/index.ts";
 import { forEdit, forReply } from "./member.ts";
 import type { Handlers } from "./router.ts";
 

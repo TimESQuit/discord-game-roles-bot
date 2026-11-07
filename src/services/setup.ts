@@ -9,11 +9,11 @@ import {
   STARTING_CATEGORIES,
   TEMPLATE_ROLE_NAME,
 } from "../constants.ts";
-import type { SetupKey } from "../db/types.ts";
-import type { Overwrite } from "../discord/gateway.ts";
-import { planSetup, type SetupItem } from "../domain/setup-plan.ts";
+import type { SetupKey } from "../db/index.ts";
+import type { Overwrite } from "../discord/index.ts";
+import { planSetup, type SetupItem } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { panelView } from "../views/member.ts";
+import { panelView } from "../views/index.ts";
 import type { AppContext } from "./context.ts";
 
 export const REQUIRED_PERMISSIONS: PermissionsString[] = [

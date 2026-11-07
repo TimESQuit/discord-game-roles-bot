@@ -9,7 +9,7 @@ import {
   type StringSelectMenuInteraction,
   type UserContextMenuCommandInteraction,
 } from "discord.js";
-import { isAdmin } from "../domain/roles.ts";
+import { isAdmin } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   applySelection,
@@ -19,10 +19,10 @@ import {
   join,
   leave,
   whoPlays,
-} from "../services/membership.ts";
-import type { AppContext } from "../services/context.ts";
-import type { Payload } from "../discord/gateway.ts";
-import { truncate } from "../views/limits.ts";
+} from "../services/index.ts";
+import type { AppContext } from "../services/index.ts";
+import type { Payload } from "../discord/index.ts";
+import { truncate } from "../views/index.ts";
 import {
   addGamesPageOf,
   changedOptionIds,
@@ -34,9 +34,9 @@ import {
   peopleListView,
   pickGameView,
   removeGamesView,
-} from "../views/member.ts";
-import { text } from "../domain/text.ts";
-import { parseId } from "../domain/custom-ids.ts";
+} from "../views/index.ts";
+import { text } from "../domain/index.ts";
+import { parseId } from "../domain/index.ts";
 import { memberRoleIds, type Handlers } from "./router.ts";
 
 /** Edits keep the layout flag and never resend the ephemeral flag. */

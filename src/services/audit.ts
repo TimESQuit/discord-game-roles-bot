@@ -1,6 +1,6 @@
 import { escapeMarkdown } from "discord.js";
-import type { Repos } from "../db/repos/index.ts";
-import type { Gateway } from "../discord/gateway.ts";
+import type { Repos } from "../db/index.ts";
+import type { Gateway } from "../discord/index.ts";
 
 export type Source = "panel" | "command" | "lfg" | "suggestion";
 

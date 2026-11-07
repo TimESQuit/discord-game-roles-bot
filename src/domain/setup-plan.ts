@@ -1,4 +1,4 @@
-import type { SetupKey } from "../db/types.ts";
+import type { SetupKey } from "../db/index.ts";
 
 export type SetupItem =
   | "templateRole"

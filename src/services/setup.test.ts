@@ -9,7 +9,7 @@ import {
   STARTING_CATEGORIES,
   TEMPLATE_ROLE_NAME,
 } from "../constants.ts";
-import type { Overwrite } from "../discord/gateway.ts";
+import type { Overwrite } from "../discord/index.ts";
 import {
   applySetup,
   checkSetup,
@@ -17,7 +17,7 @@ import {
   refreshPanel,
   REQUIRED_PERMISSIONS,
 } from "./setup.ts";
-import { A1, ADMIN_ROLE_ID, makeContext } from "../testing/context.ts";
+import { A1, ADMIN_ROLE_ID, makeContext } from "../testing/index.ts";
 
 const readOnlyForEveryone = (botId: string): Overwrite[] => [
   {

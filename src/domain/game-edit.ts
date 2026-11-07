@@ -1,4 +1,4 @@
-import type { Game } from "../db/types.ts";
+import type { Game } from "../db/index.ts";
 import { parseAliases } from "./search.ts";
 
 const collapse = (name: string): string => name.trim().replace(/\s+/g, " ");
