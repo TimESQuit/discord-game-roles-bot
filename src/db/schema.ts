@@ -14,6 +14,11 @@ export const SETUP_KEYS = [
 
 export const SUGGESTION_STATUSES = ["pending", "approved", "rejected", "withdrawn"] as const;
 
+export const LFG_ANSWERS = ["in", "maybe"] as const;
+
+/** A SQL list of the values, for CHECK constraints that must match the TypeScript union. */
+const sqlList = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(", "));
+
 export const categories = sqliteTable("categories", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   name: text("name").notNull().unique(),
@@ -68,10 +73,7 @@ export const suggestions = sqliteTable(
     aliases: text("aliases"),
   },
   (t) => [
-    check(
-      "suggestions_status_check",
-      sql`${t.status} IN ('pending', 'approved', 'rejected', 'withdrawn')`,
-    ),
+    check("suggestions_status_check", sql`${t.status} IN (${sqlList(SUGGESTION_STATUSES)})`),
     index("suggestions_by_user").on(t.suggesterId, t.status),
   ],
 );
@@ -94,11 +96,11 @@ export const lfgResponses = sqliteTable(
       .notNull()
       .references(() => lfgPosts.messageId, { onDelete: "cascade" }),
     userId: text("user_id").notNull(),
-    kind: text("kind").notNull(),
+    kind: text("kind", { enum: LFG_ANSWERS }).notNull(),
     respondedAt: text("responded_at").notNull(),
   },
   (t) => [
-    check("lfg_responses_kind_check", sql`${t.kind} IN ('in', 'maybe')`),
+    check("lfg_responses_kind_check", sql`${t.kind} IN (${sqlList(LFG_ANSWERS)})`),
     primaryKey({ columns: [t.messageId, t.userId] }),
   ],
 );

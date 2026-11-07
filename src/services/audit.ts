@@ -2,8 +2,6 @@ import { escapeMarkdown } from "discord.js";
 import type { Repos } from "../db/index.ts";
 import type { Gateway } from "../discord/index.ts";
 
-export type Source = "panel" | "command" | "lfg" | "suggestion";
-
 export type AuditEvent =
   | { kind: "joined" | "left"; userId: string; game: string; source: Source }
   | { kind: "suggested"; userId: string; name: string }
@@ -24,12 +22,14 @@ export type AuditEvent =
   | { kind: "backup"; userId: string | null; file: string }
   | { kind: "setup"; userId: string; detail: string };
 
-const SOURCE_LABELS: Record<Source, string> = {
+const SOURCE_LABELS = {
   panel: "panel",
   command: "command",
   lfg: "LFG post",
   suggestion: "suggestion",
-};
+} as const satisfies Record<string, string>;
+
+export type Source = keyof typeof SOURCE_LABELS;
 
 /** Escapes Markdown and breaks up "@" so user-typed text can neither format nor ping. */
 function text(value: string): string {

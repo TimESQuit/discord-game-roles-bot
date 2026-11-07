@@ -4,6 +4,7 @@ import {
   type ModalSubmitInteraction,
   type StringSelectMenuInteraction,
 } from "discord.js";
+import { MOVE_DIRECTIONS, type MoveDirection } from "../constants.ts";
 import type { Category, Game } from "../db/index.ts";
 import { validateCategoryName, diffGameEdit, text, parseId } from "../domain/index.ts";
 import { normalize } from "../normalize.ts";
@@ -86,7 +87,7 @@ async function renameCategory(
 async function moveCategory(
   ctx: AppContext,
   categoryId: number,
-  dir: "up" | "down",
+  dir: MoveDirection,
   actorId: string,
 ): Promise<string> {
   const categories = await ctx.repos.categories.list();
@@ -379,9 +380,10 @@ export const adminHandlers: Handlers = {
   "gameadmin-category-move": chatInput(async (ctx, interaction) => {
     const categoryId = parseCategoryId(interaction.options.getString("category", true));
     const dir = interaction.options.getString("direction", true);
-    if (dir !== "up" && dir !== "down") throw new UserFacingError("Pick up or down.");
+    const direction = MOVE_DIRECTIONS.find((d) => d === dir);
+    if (direction === undefined) throw new UserFacingError("Pick up or down.");
     await replyPrivately(interaction, () =>
-      moveCategory(ctx, categoryId, dir, interaction.user.id),
+      moveCategory(ctx, categoryId, direction, interaction.user.id),
     );
   }),
 

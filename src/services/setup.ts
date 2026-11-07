@@ -16,7 +16,7 @@ import { UserFacingError } from "../errors.ts";
 import { panelView } from "../views/index.ts";
 import type { AppContext } from "./context.ts";
 
-export const REQUIRED_PERMISSIONS: PermissionsString[] = [
+export const REQUIRED_PERMISSIONS = [
   "ManageRoles",
   "ManageChannels",
   "ViewChannel",
@@ -26,9 +26,11 @@ export const REQUIRED_PERMISSIONS: PermissionsString[] = [
   "ReadMessageHistory",
   "CreatePublicThreads",
   "AddReactions",
-];
+] as const satisfies readonly PermissionsString[];
 
-const PERMISSION_NAMES: Partial<Record<PermissionsString, string>> = {
+type RequiredPermission = (typeof REQUIRED_PERMISSIONS)[number];
+
+const PERMISSION_NAMES = {
   ManageRoles: "Manage Roles",
   ManageChannels: "Manage Channels",
   ViewChannel: "View Channels",
@@ -38,13 +40,15 @@ const PERMISSION_NAMES: Partial<Record<PermissionsString, string>> = {
   ReadMessageHistory: "Read Message History",
   CreatePublicThreads: "Create Public Threads",
   AddReactions: "Add Reactions",
-};
+} as const satisfies Record<RequiredPermission, string>;
 
 /** The problems to fix before setup can run, each a full sentence. */
 export async function checkSetup(ctx: AppContext): Promise<string[]> {
+  // The gateway reports any PermissionsString, so look names up as optional.
+  const names: Partial<Record<PermissionsString, string>> = PERMISSION_NAMES;
   const problems = ctx.gateway
     .missingBotPermissions(REQUIRED_PERMISSIONS)
-    .map((p) => `Give the bot the ${PERMISSION_NAMES[p] ?? p} permission.`);
+    .map((p) => `Give the bot the ${names[p] ?? p} permission.`);
   const id = await ctx.repos.setup.get("templateRoleId");
   const template = id === undefined ? undefined : ctx.gateway.role(id);
   if (template && ctx.gateway.botTopRolePosition() <= template.position) {

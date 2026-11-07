@@ -1,5 +1,6 @@
 import { sql, type Kysely } from "kysely";
 import type { DB } from "../kysely-types.ts";
+import type { MoveDirection } from "../../constants.ts";
 import type { Category } from "../types.ts";
 
 export type CategoriesRepo = {
@@ -7,7 +8,7 @@ export type CategoriesRepo = {
   get(id: number): Promise<Category | undefined>;
   add(name: string): Promise<Category>;
   rename(id: number, name: string): Promise<void>;
-  move(id: number, dir: "up" | "down"): Promise<void>;
+  move(id: number, dir: MoveDirection): Promise<void>;
 };
 
 export function createCategories(kysely: Kysely<DB>): CategoriesRepo {

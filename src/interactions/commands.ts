@@ -10,6 +10,7 @@ import {
   type SlashCommandSubcommandBuilder,
 } from "discord.js";
 import type { Config } from "../config.ts";
+import { MOVE_DIRECTIONS } from "../constants.ts";
 
 type Buildable = { toJSON(): RESTPostAPIApplicationGuildCommandsJSONBody };
 
@@ -118,7 +119,7 @@ function gameadmin(): Buildable {
                 .setName("direction")
                 .setDescription("Which way")
                 .setRequired(true)
-                .addChoices({ name: "up", value: "up" }, { name: "down", value: "down" }),
+                .addChoices(...MOVE_DIRECTIONS.map((d) => ({ name: d, value: d }))),
             ),
         ),
     );

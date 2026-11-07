@@ -12,7 +12,7 @@ import {
 } from "discord.js";
 import type { Game, LfgPost } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
-import { encodeId, text, type CustomId } from "../domain/index.ts";
+import { encodeId, text, type CustomId, type LfgTarget } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
 
 /** Field IDs inside the LFG modal (read back with `interaction.fields`). */
@@ -78,7 +78,7 @@ export function lfgPostView(post: LfgPost, game: Game | null): Payload {
   };
 }
 
-export function lfgModal(gameId: number, target: "news" | "here"): ModalBuilder {
+export function lfgModal(gameId: number, target: LfgTarget): ModalBuilder {
   return new ModalBuilder()
     .setCustomId(encodeId({ kind: "lfg-modal", gameId, target }))
     .setTitle("Looking for group")

@@ -1,4 +1,4 @@
-import type { LfgPost } from "../db/index.ts";
+import type { LfgAnswer, LfgPost } from "../db/index.ts";
 import { toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { lfgPostView } from "../views/index.ts";
@@ -61,7 +61,7 @@ export async function createLfgPost(
     );
     throw new UserFacingError("That game's role is missing; the admins have been told.");
   }
-  const post: Omit<LfgPost, "in" | "maybe"> = {
+  const post: Omit<LfgPost, LfgAnswer> = {
     messageId: "",
     channelId: input.channelId,
     gameId: game.id,
@@ -93,7 +93,7 @@ export function respondToLfg(
   ctx: AppContext,
   messageId: string,
   userId: string,
-  clicked: "in" | "maybe",
+  clicked: LfgAnswer,
 ): Promise<LfgPost> {
   return serialised(messageId, async () => {
     const { post, gameId } = await requireActivePost(ctx, messageId);

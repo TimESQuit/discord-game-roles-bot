@@ -1,15 +1,15 @@
 import { sql, type Kysely } from "kysely";
 import type { DB } from "../kysely-types.ts";
-import type { LfgPost } from "../types.ts";
+import type { LfgAnswer, LfgPost } from "../types.ts";
 
 export type LfgRepo = {
-  add(post: Omit<LfgPost, "in" | "maybe">): Promise<void>;
+  add(post: Omit<LfgPost, LfgAnswer>): Promise<void>;
   get(messageId: string): Promise<LfgPost | undefined>;
-  setResponse(messageId: string, userId: string, kind: "in" | "maybe" | null): Promise<void>;
+  setResponse(messageId: string, userId: string, kind: LfgAnswer | null): Promise<void>;
 };
 
 export function createLfg(kysely: Kysely<DB>): LfgRepo {
-  const usersOf = async (messageId: string, kind: "in" | "maybe"): Promise<string[]> => {
+  const usersOf = async (messageId: string, kind: LfgAnswer): Promise<string[]> => {
     const rows = await kysely
       .selectFrom("lfg_responses")
       .select("user_id")

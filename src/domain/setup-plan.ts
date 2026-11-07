@@ -1,18 +1,7 @@
 import type { SetupKey } from "../db/index.ts";
 
-export type SetupItem =
-  | "templateRole"
-  | "panelChannel"
-  | "newsChannel"
-  | "adminCategory"
-  | "adminChannel"
-  | "logChannel"
-  | "backupsChannel"
-  | "categories"
-  | "panelMessage";
-
 /** Items in dependency order, each with the setup key that records it. */
-export const SETUP_ORDER: readonly { item: SetupItem; key: SetupKey | null }[] = [
+export const SETUP_ORDER = [
   { item: "templateRole", key: "templateRoleId" },
   { item: "panelChannel", key: "panelChannelId" },
   { item: "newsChannel", key: "newsChannelId" },
@@ -22,7 +11,9 @@ export const SETUP_ORDER: readonly { item: SetupItem; key: SetupKey | null }[] =
   { item: "backupsChannel", key: "backupsChannelId" },
   { item: "categories", key: null },
   { item: "panelMessage", key: "panelMessageId" },
-];
+] as const satisfies readonly { item: string; key: SetupKey | null }[];
+
+export type SetupItem = (typeof SETUP_ORDER)[number]["item"];
 
 export function planSetup(state: {
   recorded: Partial<Record<SetupKey, string>>;

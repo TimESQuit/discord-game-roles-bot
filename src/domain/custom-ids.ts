@@ -1,17 +1,28 @@
+import { CUSTOM_ID_LIMIT, MOVE_DIRECTIONS, type MoveDirection } from "../constants.ts";
+
 const PREFIX = "gr:";
 
-export type MenuAction = "add" | "remove" | "suggest" | "mine" | "who" | "mysug" | "lfg";
-export type AdminAction =
-  | "review"
-  | "add"
-  | "edit"
-  | "remove"
-  | "categories"
-  | "reapply"
-  | "refresh"
-  | "backup"
-  | "setup";
-export type PickPurpose = "who" | "lfg" | "edit" | "remove";
+export const MENU_ACTIONS = ["add", "remove", "suggest", "mine", "who", "mysug", "lfg"] as const;
+export const ADMIN_ACTIONS = [
+  "review",
+  "add",
+  "edit",
+  "remove",
+  "categories",
+  "reapply",
+  "refresh",
+  "backup",
+  "setup",
+] as const;
+/** Purposes whose pickers are for admins only. */
+export const ADMIN_PURPOSES = ["edit", "remove"] as const;
+export const PURPOSES = ["who", "lfg", ...ADMIN_PURPOSES] as const;
+export const LFG_TARGETS = ["news", "here"] as const;
+
+export type MenuAction = (typeof MENU_ACTIONS)[number];
+export type AdminAction = (typeof ADMIN_ACTIONS)[number];
+export type PickPurpose = (typeof PURPOSES)[number];
+export type LfgTarget = (typeof LFG_TARGETS)[number];
 
 export type CustomId =
   | { kind: "panel-open" }
@@ -25,7 +36,7 @@ export type CustomId =
   | { kind: "dup-submit" }
   | { kind: "dup-join"; gameId: number }
   | { kind: "withdraw"; suggestionId: number }
-  | { kind: "lfg-modal"; gameId: number; target: "news" | "here" }
+  | { kind: "lfg-modal"; gameId: number; target: LfgTarget }
   | { kind: "lfg-in" }
   | { kind: "lfg-maybe" }
   | { kind: "lfg-join" }
@@ -42,7 +53,7 @@ export type CustomId =
   | { kind: "confirm-setup" }
   | { kind: "category-add-modal" }
   | { kind: "category-rename-modal"; categoryId: number }
-  | { kind: "category-move"; categoryId: number; dir: "up" | "down" }
+  | { kind: "category-move"; categoryId: number; dir: MoveDirection }
   | { kind: "category-add" }
   | { kind: "category-rename"; categoryId: number };
 
@@ -64,20 +75,6 @@ const word = <N extends string, W extends string>(name: N, words: readonly W[]) 
   words,
 });
 
-const MENU_ACTIONS = ["add", "remove", "suggest", "mine", "who", "mysug", "lfg"] as const;
-const ADMIN_ACTIONS = [
-  "review",
-  "add",
-  "edit",
-  "remove",
-  "categories",
-  "reapply",
-  "refresh",
-  "backup",
-  "setup",
-] as const;
-const PURPOSES = ["who", "lfg", "edit", "remove"] as const;
-
 const SPECS: { [K in CustomIdKind]: readonly SpecFor<K>[] } = {
   "panel-open": [],
   menu: [word("action", MENU_ACTIONS)],
@@ -90,7 +87,7 @@ const SPECS: { [K in CustomIdKind]: readonly SpecFor<K>[] } = {
   "dup-submit": [],
   "dup-join": [int("gameId")],
   withdraw: [int("suggestionId")],
-  "lfg-modal": [int("gameId"), word("target", ["news", "here"])],
+  "lfg-modal": [int("gameId"), word("target", LFG_TARGETS)],
   "lfg-in": [],
   "lfg-maybe": [],
   "lfg-join": [],
@@ -107,12 +104,12 @@ const SPECS: { [K in CustomIdKind]: readonly SpecFor<K>[] } = {
   "confirm-setup": [],
   "category-add-modal": [],
   "category-rename-modal": [int("categoryId")],
-  "category-move": [int("categoryId"), word("dir", ["up", "down"])],
+  "category-move": [int("categoryId"), word("dir", MOVE_DIRECTIONS)],
   "category-add": [],
   "category-rename": [int("categoryId")],
 };
 
-const ADMIN_KINDS: ReadonlySet<CustomIdKind> = new Set<CustomIdKind>([
+export const ADMIN_KINDS: ReadonlySet<CustomIdKind> = new Set<CustomIdKind>([
   "admin",
   "review-approve",
   "review-edit",
@@ -152,7 +149,9 @@ export function encodeId(id: CustomId): string {
   const specs: readonly ArgSpec[] = SPECS[id.kind];
   const parts = specs.map((spec) => String(fields[spec.name]));
   const raw = [PREFIX + id.kind, ...parts].join(":");
-  if (raw.length > 100) throw new RangeError("Custom ID is longer than 100 characters");
+  if (raw.length > CUSTOM_ID_LIMIT) {
+    throw new RangeError(`Custom ID is longer than ${CUSTOM_ID_LIMIT} characters`);
+  }
   return raw;
 }
 
@@ -178,7 +177,8 @@ export function parseId(raw: string): CustomId | null {
 }
 
 export function isAdminId(id: CustomId): boolean {
-  if (id.kind === "pick" || id.kind === "pick-page")
-    return id.purpose === "edit" || id.purpose === "remove";
+  if (id.kind === "pick" || id.kind === "pick-page") {
+    return ADMIN_PURPOSES.some((purpose) => purpose === id.purpose);
+  }
   return ADMIN_KINDS.has(id.kind);
 }

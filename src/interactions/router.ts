@@ -7,7 +7,14 @@ import type {
   StringSelectMenuInteraction,
   UserContextMenuCommandInteraction,
 } from "discord.js";
-import { isAdmin, isAdminId, parseId, type CustomId } from "../domain/index.ts";
+import {
+  ADMIN_KINDS,
+  ADMIN_PURPOSES,
+  isAdmin,
+  isAdminId,
+  parseId,
+  type CustomId,
+} from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import type { AppContext } from "../services/index.ts";
 import { noticeView } from "../views/index.ts";
@@ -175,22 +182,8 @@ export type RouteResult = { handler: HandlerName } | { denied: true } | { unknow
 const HANDLER_SET: ReadonlySet<string> = new Set(HANDLER_NAMES);
 const isHandlerName = (value: string): value is HandlerName => HANDLER_SET.has(value);
 
-const ADMIN_HANDLER_KINDS: ReadonlySet<string> = new Set([
-  "review-approve",
-  "review-edit",
-  "review-reject",
-  "review-edit-modal",
-  "review-reject-modal",
-  "game-add-modal",
-  "game-edit-modal",
-  "confirm-remove",
-  "confirm-setup",
-  "category-add-modal",
-  "category-rename-modal",
-  "category-move",
-  "category-add",
-  "category-rename",
-]);
+/** An ID kind is its own handler name, except for those that add an action or purpose. */
+const ADMIN_HANDLER_KINDS: ReadonlySet<string> = ADMIN_KINDS;
 
 const CONTEXT_MENUS: Record<string, HandlerName> = {
   "See their games": "ctx-see-games",
@@ -247,10 +240,7 @@ function isAdminHandler(name: string): boolean {
     name.startsWith("gameadmin-") ||
     name === "autocomplete-gameadmin" ||
     name.startsWith("admin-") ||
-    name === "pick-edit" ||
-    name === "pick-remove" ||
-    name === "pick-page-edit" ||
-    name === "pick-page-remove" ||
+    ADMIN_PURPOSES.some((p) => name === `pick-${p}` || name === `pick-page-${p}`) ||
     ADMIN_HANDLER_KINDS.has(name)
   );
 }

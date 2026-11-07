@@ -12,3 +12,6 @@ export const HEARTBEAT_INTERVAL_MS = 300_000;
 export const SELECT_OPTION_LIMIT = 25;
 export const COMPONENT_LIMIT = 40;
 export const TEXT_LIMIT = 100;
+export const CUSTOM_ID_LIMIT = 100;
+export const MOVE_DIRECTIONS = ["up", "down"] as const;
+export type MoveDirection = (typeof MOVE_DIRECTIONS)[number];
