@@ -13,11 +13,26 @@ const clean = (value: string | null): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
-async function requireActivePost(ctx: AppContext, messageId: string): Promise<LfgPost> {
+async function requireActivePost(
+  ctx: AppContext,
+  messageId: string,
+): Promise<{ post: LfgPost; gameId: number }> {
   const post = await ctx.repos.lfg.get(messageId);
   if (!post) throw new UserFacingError("That post is no longer active.");
   if (post.gameId === null) throw new UserFacingError("This game has been removed.");
-  return post;
+  return { post, gameId: post.gameId };
+}
+
+/** Runs tasks for the same key one after another; the map entry goes away when the chain drains. */
+const chains = new Map<string, Promise<unknown>>();
+function serialised<T>(key: string, task: () => Promise<T>): Promise<T> {
+  const run = (chains.get(key) ?? Promise.resolve()).then(task, task);
+  const tail = run.catch(() => undefined);
+  chains.set(key, tail);
+  void tail.then(() => {
+    if (chains.get(key) === tail) chains.delete(key);
+  });
+  return run;
 }
 
 export async function createLfgPost(
@@ -61,26 +76,37 @@ export async function createLfgPost(
     ...view,
     allowedMentions: { roles: [game.roleId], parse: [] },
   });
-  await ctx.repos.lfg.add({ ...post, messageId });
+  try {
+    await ctx.repos.lfg.add({ ...post, messageId });
+  } catch (error) {
+    try {
+      await ctx.gateway.deleteMessage(input.channelId, messageId);
+    } catch (deleteError) {
+      console.error(`Could not delete orphaned LFG message ${messageId}`, deleteError);
+    }
+    throw error;
+  }
   return messageId;
 }
 
-export async function respondToLfg(
+export function respondToLfg(
   ctx: AppContext,
   messageId: string,
   userId: string,
   clicked: "in" | "maybe",
 ): Promise<LfgPost> {
-  const post = await requireActivePost(ctx, messageId);
-  const current = post.in.includes(userId) ? "in" : post.maybe.includes(userId) ? "maybe" : null;
-  await ctx.repos.lfg.setResponse(messageId, userId, toggleResponse(current, clicked));
-  const updated = (await ctx.repos.lfg.get(messageId)) ?? post;
-  const game = await ctx.repos.games.get(post.gameId!);
-  await ctx.gateway.edit(post.channelId, messageId, {
-    ...lfgPostView(updated, game ?? null),
-    allowedMentions: { parse: [] },
+  return serialised(messageId, async () => {
+    const { post, gameId } = await requireActivePost(ctx, messageId);
+    const current = post.in.includes(userId) ? "in" : post.maybe.includes(userId) ? "maybe" : null;
+    await ctx.repos.lfg.setResponse(messageId, userId, toggleResponse(current, clicked));
+    const updated = (await ctx.repos.lfg.get(messageId)) ?? post;
+    const game = await ctx.repos.games.get(gameId);
+    await ctx.gateway.edit(post.channelId, messageId, {
+      ...lfgPostView(updated, game ?? null),
+      allowedMentions: { parse: [] },
+    });
+    return updated;
   });
-  return updated;
 }
 
 export async function joinFromLfg(
@@ -88,6 +114,6 @@ export async function joinFromLfg(
   messageId: string,
   userId: string,
 ): Promise<"joined" | "already"> {
-  const post = await requireActivePost(ctx, messageId);
-  return join(ctx, userId, post.gameId!, "lfg");
+  const { gameId } = await requireActivePost(ctx, messageId);
+  return join(ctx, userId, gameId, "lfg");
 }

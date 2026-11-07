@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "vitest";
+import { beforeEach, describe, expect, test, vi } from "vitest";
 import type { Game } from "../../src/db/types.ts";
 import { UserFacingError } from "../../src/errors.ts";
 import { addGame, removeGame } from "../../src/services/games.ts";
@@ -53,6 +53,23 @@ describe("createLfgPost", () => {
     expect(post?.gameName).toBe("Valheim");
   });
 
+  test("deletes the sent message when storing the post fails", async () => {
+    vi.spyOn(ctx.repos.lfg, "add").mockRejectedValueOnce(new Error("disk full"));
+    await expect(
+      createLfgPost(ctx, {
+        authorId: U1,
+        gameId: valheim.id,
+        when: null,
+        note: null,
+        channelId: CH,
+      }),
+    ).rejects.toThrow("disk full");
+    const sent = lastSend(ctx);
+    expect(sent.channelId).toBe(CH);
+    expect(ctx.gateway.calls.some((c) => c.method === "deleteMessage")).toBe(true);
+    expect(ctx.gateway.messages.get(CH) ?? []).toEqual([]);
+  });
+
   test("empty when and note become null; long ones are rejected", async () => {
     const base = { authorId: U1, gameId: valheim.id, channelId: CH };
     const ok = await createLfgPost(ctx, { ...base, when: "  ", note: "" });
@@ -98,6 +115,39 @@ describe("respondToLfg", () => {
     await respondToLfg(ctx, id, U2, "in");
     const post = await respondToLfg(ctx, id, U2, "in");
     expect(post.in).toEqual([]);
+  });
+
+  test("switching from in to maybe moves the user", async () => {
+    await respondToLfg(ctx, id, U2, "in");
+    const post = await respondToLfg(ctx, id, U2, "maybe");
+    expect(post.in).toEqual([]);
+    expect(post.maybe).toEqual([U2]);
+  });
+
+  test("simultaneous clicks leave the visible lists complete", async () => {
+    const originalEdit = ctx.gateway.edit.bind(ctx.gateway);
+    const originalGet = ctx.repos.games.get.bind(ctx.repos.games);
+    let landedLast: { content?: string | undefined } = {};
+    vi.spyOn(ctx.gateway, "edit").mockImplementation(async (...args) => {
+      const result = await originalEdit(...args);
+      landedLast = args[2];
+      return result;
+    });
+    // Stall the first click after it has read the post, so the second click overtakes it.
+    let first = true;
+    vi.spyOn(ctx.repos.games, "get").mockImplementation(async (gameId) => {
+      if (first) {
+        first = false;
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      return originalGet(gameId);
+    });
+    const a = respondToLfg(ctx, id, U2, "in");
+    await new Promise((r) => setTimeout(r, 10));
+    const b = respondToLfg(ctx, id, U3, "maybe");
+    await Promise.all([a, b]);
+    expect(content(landedLast)).toContain(`In (1): <@${U2}>`);
+    expect(content(landedLast)).toContain(`Maybe (1): <@${U3}>`);
   });
 
   test("unknown post → UserFacingError, not a crash", async () => {
