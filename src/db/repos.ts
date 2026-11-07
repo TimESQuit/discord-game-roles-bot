@@ -236,8 +236,7 @@ function createSetup(db: DatabaseSync): SetupRepo {
   };
 }
 
-const nullable = (value: unknown): string | null =>
-  value === null || value === undefined ? null : String(value);
+const nullable = (value: unknown): string | null => (typeof value === "string" ? value : null);
 
 const SUGGESTION_SELECT =
   "SELECT id, suggester_id, name, category_id, note, status, reviewer_id, rejection_reason, decided_at, created_at, review_message_id, game_id FROM suggestions";
@@ -385,11 +384,25 @@ function createLfg(db: DatabaseSync): LfgRepo {
         );
         return;
       }
-      db.prepare(
-        `INSERT INTO lfg_responses (message_id, user_id, kind, responded_at) VALUES (?, ?, ?, ?)
-         ON CONFLICT(message_id, user_id) DO UPDATE SET kind = excluded.kind, responded_at = excluded.responded_at
-         WHERE kind != excluded.kind`,
-      ).run(messageId, userId, kind, new Date().toISOString());
+      const existing = db
+        .prepare("SELECT kind FROM lfg_responses WHERE message_id = ? AND user_id = ?")
+        .get(messageId, userId);
+      if (existing?.kind === kind) return;
+      // Delete then insert so a changed answer gets a fresh rowid, which breaks same-millisecond ties.
+      db.exec("BEGIN");
+      try {
+        db.prepare("DELETE FROM lfg_responses WHERE message_id = ? AND user_id = ?").run(
+          messageId,
+          userId,
+        );
+        db.prepare(
+          "INSERT INTO lfg_responses (message_id, user_id, kind, responded_at) VALUES (?, ?, ?, ?)",
+        ).run(messageId, userId, kind, new Date().toISOString());
+        db.exec("COMMIT");
+      } catch (error) {
+        db.exec("ROLLBACK");
+        throw error;
+      }
     },
   };
 }
