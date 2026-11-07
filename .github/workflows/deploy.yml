@@ -8,11 +8,16 @@ on:
 permissions:
   contents: read
 
+concurrency: { group: deploy-main, cancel-in-progress: false }
+
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
@@ -20,12 +25,19 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm check
+      - name: Build the image
+        run: docker build --build-arg GIT_SHA=${{ github.sha }} -t game-roles-bot:ci .
+      - name: Smoke-test the image
+        run: |
+          docker run --rm game-roles-bot:ci node -e "new (require('better-sqlite3'))(':memory:'); console.log('sqlite ok')"
+          docker run --rm game-roles-bot:ci node --input-type=module -e "const { openDatabase, closeDatabase } = await import('./src/db/database.ts'); const db = openDatabase(':memory:'); await closeDatabase(db); console.log('migrations ok')"
 
   deploy:
     needs: check
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    concurrency: deploy
+    timeout-minutes: 10
+    permissions: {}
     steps:
       - name: Deploy over SSH
         env:
@@ -39,5 +51,5 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts
           # The key's forced command runs the deploy script; the sent value is the commit to deploy.
-          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=20 \
             "$DEPLOY_USER@$DEPLOY_HOST" "${{ github.sha }}"

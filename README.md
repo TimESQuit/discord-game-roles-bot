@@ -47,11 +47,15 @@ If you know Django, the flow is the same shape:
 The bot runs in its own Docker Compose project, with no open ports. Replace `<droplet-host>` and the paths below with your own.
 
 1. **Check resources.** `free -h` and `swapon --show`. Add swap if there is none, and check how much memory your other services use before keeping the 256 MB container limit in `compose.yaml`. Confirm `docker compose version` shows v2.
-2. **Deploy user.** Create a dedicated user, for example `deploy`, with no sudo. It needs access to Docker, which is close to root, so the key below must be able to do only one thing.
-3. **Checkout.** As that user: `git clone https://github.com/<owner>/<repo>.git /opt/game-roles-bot`, then once:
-   `cd /opt/game-roles-bot && mkdir -p data && sudo chown 1000:1000 data` (the container runs as uid 1000).
-4. **Env file.** Create `/opt/game-roles-bot/.env` from `.env.example` with the production values, then `chmod 600 .env`. Leave `DATABASE_PATH` out; compose sets it.
-5. **Deploy script.** Keep the live copy outside the repo at `/usr/local/bin/deploy-game-roles-bot`, owned by root, mode 755, so the deploy user cannot edit it. Reference copy:
+2. **As an admin (root or sudo), once:**
+   - create the deploy user, for example `deploy`, with no sudo: `adduser --disabled-password deploy`;
+   - give it Docker access with `usermod -aG docker deploy`. That is close to root access, so the key below must be able to do only one thing;
+   - create the folder: `mkdir /opt/game-roles-bot && chown deploy:deploy /opt/game-roles-bot`;
+   - install the deploy script (step 5) as root.
+3. **As the deploy user:** `git clone https://github.com/<owner>/<repo>.git /opt/game-roles-bot`, then `mkdir -p /opt/game-roles-bot/data`.
+   **As an admin:** `chown 1000:1000 /opt/game-roles-bot/data` (the container runs as uid 1000).
+4. **Env file** (deploy user). Create `/opt/game-roles-bot/.env` from `.env.example` with the production values, then `chmod 600 .env`. Leave `DATABASE_PATH` out; compose sets it.
+5. **Deploy script** (admin). Keep the live copy outside the repo at `/usr/local/bin/deploy-game-roles-bot`, owned by root, mode 755, so the deploy user cannot edit it. Reference copy:
 
    ```sh
    #!/bin/bash
@@ -63,12 +67,16 @@ The bot runs in its own Docker Compose project, with no open ports. Replace `<dr
    [ "${#SHA}" -eq 40 ] || { echo "bad commit" >&2; exit 1; }
    cd /opt/game-roles-bot
    git fetch --quiet origin main
+   # Only commits on main, and never backwards (two pushes can finish their checks out of order).
+   git merge-base --is-ancestor "$SHA" origin/main || { echo "not a main commit" >&2; exit 1; }
+   git merge-base --is-ancestor HEAD "$SHA" || { echo "refusing to deploy an older commit" >&2; exit 1; }
    git checkout --quiet --detach "$SHA"
-   GIT_SHA="$SHA" docker compose up -d --build
+   GIT_SHA="$SHA" docker compose build --pull
+   GIT_SHA="$SHA" docker compose up -d
    docker image prune -f
    ```
 
-   The workflow sends the commit SHA as the SSH command; the script must validate it (40 hex characters, as above) before using it.
+   The workflow sends the commit SHA as the SSH command; the script validates it (40 hex characters) before using it.
 
 6. **Restrict the key.** Generate a key pair just for deploys. In the deploy user's `~/.ssh/authorized_keys`, one line:
 
@@ -80,7 +88,8 @@ The bot runs in its own Docker Compose project, with no open ports. Replace `<dr
 
 7. **SSH hardening.** Keys only: no password logins, no root login.
 8. **Monitoring.** In healthchecks.io create a check with period 5 minutes and grace 10 minutes. Add a Discord integration using the webhook of the bot-admin channel, and put the check's ping URL in `HEALTHCHECK_URL`.
-9. **By hand.** The same script can be run over SSH if Actions is unavailable: `ssh deploy@<droplet-host> <40-character-commit-sha>`.
+9. **By hand.** If Actions is unavailable, an admin can run the script as the deploy user: `sudo -u deploy env SSH_ORIGINAL_COMMAND=<40-character-commit-sha> /usr/local/bin/deploy-game-roles-bot`.
+10. **Rolling back.** The script refuses to move to an older commit, on purpose: old code could meet a newer database schema. To roll back, restore a database backup from before the bad release (see below), then push a revert commit to `main` and let the pipeline deploy it.
 
 ## GitHub setup checklist
 
@@ -103,15 +112,15 @@ Repository secrets used by `.github/workflows/deploy.yml`:
 
 Droplet checklist: deploy user without sudo; key limited to the deploy script; script outside the repo and root-owned; keys-only SSH; `.env` readable only by its owner.
 
-Discord checklist: "Public Bot" off; only the permissions listed above, never Administrator; the prod token only in the droplet's env file, the dev token only on your machine.
+Discord checklist: "Public Bot" off on both applications (dev and prod); only the permissions listed above, never Administrator; the prod token only in the droplet's env file, the dev token only on your machine.
 
 ## Restoring a backup
 
 The bot posts a database copy to the backups channel every night and keeps 30 days. Roles live in Discord, so losing the database loses games, categories, aliases and suggestions but nobody's roles.
 
 1. Download the backup file from the backups channel.
-2. Stop the bot: `docker compose stop` in `/opt/game-roles-bot`.
-3. Replace `data/bot.sqlite` with the downloaded file, and keep `chown 1000:1000` on it. Remove any leftover `bot.sqlite-wal` and `bot.sqlite-shm` files.
+2. Stop the bot: `docker compose stop` in `/opt/game-roles-bot` (as the deploy user).
+3. Replace `data/bot.sqlite` with the downloaded file, and, as an admin, run `chown 1000:1000` on it. Remove any leftover `bot.sqlite-wal` and `bot.sqlite-shm` files.
 4. Start the bot: `docker compose up -d`. Check for the "Bot started" notice in the admin channel.
 
 ## If something leaks
