@@ -12,5 +12,5 @@
     "types": ["node"],
     "skipLibCheck": true
   },
-  "include": ["src", "tests", "scripts", "vitest.config.ts", "drizzle.config.ts"]
+  "include": ["src", "scripts", "vitest.config.ts", "drizzle.config.ts"]
 }

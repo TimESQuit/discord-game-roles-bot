@@ -3,7 +3,8 @@ data/
 .git
 .github
 node_modules
-tests/
+src/**/*.test.ts
+src/testing/
 docs/
 .superpowers/
 backups/
