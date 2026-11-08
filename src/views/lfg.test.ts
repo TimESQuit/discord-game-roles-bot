@@ -37,6 +37,7 @@ const textParts = (p: Parameters<typeof textOf>[0]) => findComponents(p, Compone
 test("is a layout-V2 message with no content or embeds", () => {
   const v = lfgPostView(post(), game);
   expect(flagBits(v) & MessageFlags.IsComponentsV2).toBeTruthy();
+  expect(flagBits(v) & MessageFlags.SuppressNotifications).toBe(0);
   expect(v).not.toHaveProperty("content");
   expect(v).not.toHaveProperty("embeds");
   expect(countComponents(v)).toBeLessThanOrEqual(40);

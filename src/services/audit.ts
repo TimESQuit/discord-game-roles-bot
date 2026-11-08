@@ -1,4 +1,5 @@
 import { text } from "../domain/index.ts";
+import { silent } from "../views/index.ts";
 
 import type { Repos } from "../db/index.ts";
 import type { Gateway } from "../discord/index.ts";
@@ -87,7 +88,7 @@ export function createAudit(repos: Repos, gateway: Gateway): Audit {
         console.log(content);
         return;
       }
-      await gateway.send(channelId, { content, allowedMentions: { parse: [] } });
+      await gateway.send(channelId, silent({ content, allowedMentions: { parse: [] } }));
     } catch (error) {
       console.error(`Could not post to ${key}`, error);
     }

@@ -2,11 +2,12 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import BetterSqlite3 from "better-sqlite3";
+import { MessageFlags } from "discord.js";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { closeDatabase, openDatabase, createRepos } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { A1, defined, makeContext, sentTo } from "../testing/index.ts";
+import { A1, defined, flagBits, makeContext, sentTo } from "../testing/index.ts";
 import { createAudit } from "./audit.ts";
 import { runBackup, scheduleNightlyBackups } from "./backup.ts";
 
@@ -105,10 +106,11 @@ test("runBackup posts a readable copy named game-roles-YYYY-MM-DD-HHmm.sqlite an
   expect(ctx.logLines.at(-1)).toBe("Automatic backup saved: game-roles-2023-11-15-0405.sqlite");
 });
 
-test("manual backup mentions nobody and logs the actor", async () => {
+test("manual backup is posted silently, mentions nobody and logs the actor", async () => {
   await runBackup(ctx, fileDb, A1);
   const sent = defined(sentTo(ctx, "backupsChannelId").at(-1));
   expect(sent.content).toBe(`Backup requested by <@${A1}>`);
+  expect(flagBits(sent) & MessageFlags.SuppressNotifications).toBeTruthy();
   expect(ctx.logLines.at(-1)).toContain(`<@${A1}> created backup`);
 });
 

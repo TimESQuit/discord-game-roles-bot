@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { BACKUP_RETENTION_DAYS, MESSAGES } from "../constants.ts";
 import { msUntilNextRun, selectExpiredBackups } from "../domain/index.ts";
 import { messageOf, UserFacingError } from "../errors.ts";
+import { silent } from "../views/index.ts";
 
 import type { Db } from "../db/index.ts";
 import type { AppContext } from "./context.ts";
@@ -32,11 +33,14 @@ export async function runBackup(
     const path = join(folder, name);
     await db.sqlite.backup(path);
     const attachment = await readFile(path);
-    await ctx.gateway.send(channelId, {
-      content: actorId === null ? "Nightly backup" : `Backup requested by <@${actorId}>`,
-      files: [{ attachment, name }],
-      allowedMentions: { parse: [] },
-    });
+    await ctx.gateway.send(
+      channelId,
+      silent({
+        content: actorId === null ? "Nightly backup" : `Backup requested by <@${actorId}>`,
+        files: [{ attachment, name }],
+        allowedMentions: { parse: [] },
+      }),
+    );
   } finally {
     await rm(folder, { recursive: true, force: true });
   }

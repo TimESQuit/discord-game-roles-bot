@@ -41,6 +41,7 @@ test("panel view has exactly one button with panel-open ID", () => {
   const p = panelView();
   expect(p.flags).toBeDefined();
   expect(flagBits(p) & MessageFlags.IsComponentsV2).toBeTruthy();
+  expect(flagBits(p) & MessageFlags.SuppressNotifications).toBe(0);
   expect(p.content).toBeUndefined();
   expect(findComponents(p, ComponentType.Button)).toHaveLength(1);
   expect(buttons(p)[0]?.custom_id).toBe("gr:panel-open");

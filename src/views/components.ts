@@ -55,6 +55,15 @@ export const container = (...components: Part[]): APIContainerComponent => ({
   components,
 });
 
+/**
+ * Posts the message without push, desktop or email notifications, like Discord's @silent.
+ * It still shows as unread. For posts nobody needs to be alerted to.
+ */
+export const silent = (view: Payload): Payload => ({
+  ...view,
+  flags: [...(view.flags ?? []), MessageFlags.SuppressNotifications],
+});
+
 /** A components-v2 message holding one container; mentions never ping. */
 export const payload = (parts: Part[], privateMessage: boolean): Payload => ({
   flags: privateMessage ? PRIVATE : PUBLIC,

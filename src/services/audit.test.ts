@@ -1,6 +1,7 @@
+import { MessageFlags } from "discord.js";
 import { afterEach, expect, test, vi } from "vitest";
 
-import { lastSend, makeContext, sentTo, U1 } from "../testing/index.ts";
+import { flagBits, lastSend, makeContext, sentTo, U1 } from "../testing/index.ts";
 import { createAudit, formatAuditLine } from "./audit.ts";
 
 afterEach(() => vi.restoreAllMocks());
@@ -10,19 +11,23 @@ test("user text can't ping or format", () => {
   expect(line).not.toMatch(/@everyone|\*\*x\*\*/);
 });
 
-test("log posts to #bot-log with no mentions allowed", async () => {
+test("log posts to #bot-log silently with no mentions allowed", async () => {
   const ctx = await makeContext();
   await ctx.audit.log({ kind: "joined", userId: U1, game: "Valheim", source: "panel" });
   const { channelId, payload } = lastSend(ctx);
   expect(channelId).toBe(await ctx.repos.setup.get("logChannelId"));
   expect(payload.allowedMentions).toEqual({ parse: [] });
+  expect(flagBits(payload) & MessageFlags.SuppressNotifications).toBeTruthy();
   expect(ctx.logLines).toEqual([`<@${U1}> joined **Valheim** (panel)`]);
   expect(sentTo(ctx, "logChannelId")).toHaveLength(1);
 });
 
-test("admin notices go to #bot-admin", async () => {
+test("admin notices go to #bot-admin silently", async () => {
   const ctx = await makeContext();
   await ctx.audit.notifyAdmins("hello");
+  const { channelId, payload } = lastSend(ctx);
+  expect(channelId).toBe(await ctx.repos.setup.get("adminChannelId"));
+  expect(flagBits(payload) & MessageFlags.SuppressNotifications).toBeTruthy();
   expect(ctx.adminNotices).toEqual(["hello"]);
   expect(ctx.logLines).toEqual([]);
 });

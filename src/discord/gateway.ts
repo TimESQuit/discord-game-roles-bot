@@ -26,7 +26,11 @@ export interface Payload {
   components?: BaseMessageOptions["components"];
   allowedMentions?: MessageMentionOptions;
   files?: BaseMessageOptions["files"];
-  flags?: readonly (MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral)[];
+  flags?: readonly (
+    | MessageFlags.IsComponentsV2
+    | MessageFlags.Ephemeral
+    | MessageFlags.SuppressNotifications
+  )[];
 }
 export interface OwnMessage {
   id: string;

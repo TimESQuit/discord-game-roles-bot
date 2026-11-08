@@ -15,14 +15,22 @@ function snapshot(role: Role): RoleSnapshot {
   };
 }
 
-const isLayoutFlag = (
-  flag: MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral,
-): flag is MessageFlags.IsComponentsV2 => flag === MessageFlags.IsComponentsV2;
+type PayloadFlag = NonNullable<Payload["flags"]>[number];
+
+/** The ephemeral flag only exists on interaction replies. */
+const isSendFlag = (
+  flag: PayloadFlag,
+): flag is MessageFlags.IsComponentsV2 | MessageFlags.SuppressNotifications =>
+  flag !== MessageFlags.Ephemeral;
+
+/** Notifications are decided when a message is sent, so an edit keeps only the layout flag. */
+const isEditFlag = (flag: PayloadFlag): flag is MessageFlags.IsComponentsV2 =>
+  flag === MessageFlags.IsComponentsV2;
 
 /**
  * The part of a payload a channel message can carry. Create and edit options share these
  * fields; edit rejects only fields such as reply/stickers that the bot never sets on these
- * posts. The ephemeral flag only exists on interaction replies.
+ * posts.
  */
 function channelBody(payload: Payload) {
   return {
@@ -30,7 +38,6 @@ function channelBody(payload: Payload) {
     components: payload.components,
     allowedMentions: payload.allowedMentions,
     files: payload.files,
-    flags: payload.flags?.filter(isLayoutFlag),
   };
 }
 
@@ -141,12 +148,16 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
     async send(channelId, payload: Payload) {
       const ch = await textChannel(channelId);
       if (!ch.isSendable()) throw new Error(`Channel ${channelId} is not sendable`);
-      return (await ch.send(channelBody(payload))).id;
+      return (await ch.send({ ...channelBody(payload), flags: payload.flags?.filter(isSendFlag) }))
+        .id;
     },
     async edit(channelId, messageId, payload: Payload) {
       const ch = await textChannel(channelId);
       try {
-        await ch.messages.edit(messageId, channelBody(payload));
+        await ch.messages.edit(messageId, {
+          ...channelBody(payload),
+          flags: payload.flags?.filter(isEditFlag),
+        });
         return true;
       } catch (error) {
         if (isDiscordError(error, DISCORD_ERROR.unknownMessage)) return false;
