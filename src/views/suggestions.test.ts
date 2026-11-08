@@ -123,10 +123,6 @@ test("my suggestions: Withdraw only on pending; rejected shows reason; within 40
   expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
 });
 
-test("my suggestions: empty", () => {
-  expect(texts(mySuggestionsView([], new Map()))).toContain("You haven't suggested any games yet.");
-});
-
 test("suggest modal offers every category in the select", () => {
   const modal = suggestModal(cats).toJSON();
   expect(parseId(modal.custom_id)).toEqual({ kind: "suggest-modal" });

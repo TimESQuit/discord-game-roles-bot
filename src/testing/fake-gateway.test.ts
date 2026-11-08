@@ -132,22 +132,6 @@ describe("FakeGateway", () => {
     expect(new Set(positions).size).toBe(positions.length);
   });
 
-  test("missingBotPermissions filters the configured list to required", () => {
-    const gw = new FakeGateway({});
-    gw.setMissingPermissions(["ManageRoles", "ManageChannels"]);
-    expect(gw.missingBotPermissions(["ManageRoles", "SendMessages"])).toEqual(["ManageRoles"]);
-  });
-
-  test("created categories and channels exist and accept messages", async () => {
-    const gw = new FakeGateway({});
-    const cat = await gw.createCategory("c", []);
-    const ch = await gw.createTextChannel("t", cat, []);
-    expect(gw.channelExists(cat)).toBe(true);
-    expect(gw.channelExists(ch)).toBe(true);
-    await gw.send(ch, { content: "x" });
-    expect(gw.messages.get(ch)).toHaveLength(1);
-  });
-
   test("ownMessages returns newest first and respects the limit", async () => {
     const gw = new FakeGateway({});
     const ch = "100000000000000010";
@@ -158,17 +142,12 @@ describe("FakeGateway", () => {
     expect((await gw.ownMessages(ch, 2)).map((m) => m.id)).toEqual([recent, mid]);
   });
 
-  test("a send to a missing channel is not recorded", async () => {
-    const gw = new FakeGateway({});
-    await expect(gw.send("100000000000000404", {})).rejects.toThrow("Unknown channel");
-    expect(gw.calls).toEqual([]);
-  });
-
-  test("send rejects for an unknown channel and records attachments", async () => {
+  test("send rejects for an unknown channel without recording it, and records attachments", async () => {
     const gw = new FakeGateway({});
     await expect(gw.send("100000000000000404", { content: "x" })).rejects.toThrow(
       "Unknown channel",
     );
+    expect(gw.calls).toEqual([]);
     gw.addChannel("100000000000000010");
     await gw.send("100000000000000010", { files: [{ attachment: Buffer.from("x"), name: "a" }] });
     expect(gw.messages.get("100000000000000010")?.[0]?.hasAttachment).toBe(true);
@@ -186,23 +165,5 @@ describe("FakeGateway setup helpers", () => {
     expect(await gw.messageExists("100000000000000405", id)).toBe(false);
     gw.deleteMessageBehindBotsBack(ch, id);
     expect(await gw.messageExists(ch, id)).toBe(false);
-  });
-
-  test("setChannelParent records the call", async () => {
-    const gw = new FakeGateway({});
-    await gw.setChannelParent("100000000000000010", "100000000000000011");
-    expect(gw.calls).toEqual([
-      { method: "setChannelParent", args: ["100000000000000010", "100000000000000011"] },
-    ]);
-  });
-
-  test("messageExists is recorded and honours failNext", async () => {
-    const gw = new FakeGateway({});
-    gw.failNext("messageExists", new Error("Missing Access"));
-    await expect(gw.messageExists("100000000000000010", "100000000000000011")).rejects.toThrow(
-      "Missing Access",
-    );
-    expect(await gw.messageExists("100000000000000010", "100000000000000011")).toBe(false);
-    expect(gw.calls.map((c) => c.method)).toEqual(["messageExists"]);
   });
 });

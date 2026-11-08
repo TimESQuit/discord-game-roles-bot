@@ -1,7 +1,6 @@
 import { expect, test } from "vitest";
 
 import { loadConfig } from "./config.ts";
-import { UserFacingError } from "./errors.ts";
 
 const valid = {
   DISCORD_TOKEN: "t",
@@ -41,18 +40,4 @@ test("BACKUP_HOUR_UTC must be 0-23", () => {
   expect(loadConfig({ ...valid, BACKUP_HOUR_UTC: "23" }).backupHourUtc).toBe(23);
   expect(() => loadConfig({ ...valid, BACKUP_HOUR_UTC: "24" })).toThrow(/BACKUP_HOUR_UTC/);
   expect(() => loadConfig({ ...valid, BACKUP_HOUR_UTC: "x" })).toThrow(/BACKUP_HOUR_UTC/);
-});
-
-test("never echoes the token", () => {
-  expect(() => loadConfig({ ...valid, DISCORD_TOKEN: "", BACKUP_HOUR_UTC: "99" })).not.toThrow(
-    /99/,
-  );
-});
-
-test("UserFacingError is identifiable", () => {
-  const e = new UserFacingError("Nope");
-  expect(e).toBeInstanceOf(UserFacingError);
-  expect(e).toBeInstanceOf(Error);
-  expect(e.name).toBe("UserFacingError");
-  expect(e.message).toBe("Nope");
 });

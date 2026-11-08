@@ -72,7 +72,8 @@ test("upgrading from the previous migration keeps every row and foreign key", as
     throw new Error("The migration journal has no entries");
   }
   if (!Array.isArray(journal.entries)) throw new Error("The migration journal has no entries");
-  writeFileSync(journalPath, JSON.stringify({ ...journal, entries: journal.entries.slice(0, 2) }));
+  // Drop the newest migration so openDatabase below applies it on top of real rows.
+  writeFileSync(journalPath, JSON.stringify({ ...journal, entries: journal.entries.slice(0, -1) }));
 
   const path = join(dir, "bot.sqlite");
   const raw = new BetterSqlite3(path);

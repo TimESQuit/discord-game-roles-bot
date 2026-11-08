@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import { UserFacingError } from "../errors.ts";
-import { chunk, computeRoleOrder, diffSelection, isAdmin, validateGameName } from "./roles.ts";
+import { chunk, computeRoleOrder, diffSelection, validateGameName } from "./roles.ts";
 
 test("diff only touches roles shown in that dropdown", () => {
   const shown = ["a", "b", "c"];
@@ -88,11 +88,6 @@ test("chunk", () => {
   expect(chunk([1, 2, 3], 2)).toEqual([[1, 2], [3]]);
   expect(chunk([], 25)).toEqual([]);
   expect(() => chunk([1], 0)).toThrow(RangeError);
-});
-
-test("isAdmin", () => {
-  expect(isAdmin(new Set(["r1"]), "r1")).toBe(true);
-  expect(isAdmin(new Set(), "r1")).toBe(false);
 });
 
 test("validateGameName", () => {

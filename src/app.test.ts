@@ -117,7 +117,7 @@ describe("onReady and shutdown", () => {
     vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
     const calls: string[] = [];
     const stop = await onReady(ctx, {
-      ...deps0(calls),
+      ...deps(calls),
       onMembersReady: () => calls.push("members-ready"),
     });
     expect(calls).toEqual(["fetch", "members-ready", "register"]);
@@ -131,7 +131,7 @@ describe("onReady and shutdown", () => {
     let stopping = false;
     const gate = Promise.withResolvers<void>();
     const pending = onReady(ctx, {
-      ...deps0([]),
+      ...deps([]),
       registerCommands: () => gate.promise,
       isStopping: () => stopping,
     });
@@ -196,16 +196,4 @@ describe("onReady and shutdown", () => {
       undefined,
     );
   });
-});
-
-const deps0 = (calls: string[]): ReadyDeps => ({
-  registerCommands: async () => {
-    calls.push("register");
-  },
-  fetchMembers: async () => {
-    calls.push("fetch");
-  },
-  isConnected: () => true,
-  isStopping: () => false,
-  version: "1.2.3",
 });

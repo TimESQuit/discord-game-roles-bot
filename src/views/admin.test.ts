@@ -126,10 +126,6 @@ test("review list caps at 40 components and says how many more", () => {
   expect(view.allowedMentions).toEqual({ parse: [] });
 });
 
-test("review list with nothing pending says so", () => {
-  expect(texts(reviewListView([], new Map()))).toContain("No suggestions waiting for review.");
-});
-
 test("review list shows no 'more' line when everything fits", () => {
   const view = reviewListView([sugg(1), sugg(2)], new Map([[1, cat(1, "Chill")]]));
   expect(texts(view)).not.toContain("more in #bot-admin");

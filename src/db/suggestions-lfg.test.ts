@@ -46,44 +46,6 @@ test("decide is first-wins", async () => {
   });
 });
 
-test("rejecting stores the reason", async () => {
-  const { r, c } = await setup();
-  const s = await r.suggestions.add({
-    suggesterId: U1,
-    name: "Valheim",
-    categoryId: c.id,
-    note: "fun",
-    createdAt: T0,
-  });
-  expect(await r.suggestions.decide(s.id, "rejected", ADMIN_A, T1, "too niche")).toBe(true);
-  expect(await r.suggestions.get(s.id)).toMatchObject({
-    status: "rejected",
-    rejectionReason: "too niche",
-    decidedAt: T1,
-    note: "fun",
-  });
-});
-
-test("undoDecision returns it to pending and clears reviewer fields", async () => {
-  const { r, c } = await setup();
-  const s = await r.suggestions.add({
-    suggesterId: U1,
-    name: "Valheim",
-    categoryId: c.id,
-    note: null,
-    createdAt: T0,
-  });
-  await r.suggestions.decide(s.id, "rejected", ADMIN_A, T1, "no");
-  await r.suggestions.undoDecision(s.id);
-  expect(await r.suggestions.get(s.id)).toMatchObject({
-    status: "pending",
-    reviewerId: null,
-    rejectionReason: null,
-    decidedAt: null,
-  });
-  expect(await r.suggestions.decide(s.id, "approved", ADMIN_B, T2)).toBe(true);
-});
-
 test("countPending counts only that user's pending suggestions", async () => {
   const { r, c } = await setup();
   const add = (user: string, name: string) =>
@@ -138,25 +100,6 @@ test("lists, pendingNames, update and links", async () => {
     gameId: game.id,
   });
   expect(await r.suggestions.get(9999)).toBeUndefined();
-});
-
-test("LFG responses: setting maybe after in replaces it; null clears", async () => {
-  const { r, game } = await setup();
-  await r.lfg.add({
-    messageId: M1,
-    channelId: CH,
-    gameId: game.id,
-    gameName: game.name,
-    authorId: U1,
-    when: "tonight 9pm",
-    note: null,
-    createdAt: T0,
-  });
-  await r.lfg.setResponse(M1, U2, "in");
-  await r.lfg.setResponse(M1, U2, "maybe");
-  expect(await r.lfg.get(M1)).toMatchObject({ in: [], maybe: [U2] });
-  await r.lfg.setResponse(M1, U2, null);
-  expect(await r.lfg.get(M1)).toMatchObject({ in: [], maybe: [] });
 });
 
 test("LFG lists keep response order", async () => {

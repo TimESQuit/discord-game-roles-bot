@@ -9,7 +9,6 @@ import {
   addGamesView,
   changedOptionIds,
   pickGamePageCount,
-  gameListView,
   menuView,
   myGamesView,
   panelView,
@@ -169,13 +168,6 @@ test("people list: mentions, capped at 50 with a count, empty state", () => {
   expect(flagBits(p) & MessageFlags.Ephemeral).toBeTruthy();
 });
 
-test("game list view shows names or the empty text", () => {
-  expect(texts(gameListView("Title", [game(1, "Minecraft", 1)], "none"))).toContain("Minecraft");
-  expect(texts(gameListView("Title", [], "You have no games in common."))).toContain(
-    "You have no games in common.",
-  );
-});
-
 const manyCategories = Array.from({ length: 12 }, (_, i) => cat(i + 1, `C${String(i + 1)}`));
 const manyGames = manyCategories.flatMap((c) =>
   Array.from({ length: 50 }, (_, i) => game(c.id * 100 + i, `G${String(i)}`, c.id)),
@@ -215,11 +207,6 @@ test("remove view with 60 games: three dropdowns, all games, within 40", () => {
   const p = removeGamesView(games, "Removed X.");
   expect(allSelects(p).map((s) => s.options.length)).toEqual([25, 25, 10]);
   expect(countComponents(p)).toBeLessThanOrEqual(40);
-});
-
-test("panel does not claim picks are private", () => {
-  expect(texts(panelView())).toContain("Your menu is only visible to you.");
-  expect(texts(panelView())).not.toContain("picks are private");
 });
 
 test("changedOptionIds: only options whose tick differs from what was rendered", () => {

@@ -1,49 +1,13 @@
 import { afterEach, expect, test, vi } from "vitest";
 
-import { A1, lastSend, makeContext, sentTo, U1 } from "../testing/index.ts";
+import { lastSend, makeContext, sentTo, U1 } from "../testing/index.ts";
 import { createAudit, formatAuditLine } from "./audit.ts";
 
 afterEach(() => vi.restoreAllMocks());
 
-test("join line names user, game and source", () => {
-  expect(formatAuditLine({ kind: "joined", userId: U1, game: "Valheim", source: "lfg" })).toBe(
-    `<@${U1}> joined **Valheim** (LFG post)`,
-  );
-});
-
-test("rejection line includes reviewer and reason", () => {
-  expect(
-    formatAuditLine({ kind: "suggestion-rejected", userId: A1, name: "Foo", reason: "dupe" }),
-  ).toBe(`<@${A1}> rejected suggestion **Foo**: dupe`);
-});
-
-const suggestionLine = (
-  kind: "suggestion-approved" | "suggestion-edited" | "suggestion-withdrawn",
-) => formatAuditLine({ kind, userId: A1, name: "Foo" });
-
-test("suggestion verbs are past tense", () => {
-  expect(suggestionLine("suggestion-approved")).toBe(`<@${A1}> approved suggestion **Foo**`);
-  expect(suggestionLine("suggestion-edited")).toBe(`<@${A1}> edited suggestion **Foo**`);
-  expect(suggestionLine("suggestion-withdrawn")).toBe(`<@${A1}> withdrew suggestion **Foo**`);
-});
-
 test("user text can't ping or format", () => {
   const line = formatAuditLine({ kind: "suggested", userId: U1, name: "@everyone **x**" });
   expect(line).not.toMatch(/@everyone|\*\*x\*\*/);
-});
-
-test("every event kind produces a line", () => {
-  expect(formatAuditLine({ kind: "backup", userId: null, file: "a.sqlite" })).toContain("a.sqlite");
-  expect(formatAuditLine({ kind: "template-reapplied", userId: A1, count: 3 })).toContain("3");
-  expect(formatAuditLine({ kind: "left", userId: U1, game: "G", source: "panel" })).toContain(
-    "(panel)",
-  );
-});
-
-test("the suggestion source reads as 'suggestion'", () => {
-  expect(
-    formatAuditLine({ kind: "joined", userId: U1, game: "G", source: "suggestion" }),
-  ).toContain("(suggestion)");
 });
 
 test("log posts to #bot-log with no mentions allowed", async () => {

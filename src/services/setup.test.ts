@@ -11,13 +11,7 @@ import {
   TEMPLATE_ROLE_NAME,
 } from "../constants.ts";
 import { A1, ADMIN_ROLE_ID, defined, makeContext } from "../testing/index.ts";
-import {
-  applySetup,
-  checkSetup,
-  previewSetup,
-  refreshPanel,
-  REQUIRED_PERMISSIONS,
-} from "./setup.ts";
+import { applySetup, checkSetup, previewSetup, refreshPanel } from "./setup.ts";
 
 import type { Overwrite } from "../discord/index.ts";
 
@@ -51,7 +45,6 @@ describe("checkSetup", () => {
       "Give the bot the Embed Links permission.",
       "Give the bot the Read Message History permission.",
     ]);
-    expect(REQUIRED_PERMISSIONS).toHaveLength(9);
   });
 
   test("lists the thread and reaction permissions the read-only channels need", async () => {

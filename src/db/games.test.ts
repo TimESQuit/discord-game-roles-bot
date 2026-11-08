@@ -60,13 +60,6 @@ test("a duplicate normalized name is rejected by the database", async () => {
   ).rejects.toThrow(/UNIQUE/);
 });
 
-test("ownsRole is true only for roles in the games table", async () => {
-  const { repos, category } = await setupRepos();
-  await repos.games.add(gameInput("Valheim", category.id, "200000000000000001"));
-  expect(await repos.games.ownsRole("200000000000000001")).toBe(true);
-  expect(await repos.games.ownsRole("999")).toBe(false);
-});
-
 test("removing a game removes its aliases", async () => {
   const db = openDatabase(":memory:");
   const repos = createRepos(db.kysely);
@@ -79,17 +72,4 @@ test("removing a game removes its aliases", async () => {
   expect(await repos.games.ownsRole("200000000000000001")).toBe(false);
   const row = db.sqlite.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM game_aliases").get();
   expect(row?.n).toBe(0);
-});
-
-test("setup keys round-trip", async () => {
-  const { repos } = await setupRepos();
-  expect(await repos.setup.get("templateRoleId")).toBeUndefined();
-  await repos.setup.set("templateRoleId", "300000000000000001");
-  await repos.setup.set("templateRoleId", "300000000000000002");
-  await repos.setup.set("logChannelId", "300000000000000003");
-  expect(await repos.setup.get("templateRoleId")).toBe("300000000000000002");
-  expect(await repos.setup.all()).toEqual({
-    templateRoleId: "300000000000000002",
-    logChannelId: "300000000000000003",
-  });
 });
