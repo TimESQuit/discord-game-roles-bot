@@ -48,9 +48,9 @@ The bot runs in its own Docker Compose project, with no open ports. Replace `<dr
 
 1. **Check resources.** `free -h` and `swapon --show`. Add swap if there is none, and check how much memory your other services use before keeping the 256 MB container limit in `compose.yaml`. Confirm `docker compose version` shows v2.
 2. **As an admin (root or sudo), once:**
-   - create the deploy user, for example `deploy`, with no sudo: `adduser --disabled-password deploy`;
-   - give it Docker access with `usermod -aG docker deploy`. That is close to root access, so the key below must be able to do only one thing;
-   - create the folder: `mkdir /opt/game-roles-bot && chown deploy:deploy /opt/game-roles-bot`;
+   - create the deploy user, `game-roles-deploy`, with no sudo: `adduser --disabled-password game-roles-deploy`. The rest of this README calls it the deploy user;
+   - give it Docker access with `usermod -aG docker game-roles-deploy`. That is close to root access, so the key below must be able to do only one thing;
+   - create the folder: `mkdir /opt/game-roles-bot && chown game-roles-deploy:game-roles-deploy /opt/game-roles-bot`;
    - install the deploy script (step 5) as root.
 3. **As the deploy user:** `git clone https://github.com/<owner>/<repo>.git /opt/game-roles-bot`, then `mkdir -p /opt/game-roles-bot/data`.
    **As an admin:** `chown 1000:1000 /opt/game-roles-bot/data` (the container runs as uid 1000).
@@ -81,13 +81,13 @@ The bot runs in its own Docker Compose project, with no open ports. Replace `<dr
 6. **Restrict the key.** Generate a key pair just for deploys. In the deploy user's `~/.ssh/authorized_keys`, one line:
 
    ```
-   restrict,command="/usr/local/bin/deploy-game-roles-bot" ssh-ed25519 AAAA... deploy-key
+   restrict,command="/usr/local/bin/deploy-game-roles-bot" ssh-ed25519 AAAA... game-roles-deploy-key
    ```
 
    `restrict` is equivalent to `no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding` plus more; spelling those four out instead is also fine.
 
 7. **SSH hardening.** Keys only: no password logins, no root login.
-8. **By hand.** If Actions is unavailable, an admin can run the script as the deploy user: `sudo -u deploy env SSH_ORIGINAL_COMMAND=<40-character-commit-sha> /usr/local/bin/deploy-game-roles-bot`.
+8. **By hand.** If Actions is unavailable, an admin can run the script as the deploy user: `sudo -u game-roles-deploy env SSH_ORIGINAL_COMMAND=<40-character-commit-sha> /usr/local/bin/deploy-game-roles-bot`.
 9. **Rolling back.** The script refuses to move to an older commit, on purpose: old code could meet a newer database schema. To roll back, in this order: (1) stop the bot (`docker compose stop`) so the bad release can't touch the restored database; (2) restore a database backup from before the bad release (see below); (3) push a revert commit to `main` and let the pipeline deploy it, which starts the bot again. The revert must be a new commit, because the never-backwards guard rejects a deploy of an older one.
 
 ## GitHub setup checklist
@@ -105,7 +105,7 @@ Repository secrets used by `.github/workflows/deploy.yml`:
 | Secret               | Value                                                                                                                                                   |
 | -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `DEPLOY_HOST`        | The droplet's address                                                                                                                                   |
-| `DEPLOY_USER`        | The deploy user                                                                                                                                         |
+| `DEPLOY_USER`        | `game-roles-deploy`                                                                                                                                     |
 | `DEPLOY_SSH_KEY`     | The private key of the deploy-only key pair                                                                                                             |
 | `DEPLOY_KNOWN_HOSTS` | Output of `ssh-keyscan <droplet-host>`, checked against the droplet's real host key (`ssh-keygen -lf /etc/ssh/ssh_host_ed25519_key.pub` on the droplet) |
 
