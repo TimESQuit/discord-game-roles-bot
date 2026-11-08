@@ -1,8 +1,7 @@
+import { collapse } from "./roles.ts";
 import { parseAliases } from "./search.ts";
 
 import type { Game } from "../db/index.ts";
-
-const collapse = (name: string): string => name.trim().replace(/\s+/g, " ");
 
 /** The fields of a submitted edit that differ from the game. Omitted fields are not compared. */
 export function diffGameEdit(

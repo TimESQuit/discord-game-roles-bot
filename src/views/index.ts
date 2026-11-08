@@ -9,6 +9,7 @@ export {
 } from "./admin.ts";
 export { LFG_FIELD, lfgModal, lfgPostView } from "./lfg.ts";
 export { truncate } from "./limits.ts";
+export { FIELD } from "./modals.ts";
 export {
   addGamesPageOf,
   addGamesView,
@@ -23,7 +24,6 @@ export {
   removeGamesView,
 } from "./member.ts";
 export {
-  FIELD,
   announcementView,
   duplicatePromptView,
   mySuggestionsView,

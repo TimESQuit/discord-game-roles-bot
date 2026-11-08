@@ -53,8 +53,11 @@ export function isAdmin(memberRoleIds: ReadonlySet<string>, adminRoleId: string)
   return memberRoleIds.has(adminRoleId);
 }
 
+/** Trims and squeezes runs of whitespace into single spaces. */
+export const collapse = (raw: string): string => raw.trim().replace(/\s+/g, " ");
+
 export function validateGameName(raw: string): string {
-  const name = raw.trim().replace(/\s+/g, " ");
+  const name = collapse(raw);
   if (normalize(name) === "") {
     throw new UserFacingError("Game names need at least one letter or number.");
   }

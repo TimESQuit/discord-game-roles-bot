@@ -1,88 +1,39 @@
-import { ButtonStyle, ComponentType, MessageFlags } from "discord.js";
+import { ButtonStyle, ComponentType } from "discord.js";
 
 import {
   COMPONENT_LIMIT,
   MESSAGES,
-  PEOPLE_SHOWN_MAX,
   SELECT_OPTION_LIMIT,
   TEXT_DISPLAY_LIMIT,
   TEXT_LIMIT,
 } from "../constants.ts";
-import { byName, encodeId, text } from "../domain/index.ts";
+import { byName, chunk, encodeId, text } from "../domain/index.ts";
+import { button, buttonRow, display, payload, separator, shownPeople } from "./components.ts";
 import { truncate } from "./limits.ts";
 
 import type {
   APIActionRowComponent,
   APIButtonComponent,
-  APIButtonComponentWithCustomId,
-  APIComponentInContainer,
-  APIContainerComponent,
   APIStringSelectComponent,
-  APITextDisplayComponent,
 } from "discord.js";
 import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 import type { PickPurpose, AdminAction, CustomId, MenuAction } from "../domain/index.ts";
-
-const V2 = [MessageFlags.IsComponentsV2] as const;
-const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
-const NO_PINGS = { parse: [] } as const;
-
-type Row =
-  | APIActionRowComponent<APIButtonComponent>
-  | APIActionRowComponent<APIStringSelectComponent>;
-
-const display = (content: string): APITextDisplayComponent => ({
-  type: ComponentType.TextDisplay,
-  content,
-});
-const separator = (): APIComponentInContainer => ({ type: ComponentType.Separator });
-
-const button = (
-  id: CustomId,
-  label: string,
-  style: APIButtonComponentWithCustomId["style"] = ButtonStyle.Secondary,
-  disabled = false,
-): APIButtonComponent => ({
-  type: ComponentType.Button,
-  style,
-  label: truncate(label, TEXT_LIMIT),
-  custom_id: encodeId(id),
-  ...(disabled ? { disabled } : {}),
-});
-const buttonRow = (
-  ...buttons: APIButtonComponent[]
-): APIActionRowComponent<APIButtonComponent> => ({
-  type: ComponentType.ActionRow,
-  components: buttons,
-});
-
-const container = (...components: (APIComponentInContainer | Row)[]): APIContainerComponent => ({
-  type: ComponentType.Container,
-  components: components,
-});
-
-function payload(inner: APIContainerComponent, privateMessage: boolean): Payload {
-  return {
-    flags: privateMessage ? PRIVATE : V2,
-    components: [inner],
-    allowedMentions: NO_PINGS,
-  };
-}
+import type { Part } from "./components.ts";
 
 /** A one-line private message in the new layout (e.g. "Cancelled."). */
 export function noticeView(message: string): Payload {
-  return payload(container(display(message)), true);
+  return payload([display(message)], true);
 }
 
 export function panelView(): Payload {
   return payload(
-    container(
+    [
       display(
         "### Game roles\nPick the games you play to get their roles. Your menu is only visible to you.",
       ),
       buttonRow(button({ kind: "panel-open" }, "Open game roles", ButtonStyle.Primary)),
-    ),
+    ],
     false,
   );
 }
@@ -95,7 +46,7 @@ const m = (
 const a = (action: AdminAction, label: string) => button({ kind: "admin", action }, label);
 
 export function menuView({ isAdmin }: { isAdmin: boolean }): Payload {
-  const parts: (APIComponentInContainer | Row)[] = [
+  const parts: Part[] = [
     display("### Game roles\nWhat would you like to do?"),
     buttonRow(
       m("add", "Add games", ButtonStyle.Primary),
@@ -125,13 +76,7 @@ export function menuView({ isAdmin }: { isAdmin: boolean }): Payload {
       ),
     );
   }
-  return payload(container(...parts), true);
-}
-
-function chunked<T>(items: readonly T[], size = SELECT_OPTION_LIMIT): T[][] {
-  const out: T[][] = [];
-  for (let i = 0; i < items.length; i += size) out.push(items.slice(i, i + size));
-  return out;
+  return payload(parts, true);
 }
 
 /**
@@ -142,12 +87,12 @@ const REMOVE_DROPDOWNS = Math.floor((COMPONENT_LIMIT - 4) / 2);
 
 /** The games of one category in the order shown, in chunks of up to the select-option limit. Handlers recompute chunks with this. */
 export function categoryChunks(games: readonly Game[], categoryId: number): Game[][] {
-  return chunked(games.filter((g) => g.categoryId === categoryId).toSorted(byName));
+  return chunk(games.filter((g) => g.categoryId === categoryId).toSorted(byName));
 }
 
 /** A person's games in the order shown by the remove menu, in chunks of up to the select-option limit. */
 export function ownedChunks(owned: readonly Game[]): Game[][] {
-  return chunked(owned.toSorted(byName));
+  return chunk(owned.toSorted(byName));
 }
 
 const options = (games: readonly Game[], ticked: ReadonlySet<string> | null) =>
@@ -209,6 +154,23 @@ export function changedOptionIds(
 
 type Unit = { category: Category; index: number; count: number; games: Game[] };
 
+/** "Name (i/n)" when a category's games span several dropdowns, plain "Name" otherwise. */
+const chunkLabel = (name: string, index: number, count: number): string =>
+  count > 1 ? `${name} (${String(index + 1)}/${String(count)})` : name;
+
+/** One unit per dropdown. A category without games keeps an empty placeholder unit when `keepEmpty`. */
+function unitsOf(
+  categories: readonly Category[],
+  games: readonly Game[],
+  keepEmpty: boolean,
+): Unit[] {
+  return categories.flatMap((category) => {
+    const chunks = categoryChunks(games, category.id);
+    if (chunks.length === 0) return keepEmpty ? [{ category, index: 0, count: 1, games: [] }] : [];
+    return chunks.map((group, index) => ({ category, index, count: chunks.length, games: group }));
+  });
+}
+
 // container + notice + header + pager row with its two buttons
 const ADD_BODY_BUDGET = COMPONENT_LIMIT - 1 - 1 - 1 - 3;
 
@@ -216,23 +178,16 @@ function addPages(categories: readonly Category[], games: readonly Game[]): Unit
   let current: Unit[] = [];
   const pages: Unit[][] = [current];
   let used = 0;
-  for (const category of categories) {
-    const chunks = categoryChunks(games, category.id);
-    const units: Unit[] =
-      chunks.length === 0
-        ? [{ category, index: 0, count: 1, games: [] }]
-        : chunks.map((chunk, index) => ({ category, index, count: chunks.length, games: chunk }));
-    for (const unit of units) {
-      const heading = unit.index === 0 || current.length === 0 ? 1 : 0;
-      const cost = unit.games.length === 0 ? 1 : heading + 2;
-      if (used + cost > ADD_BODY_BUDGET && current.length > 0) {
-        current = [unit];
-        pages.push(current);
-        used = unit.games.length === 0 ? 1 : 3;
-      } else {
-        current.push(unit);
-        used += cost;
-      }
+  for (const unit of unitsOf(categories, games, true)) {
+    const heading = unit.index === 0 || current.length === 0 ? 1 : 0;
+    const cost = unit.games.length === 0 ? 1 : heading + 2;
+    if (used + cost > ADD_BODY_BUDGET && current.length > 0) {
+      current = [unit];
+      pages.push(current);
+      used = unit.games.length === 0 ? 1 : 3;
+    } else {
+      current.push(unit);
+      used += cost;
     }
   }
   return pages;
@@ -247,10 +202,10 @@ export function addGamesPageOf(
   categories: readonly Category[],
   games: readonly Game[],
   categoryId: number,
-  chunk: number,
+  chunkIndex: number,
 ): number {
   const index = addPages(categories, games).findIndex((page) =>
-    page.some((u) => u.category.id === categoryId && u.index === chunk),
+    page.some((u) => u.category.id === categoryId && u.index === chunkIndex),
   );
   return Math.max(0, index);
 }
@@ -264,8 +219,8 @@ export function addGamesView(
 ): Payload {
   const pages = addPages(categories, games);
   const current = Math.min(Math.max(0, page), pages.length - 1);
-  const parts: (APIComponentInContainer | Row)[] = [];
-  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_LIMIT)));
+  const parts: Part[] = [];
+  if (notice) parts.push(display(notice));
   parts.push(
     display(
       `### Add games\nTick the games you play and untick the ones you don't.${pages.length > 1 ? ` (Page ${String(current + 1)} of ${String(pages.length)})` : ""}`,
@@ -281,14 +236,10 @@ export function addGamesView(
       else if (previous?.category.id !== unit.category.id) {
         parts.push(display(`### ${name} (continued)`));
       }
-      const label =
-        unit.count > 1
-          ? `${unit.category.name} (${String(unit.index + 1)}/${String(unit.count)})`
-          : unit.category.name;
       parts.push(
         selectRow(
           { kind: "add-select", categoryId: unit.category.id, chunk: unit.index },
-          label,
+          chunkLabel(unit.category.name, unit.index, unit.count),
           options(unit.games, memberRoleIds),
           true,
         ),
@@ -303,25 +254,26 @@ export function addGamesView(
       ),
     );
   }
-  return payload(container(...parts), true);
+  return payload(parts, true);
 }
 
 export function removeGamesView(ownedGames: readonly Game[], notice?: string): Payload {
-  const parts: (APIComponentInContainer | Row)[] = [];
-  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_LIMIT)));
+  const parts: Part[] = [];
+  if (notice) parts.push(display(notice));
   const chunks = ownedChunks(ownedGames);
   if (chunks.length === 0) {
     parts.push(display(MESSAGES.noGamesPicked));
   } else {
     parts.push(display("### Remove games\nTick the games you want to leave."));
     const shown = chunks.slice(0, REMOVE_DROPDOWNS);
-    for (const [index, chunk] of shown.entries()) {
-      const label =
-        chunks.length > 1
-          ? `Your games (${String(index + 1)}/${String(chunks.length)})`
-          : "Your games";
+    for (const [index, group] of shown.entries()) {
       parts.push(
-        selectRow({ kind: "remove-select", chunk: index }, label, options(chunk, null), true),
+        selectRow(
+          { kind: "remove-select", chunk: index },
+          chunkLabel("Your games", index, chunks.length),
+          options(group, null),
+          true,
+        ),
       );
     }
   }
@@ -329,23 +281,14 @@ export function removeGamesView(ownedGames: readonly Game[], notice?: string): P
     const listed = REMOVE_DROPDOWNS * SELECT_OPTION_LIMIT;
     parts.push(display(`Only the first ${String(listed)} of your games are listed here.`));
   }
-  return payload(container(...parts), true);
+  return payload(parts, true);
 }
 
 // container + header + the row of Previous, Next and Cancel buttons (4)
 const PICK_PER_PAGE = Math.floor((COMPONENT_LIMIT - 1 - 1 - 4) / 2);
 
-type PickUnit = { category: Category; index: number; count: number; games: Game[] };
-
-function pickUnits(categories: readonly Category[], games: readonly Game[]): PickUnit[] {
-  return categories.flatMap((category) => {
-    const chunks = categoryChunks(games, category.id);
-    return chunks.map((chunk, index) => ({ category, index, count: chunks.length, games: chunk }));
-  });
-}
-
 export function pickGamePageCount(categories: readonly Category[], games: readonly Game[]): number {
-  return Math.max(1, Math.ceil(pickUnits(categories, games).length / PICK_PER_PAGE));
+  return Math.max(1, Math.ceil(unitsOf(categories, games, false).length / PICK_PER_PAGE));
 }
 
 /** Single-choice game pickers, one per category chunk, paged to stay within 40 components. */
@@ -355,17 +298,13 @@ export function pickGameView(
   games: readonly Game[],
   page = 0,
 ): Payload {
-  const units = pickUnits(categories, games);
+  const units = unitsOf(categories, games, false);
   const total = pickGamePageCount(categories, games);
   const current = Math.min(Math.max(0, page), total - 1);
   const rows = units.slice(current * PICK_PER_PAGE, (current + 1) * PICK_PER_PAGE).map((u) => {
-    const label =
-      u.count > 1
-        ? `${u.category.name} (${String(u.index + 1)}/${String(u.count)})`
-        : u.category.name;
     return selectRow(
       { kind: "pick", purpose, categoryId: u.category.id, chunk: u.index },
-      label,
+      chunkLabel(u.category.name, u.index, u.count),
       options(u.games, null),
       false,
     );
@@ -375,7 +314,7 @@ export function pickGameView(
   const nav =
     total > 1 ? pagerButtons((p) => ({ kind: "pick-page", purpose, page: p }), current, total) : [];
   return payload(
-    container(display(header), ...rows, buttonRow(...nav, button({ kind: "cancel" }, "Cancel"))),
+    [display(header), ...rows, buttonRow(...nav, button({ kind: "cancel" }, "Cancel"))],
     true,
   );
 }
@@ -396,8 +335,8 @@ function listBody(lines: readonly string[], empty: string): string {
 }
 
 export function myGamesView(games: readonly Game[], notice?: string): Payload {
-  const parts: (APIComponentInContainer | Row)[] = [];
-  if (notice) parts.push(display(truncate(notice, TEXT_DISPLAY_LIMIT)));
+  const parts: Part[] = [];
+  if (notice) parts.push(display(notice));
   parts.push(
     display(
       `### My games\n${listBody(
@@ -410,7 +349,7 @@ export function myGamesView(games: readonly Game[], notice?: string): Payload {
       button({ kind: "menu", action: "remove" }, "Remove games"),
     ),
   );
-  return payload(container(...parts), true);
+  return payload(parts, true);
 }
 
 /** `title` is trusted text; callers escape any name they put in it with `text()`. */
@@ -419,16 +358,15 @@ export function gameListView(title: string, games: readonly Game[], empty: strin
     games.toSorted(byName).map((g) => `- ${text(g.name)}`),
     empty,
   );
-  return payload(container(display(`### ${title}\n${body}`)), true);
+  return payload([display(`### ${title}\n${body}`)], true);
 }
 
 /** A list of people as mentions (they do not ping), capped at 50. */
 export function peopleListView(title: string, userIds: readonly string[], empty: string): Payload {
-  const shown = userIds.slice(0, PEOPLE_SHOWN_MAX).map((id) => `<@${id}>`);
-  const more = userIds.length - shown.length;
+  const { mentions, more } = shownPeople(userIds);
   const body =
     userIds.length === 0
       ? empty
-      : [shown.join("\n"), ...(more > 0 ? [`…and ${String(more)} more`] : [])].join("\n");
-  return payload(container(display(`### ${title}\n${body}`)), true);
+      : [mentions.join("\n"), ...(more === null ? [] : [more])].join("\n");
+  return payload([display(`### ${title}\n${body}`)], true);
 }

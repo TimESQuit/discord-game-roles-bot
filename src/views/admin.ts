@@ -1,7 +1,6 @@
 import {
   ButtonStyle,
   ComponentType,
-  MessageFlags,
   ModalBuilder,
   TextDisplayBuilder,
   TextInputStyle,
@@ -15,62 +14,17 @@ import {
   SELECT_OPTION_LIMIT,
   TEXT_DISPLAY_LIMIT,
   TEXT_INPUT_LIMIT,
-  TEXT_LIMIT,
 } from "../constants.ts";
 import { encodeId, text } from "../domain/index.ts";
-import { truncate } from "./limits.ts";
-import { FIELD, categoryLabel, inputLabel, reviewCardParts, textInput } from "./suggestions.ts";
+import { button, buttonRow, display, payload } from "./components.ts";
+import { FIELD, categoryLabel, inputLabel, textInput } from "./modals.ts";
+import { reviewCardParts } from "./suggestions.ts";
 
-import type {
-  APIActionRowComponent,
-  APIButtonComponent,
-  APIComponentInContainer,
-  APIContainerComponent,
-} from "discord.js";
+import type { APIButtonComponent } from "discord.js";
 import type { Category, Game, Suggestion } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
-import type { SetupItem, CustomId } from "../domain/index.ts";
-
-const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
-const NO_PINGS = { parse: [] } as const;
-
-type Part = APIComponentInContainer;
-type Row = APIActionRowComponent<APIButtonComponent>;
-
-const display = (content: string): Part => ({
-  type: ComponentType.TextDisplay,
-  content: truncate(content, TEXT_DISPLAY_LIMIT),
-});
-
-const button = (
-  id: CustomId,
-  label: string,
-  style: ButtonStyle.Primary | ButtonStyle.Secondary | ButtonStyle.Danger = ButtonStyle.Secondary,
-  disabled = false,
-): APIButtonComponent => ({
-  type: ComponentType.Button,
-  style,
-  label: truncate(label, TEXT_LIMIT),
-  custom_id: encodeId(id),
-  ...(disabled ? { disabled } : {}),
-});
-
-const row = (...buttons: APIButtonComponent[]): Row => ({
-  type: ComponentType.ActionRow,
-  components: buttons,
-});
-
-function privateView(parts: (Part | Row)[]): Payload {
-  const inner: APIContainerComponent = {
-    type: ComponentType.Container,
-    components: parts,
-  };
-  return {
-    flags: PRIVATE,
-    components: [inner],
-    allowedMentions: NO_PINGS,
-  };
-}
+import type { SetupItem } from "../domain/index.ts";
+import type { Part } from "./components.ts";
 
 // container + the "and N more" line
 const REVIEW_BUDGET = COMPONENT_LIMIT - 2;
@@ -82,8 +36,8 @@ export function reviewListView(
   pending: readonly Suggestion[],
   categoriesById: ReadonlyMap<number, Category>,
 ): Payload {
-  if (pending.length === 0) return privateView([display("No suggestions waiting for review.")]);
-  const parts: (Part | Row)[] = [];
+  if (pending.length === 0) return payload([display("No suggestions waiting for review.")], true);
+  const parts: Part[] = [];
   let used = 0;
   let chars = 0;
   let shown = 0;
@@ -106,7 +60,7 @@ export function reviewListView(
   }
   const more = pending.length - shown;
   if (more > 0) parts.push(display(`…and ${String(more)} more in #bot-admin`));
-  return privateView(parts);
+  return payload(parts, true);
 }
 
 /** At most 25 categories; the game's own category is always among them. */
@@ -168,13 +122,16 @@ export function categoryModal(category?: Category): ModalBuilder {
 
 export function confirmRemoveView(game: Game, memberCount: number): Payload {
   const members = memberCount === 1 ? "1 member" : `${String(memberCount)} members`;
-  return privateView([
-    display(`Remove ${text(game.name)}? ${members} will lose the role.`),
-    row(
-      button({ kind: "confirm-remove", gameId: game.id }, "Confirm", ButtonStyle.Danger),
-      button({ kind: "cancel" }, "Cancel"),
-    ),
-  ]);
+  return payload(
+    [
+      display(`Remove ${text(game.name)}? ${members} will lose the role.`),
+      buttonRow(
+        button({ kind: "confirm-remove", gameId: game.id }, "Confirm", ButtonStyle.Danger),
+        button({ kind: "cancel" }, "Cancel"),
+      ),
+    ],
+    true,
+  );
 }
 
 // container + header + note + the Add category row and its button
@@ -182,7 +139,7 @@ const CATEGORIES_SHOWN = Math.floor((COMPONENT_LIMIT - 5) / 5);
 
 export function categoriesView(categories: readonly Category[]): Payload {
   const shown = categories.slice(0, CATEGORIES_SHOWN);
-  const parts: (Part | Row)[] = [display("### Categories")];
+  const parts: Part[] = [display("### Categories")];
   for (const [index, c] of shown.entries()) {
     const buttons: APIButtonComponent[] = [];
     if (index > 0)
@@ -191,15 +148,15 @@ export function categoriesView(categories: readonly Category[]): Payload {
       buttons.push(button({ kind: "category-move", categoryId: c.id, dir: "down" }, "Down"));
     }
     buttons.push(button({ kind: "category-rename", categoryId: c.id }, "Rename"));
-    parts.push(display(`**${text(c.name)}**`), row(...buttons));
+    parts.push(display(`**${text(c.name)}**`), buttonRow(...buttons));
   }
   if (categories.length > shown.length) {
     parts.push(
       display(`Showing the first ${String(shown.length)}. Use /gameadmin category for the rest.`),
     );
   }
-  parts.push(row(button({ kind: "category-add" }, "Add category", ButtonStyle.Primary)));
-  return privateView(parts);
+  parts.push(buttonRow(button({ kind: "category-add" }, "Add category", ButtonStyle.Primary)));
+  return payload(parts, true);
 }
 
 const ITEM_LABELS: Record<SetupItem, string> = {
@@ -227,27 +184,33 @@ export function setupPreviewView(
   }
   lines.push(`Will create: ${itemList(plan.create)}`, `Already fine: ${itemList(plan.fine)}`);
   const blocked = problems.length > 0 || plan.create.length === 0;
-  return privateView([
-    display(lines.join("\n")),
-    row(
-      button({ kind: "confirm-setup" }, "Confirm", ButtonStyle.Primary, blocked),
-      button({ kind: "cancel" }, "Cancel"),
-    ),
-  ]);
+  return payload(
+    [
+      display(lines.join("\n")),
+      buttonRow(
+        button({ kind: "confirm-setup" }, "Confirm", ButtonStyle.Primary, blocked),
+        button({ kind: "cancel" }, "Cancel"),
+      ),
+    ],
+    true,
+  );
 }
 
 export function setupReportView(result: {
   created: readonly SetupItem[];
   fine: readonly SetupItem[];
 }): Payload {
-  return privateView([
-    display(
-      [
-        "### Setup finished",
-        `Created: ${itemList(result.created)}`,
-        `Already fine: ${itemList(result.fine)}`,
-        "Next: set the template role's color, and add a healthchecks.io webhook in #bot-admin.",
-      ].join("\n"),
-    ),
-  ]);
+  return payload(
+    [
+      display(
+        [
+          "### Setup finished",
+          `Created: ${itemList(result.created)}`,
+          `Already fine: ${itemList(result.fine)}`,
+          "Next: set the template role's color, and add a healthchecks.io webhook in #bot-admin.",
+        ].join("\n"),
+      ),
+    ],
+    true,
+  );
 }
