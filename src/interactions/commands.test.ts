@@ -1,13 +1,12 @@
-import {
-  ApplicationCommandOptionType,
-  ApplicationCommandType,
-  REST,
-  Routes,
-  type APIApplicationCommandOption,
-  type RESTPostAPIApplicationGuildCommandsJSONBody,
-} from "discord.js";
+import { ApplicationCommandOptionType, ApplicationCommandType, REST, Routes } from "discord.js";
 import { expect, test, vi } from "vitest";
+
 import { commandDefinitions, registerCommands } from "./commands.ts";
+
+import type {
+  APIApplicationCommandOption,
+  RESTPostAPIApplicationGuildCommandsJSONBody,
+} from "discord.js";
 import type { Config } from "../config.ts";
 
 const defs = commandDefinitions;

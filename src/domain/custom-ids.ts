@@ -1,4 +1,6 @@
-import { CUSTOM_ID_LIMIT, MOVE_DIRECTIONS, type MoveDirection } from "../constants.ts";
+import { CUSTOM_ID_LIMIT, MOVE_DIRECTIONS } from "../constants.ts";
+
+import type { MoveDirection } from "../constants.ts";
 
 const PREFIX = "gr:";
 

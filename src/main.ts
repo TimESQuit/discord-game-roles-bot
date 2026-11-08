@@ -1,19 +1,16 @@
 import { mkdirSync, readFileSync } from "node:fs";
 import { dirname } from "node:path";
-import {
-  Client,
-  Events,
-  GatewayIntentBits,
-  MessageFlags,
-  REST,
-  type Interaction,
-} from "discord.js";
+import { Client, Events, GatewayIntentBits, MessageFlags, REST } from "discord.js";
+
 import { buildHandlers, createErrorReporter, createShutdown, onReady } from "./app.ts";
 import { loadConfig } from "./config.ts";
 import { closeDatabase, openDatabase, createRepos } from "./db/index.ts";
 import { createDiscordGateway } from "./discord/index.ts";
 import { registerCommands, handleInteraction } from "./interactions/index.ts";
-import { createAudit, type AppContext } from "./services/index.ts";
+import { createAudit } from "./services/index.ts";
+
+import type { Interaction } from "discord.js";
+import type { AppContext } from "./services/index.ts";
 
 function readVersion(): string {
   const pkg: unknown = JSON.parse(

@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+
 import { loadConfig } from "./config.ts";
 import { UserFacingError } from "./errors.ts";
 

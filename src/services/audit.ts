@@ -1,4 +1,5 @@
 import { escapeMarkdown } from "discord.js";
+
 import type { Repos } from "../db/index.ts";
 import type { Gateway } from "../discord/index.ts";
 

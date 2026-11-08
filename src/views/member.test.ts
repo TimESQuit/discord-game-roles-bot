@@ -1,15 +1,8 @@
 import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
-import type { Category, Game } from "../db/index.ts";
+
 import { parseId } from "../domain/index.ts";
-import {
-  customIdButtons,
-  defined,
-  findComponents,
-  flagBits,
-  textOf,
-  type ComponentSource,
-} from "../testing/index.ts";
+import { customIdButtons, defined, findComponents, flagBits, textOf } from "../testing/index.ts";
 import { countComponents, truncate } from "./limits.ts";
 import {
   addGamesPageCount,
@@ -24,6 +17,9 @@ import {
   pickGameView,
   removeGamesView,
 } from "./member.ts";
+
+import type { Category, Game } from "../db/index.ts";
+import type { ComponentSource } from "../testing/index.ts";
 
 const allSelects = (p: ComponentSource) => findComponents(p, ComponentType.StringSelect);
 const buttons = customIdButtons;

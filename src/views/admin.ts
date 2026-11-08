@@ -5,11 +5,8 @@ import {
   ModalBuilder,
   TextDisplayBuilder,
   TextInputStyle,
-  type APIActionRowComponent,
-  type APIButtonComponent,
-  type APIComponentInContainer,
-  type APIContainerComponent,
 } from "discord.js";
+
 import {
   ALIASES_MAX,
   CATEGORY_NAME_MAX,
@@ -20,11 +17,19 @@ import {
   TEXT_INPUT_LIMIT,
   TEXT_LIMIT,
 } from "../constants.ts";
-import type { Category, Game, Suggestion } from "../db/index.ts";
-import type { Payload } from "../discord/index.ts";
-import { encodeId, text, type SetupItem, type CustomId } from "../domain/index.ts";
+import { encodeId, text } from "../domain/index.ts";
 import { truncate } from "./limits.ts";
 import { FIELD, categoryLabel, inputLabel, reviewCardParts, textInput } from "./suggestions.ts";
+
+import type {
+  APIActionRowComponent,
+  APIButtonComponent,
+  APIComponentInContainer,
+  APIContainerComponent,
+} from "discord.js";
+import type { Category, Game, Suggestion } from "../db/index.ts";
+import type { Payload } from "../discord/index.ts";
+import type { SetupItem, CustomId } from "../domain/index.ts";
 
 const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;

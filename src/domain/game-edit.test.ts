@@ -1,6 +1,8 @@
 import { expect, test } from "vitest";
-import type { Game } from "../db/index.ts";
+
 import { diffGameEdit } from "./game-edit.ts";
+
+import type { Game } from "../db/index.ts";
 
 const game: Game = {
   id: 4,

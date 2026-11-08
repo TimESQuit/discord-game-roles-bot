@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import { resolvePickedGame } from "./lfg.ts";
+
 import { addGame, removeGame } from "../services/index.ts";
-import { A1, defined, makeContext, type TestContext } from "../testing/index.ts";
+import { A1, defined, makeContext } from "../testing/index.ts";
+import { resolvePickedGame } from "./lfg.ts";
+
+import type { TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let gameId: number;

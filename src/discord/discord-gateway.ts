@@ -1,4 +1,5 @@
 import { ChannelType, DiscordAPIError, MessageFlags, PermissionsBitField } from "discord.js";
+
 import type { Client, Guild, OverwriteResolvable, PermissionsString, Role } from "discord.js";
 import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "./gateway.ts";
 

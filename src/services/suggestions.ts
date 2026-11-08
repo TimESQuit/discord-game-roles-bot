@@ -1,11 +1,12 @@
 import { MAX_PENDING_SUGGESTIONS, MESSAGES } from "../constants.ts";
-import type { Game, Suggestion } from "../db/index.ts";
 import { validateGameName, findCloseMatches } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { announcementView, reviewCardView } from "../views/index.ts";
-import type { AppContext } from "./context.ts";
 import { addGame } from "./games.ts";
 import { join } from "./membership.ts";
+
+import type { Game, Suggestion } from "../db/index.ts";
+import type { AppContext } from "./context.ts";
 
 async function requireSuggestion(ctx: AppContext, id: number): Promise<Suggestion> {
   const s = await ctx.repos.suggestions.get(id);

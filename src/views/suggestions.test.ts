@@ -1,6 +1,6 @@
 import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
-import type { Category, Game, Suggestion } from "../db/index.ts";
+
 import { parseId } from "../domain/index.ts";
 import { customIdButtons, defined, findComponents, flagBits, textOf } from "../testing/index.ts";
 import { countComponents } from "./limits.ts";
@@ -13,6 +13,8 @@ import {
   reviewEditModal,
   suggestModal,
 } from "./suggestions.ts";
+
+import type { Category, Game, Suggestion } from "../db/index.ts";
 
 const buttons = customIdButtons;
 const texts = textOf;

@@ -1,5 +1,6 @@
-import type { Kysely, Selectable } from "kysely";
 import { normalize } from "../../normalize.ts";
+
+import type { Kysely, Selectable } from "kysely";
 import type { DB } from "../kysely-types.ts";
 import type { Game } from "../types.ts";
 

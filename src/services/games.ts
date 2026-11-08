@@ -1,9 +1,10 @@
 import { MESSAGES } from "../constants.ts";
+import { computeRoleOrder, validateGameName, parseAliases, text } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
+import { normalize } from "../normalize.ts";
+
 import type { Game } from "../db/index.ts";
 import type { RoleSnapshot } from "../discord/index.ts";
-import { computeRoleOrder, validateGameName, parseAliases, text } from "../domain/index.ts";
-import { normalize } from "../normalize.ts";
 import type { AppContext } from "./context.ts";
 
 /** Returns the template role, or throws the exact fix for the admin. */

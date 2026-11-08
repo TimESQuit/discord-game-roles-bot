@@ -1,15 +1,5 @@
-import {
-  ButtonStyle,
-  ComponentType,
-  MessageFlags,
-  type APIActionRowComponent,
-  type APIButtonComponent,
-  type APIButtonComponentWithCustomId,
-  type APIComponentInContainer,
-  type APIContainerComponent,
-  type APIStringSelectComponent,
-  type APITextDisplayComponent,
-} from "discord.js";
+import { ButtonStyle, ComponentType, MessageFlags } from "discord.js";
+
 import {
   COMPONENT_LIMIT,
   MESSAGES,
@@ -18,18 +8,21 @@ import {
   TEXT_DISPLAY_LIMIT,
   TEXT_LIMIT,
 } from "../constants.ts";
+import { byName, encodeId, text } from "../domain/index.ts";
+import { truncate } from "./limits.ts";
+
+import type {
+  APIActionRowComponent,
+  APIButtonComponent,
+  APIButtonComponentWithCustomId,
+  APIComponentInContainer,
+  APIContainerComponent,
+  APIStringSelectComponent,
+  APITextDisplayComponent,
+} from "discord.js";
 import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
-import {
-  byName,
-  encodeId,
-  text,
-  type PickPurpose,
-  type AdminAction,
-  type CustomId,
-  type MenuAction,
-} from "../domain/index.ts";
-import { truncate } from "./limits.ts";
+import type { PickPurpose, AdminAction, CustomId, MenuAction } from "../domain/index.ts";
 
 const V2 = [MessageFlags.IsComponentsV2] as const;
 const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;

@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+
 import { FakeGateway } from "./fake-gateway.ts";
 import { defined } from "./payloads.ts";
 

@@ -1,4 +1,6 @@
-import { sql, type Kysely } from "kysely";
+import { sql } from "kysely";
+
+import type { Kysely } from "kysely";
 import type { DB } from "../kysely-types.ts";
 import type { LfgAnswer, LfgPost } from "../types.ts";
 

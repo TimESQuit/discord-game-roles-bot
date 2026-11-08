@@ -1,20 +1,7 @@
-import {
-  type ButtonInteraction,
-  type ChatInputCommandInteraction,
-  type ModalSubmitInteraction,
-  type StringSelectMenuInteraction,
-} from "discord.js";
-import {
-  AUTOCOMPLETE_CHOICE_LIMIT,
-  MESSAGES,
-  MOVE_DIRECTIONS,
-  TEXT_LIMIT,
-  type MoveDirection,
-} from "../constants.ts";
-import type { Category, Game } from "../db/index.ts";
+import { AUTOCOMPLETE_CHOICE_LIMIT, MESSAGES, MOVE_DIRECTIONS, TEXT_LIMIT } from "../constants.ts";
 import { validateCategoryName, diffGameEdit, text, parseId } from "../domain/index.ts";
-import { normalize } from "../normalize.ts";
 import { UserFacingError } from "../errors.ts";
+import { normalize } from "../normalize.ts";
 import {
   runBackup,
   addGame,
@@ -25,7 +12,6 @@ import {
   applySetup,
   previewSetup,
   refreshPanel,
-  type AppContext,
 } from "../services/index.ts";
 import {
   categoriesView,
@@ -40,18 +26,21 @@ import {
   pickGameView,
   FIELD,
 } from "../views/index.ts";
-import { parsePositiveId } from "./parse.ts";
 import { resolvePickedGame } from "./lfg.ts";
+import { parsePositiveId } from "./parse.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
-import {
-  buttonOrChatInput,
-  autocomplete,
-  button,
-  chatInput,
-  modal,
-  select,
-  type Handlers,
-} from "./router.ts";
+import { buttonOrChatInput, autocomplete, button, chatInput, modal, select } from "./router.ts";
+
+import type {
+  ButtonInteraction,
+  ChatInputCommandInteraction,
+  ModalSubmitInteraction,
+  StringSelectMenuInteraction,
+} from "discord.js";
+import type { MoveDirection } from "../constants.ts";
+import type { Category, Game } from "../db/index.ts";
+import type { AppContext } from "../services/index.ts";
+import type { Handlers } from "./router.ts";
 
 const EXPIRED_FORM = MESSAGES.formExpired;
 const BAD_CATEGORY = "Pick a category from the list.";

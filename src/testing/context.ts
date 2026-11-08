@@ -1,9 +1,12 @@
 import { STARTING_CATEGORIES } from "../constants.ts";
-import type { Config } from "../config.ts";
-import { openDatabase, createRepos, type Db, type SetupKey } from "../db/index.ts";
-import type { Payload } from "../discord/index.ts";
-import { createAudit, type AppContext } from "../services/index.ts";
+import { openDatabase, createRepos } from "../db/index.ts";
+import { createAudit } from "../services/index.ts";
 import { FakeGateway } from "./fake-gateway.ts";
+
+import type { Config } from "../config.ts";
+import type { Db, SetupKey } from "../db/index.ts";
+import type { Payload } from "../discord/index.ts";
+import type { AppContext } from "../services/index.ts";
 
 export const TEMPLATE_COLOR = 0x5865f2;
 export const templatePosition = 10;

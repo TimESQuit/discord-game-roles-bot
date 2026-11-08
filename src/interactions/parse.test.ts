@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+
 import { parsePositiveId } from "./parse.ts";
 
 test("accepts a plain positive integer, trimmed", () => {

@@ -4,9 +4,11 @@ import {
   lfgHandlers,
   memberHandlers,
   suggestHandlers,
-  type Handlers,
 } from "./interactions/index.ts";
-import { scheduleNightlyBackups, startHeartbeat, type AppContext } from "./services/index.ts";
+import { scheduleNightlyBackups, startHeartbeat } from "./services/index.ts";
+
+import type { Handlers } from "./interactions/index.ts";
+import type { AppContext } from "./services/index.ts";
 
 /** Merges the handler maps. A key defined twice is a programming error, so it throws. */
 export function buildHandlers(

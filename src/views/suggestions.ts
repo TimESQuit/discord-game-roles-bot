@@ -7,11 +7,8 @@ import {
   StringSelectMenuBuilder,
   TextInputBuilder,
   TextInputStyle,
-  type APIActionRowComponent,
-  type APIButtonComponent,
-  type APIComponentInContainer,
-  type APIContainerComponent,
 } from "discord.js";
+
 import {
   ALIASES_MAX,
   BUTTONS_PER_ROW,
@@ -22,10 +19,18 @@ import {
   TEXT_DISPLAY_LIMIT,
   TEXT_LIMIT,
 } from "../constants.ts";
+import { encodeId, text } from "../domain/index.ts";
+import { truncate } from "./limits.ts";
+
+import type {
+  APIActionRowComponent,
+  APIButtonComponent,
+  APIComponentInContainer,
+  APIContainerComponent,
+} from "discord.js";
 import type { Category, Game, Suggestion } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
-import { encodeId, text, type CustomId } from "../domain/index.ts";
-import { truncate } from "./limits.ts";
+import type { CustomId } from "../domain/index.ts";
 
 const V2 = [MessageFlags.IsComponentsV2] as const;
 const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;

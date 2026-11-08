@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+
 import { DRAFT_TTL_MS, draftStore } from "./suggest.ts";
 
 const draft = { name: "Valheim", categoryId: 1, note: null };

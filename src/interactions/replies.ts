@@ -1,8 +1,6 @@
-import {
-  MessageFlags,
-  type InteractionEditReplyOptions,
-  type InteractionReplyOptions,
-} from "discord.js";
+import { MessageFlags } from "discord.js";
+
+import type { InteractionEditReplyOptions, InteractionReplyOptions } from "discord.js";
 import type { Payload } from "../discord/index.ts";
 
 /**

@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, test } from "vitest";
-import type { Suggestion } from "../db/index.ts";
+
+import { A1, A2, defined, makeContext, sentTo, textOf, U1, U2 } from "../testing/index.ts";
+import { addGame } from "./games.ts";
 import {
   approveSuggestion,
   closeMatches,
@@ -8,18 +10,9 @@ import {
   submitSuggestion,
   withdrawSuggestion,
 } from "./suggestions.ts";
-import { addGame } from "./games.ts";
-import {
-  A1,
-  A2,
-  defined,
-  makeContext,
-  sentTo,
-  textOf,
-  U1,
-  U2,
-  type TestContext,
-} from "../testing/index.ts";
+
+import type { Suggestion } from "../db/index.ts";
+import type { TestContext } from "../testing/index.ts";
 
 let ctx: TestContext;
 let chill: { id: number; name: string };

@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
-import { startHeartbeat } from "./heartbeat.ts";
+
 import { defined } from "../testing/index.ts";
+import { startHeartbeat } from "./heartbeat.ts";
 
 beforeEach(() => {
   vi.useFakeTimers();

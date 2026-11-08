@@ -1,10 +1,16 @@
+import { createCategories } from "./categories.ts";
+import { createGames } from "./games.ts";
+import { createLfg } from "./lfg.ts";
+import { createSetup } from "./setup.ts";
+import { createSuggestions } from "./suggestions.ts";
+
 import type { Kysely } from "kysely";
 import type { DB } from "../kysely-types.ts";
-import { createCategories, type CategoriesRepo } from "./categories.ts";
-import { createGames, type GamesRepo } from "./games.ts";
-import { createLfg, type LfgRepo } from "./lfg.ts";
-import { createSetup, type SetupRepo } from "./setup.ts";
-import { createSuggestions, type SuggestionsRepo } from "./suggestions.ts";
+import type { CategoriesRepo } from "./categories.ts";
+import type { GamesRepo } from "./games.ts";
+import type { LfgRepo } from "./lfg.ts";
+import type { SetupRepo } from "./setup.ts";
+import type { SuggestionsRepo } from "./suggestions.ts";
 
 export type { CategoriesRepo, GamesRepo, LfgRepo, SetupRepo, SuggestionsRepo };
 

@@ -2,6 +2,7 @@ import { mkdtempSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+
 import { MIGRATIONS_DIR, closeDatabase, openDatabase } from "./database.ts";
 
 test("openDatabase applies the generated migrations once", async () => {

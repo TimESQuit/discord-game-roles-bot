@@ -5,6 +5,7 @@ import BetterSqlite3 from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { expect, test } from "vitest";
+
 import { MIGRATIONS_DIR, closeDatabase, openDatabase } from "./database.ts";
 import { createRepos } from "./repos/index.ts";
 

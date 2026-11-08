@@ -1,4 +1,3 @@
-import type { PermissionsString } from "discord.js";
 import {
   ADMIN_CATEGORY_NAME,
   ADMIN_CHANNEL_NAME,
@@ -10,11 +9,14 @@ import {
   TEMPLATE_ROLE_NAME,
   MESSAGES,
 } from "../constants.ts";
-import type { SetupKey } from "../db/index.ts";
-import type { Overwrite } from "../discord/index.ts";
-import { planSetup, type SetupItem } from "../domain/index.ts";
+import { planSetup } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { panelView } from "../views/index.ts";
+
+import type { PermissionsString } from "discord.js";
+import type { SetupKey } from "../db/index.ts";
+import type { Overwrite } from "../discord/index.ts";
+import type { SetupItem } from "../domain/index.ts";
 import type { AppContext } from "./context.ts";
 
 export const REQUIRED_PERMISSIONS = [

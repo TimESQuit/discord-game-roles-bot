@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+
 import { STARTING_CATEGORIES, MAX_PENDING_SUGGESTIONS } from "./constants.ts";
 
 test("runs on Node 26+", () => {

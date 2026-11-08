@@ -1,6 +1,7 @@
+import { MessageFlags } from "discord.js";
+
 import { MESSAGES } from "../constants.ts";
-import { MessageFlags, type ButtonInteraction, type ChatInputCommandInteraction } from "discord.js";
-import type { Category, Suggestion } from "../db/index.ts";
+import { text, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   join,
@@ -10,7 +11,6 @@ import {
   rejectSuggestion,
   submitSuggestion,
   withdrawSuggestion,
-  type AppContext,
 } from "../services/index.ts";
 import {
   noticeView,
@@ -21,9 +21,13 @@ import {
   reviewEditModal,
   suggestModal,
 } from "../views/index.ts";
-import { text, parseId } from "../domain/index.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
-import { button, buttonOrChatInput, chatInput, modal, type Handlers } from "./router.ts";
+import { button, buttonOrChatInput, chatInput, modal } from "./router.ts";
+
+import type { ButtonInteraction, ChatInputCommandInteraction } from "discord.js";
+import type { Category, Suggestion } from "../db/index.ts";
+import type { AppContext } from "../services/index.ts";
+import type { Handlers } from "./router.ts";
 
 export type Draft = { name: string; categoryId: number; note: string | null };
 

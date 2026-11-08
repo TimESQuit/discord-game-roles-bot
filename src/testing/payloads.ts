@@ -1,11 +1,10 @@
-import {
-  ComponentType,
-  isJSONEncodable,
-  MessageFlagsBitField,
-  type APIButtonComponentWithCustomId,
-  type APIMessageComponent,
-  type APIModalComponent,
-  type APITextDisplayComponent,
+import { ComponentType, isJSONEncodable, MessageFlagsBitField } from "discord.js";
+
+import type {
+  APIButtonComponentWithCustomId,
+  APIMessageComponent,
+  APIModalComponent,
+  APITextDisplayComponent,
 } from "discord.js";
 import type { Payload } from "../discord/index.ts";
 

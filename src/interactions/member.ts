@@ -1,9 +1,4 @@
 import { MESSAGES, TEXT_LIMIT } from "../constants.ts";
-import {
-  type ButtonInteraction,
-  type ChatInputCommandInteraction,
-  type StringSelectMenuInteraction,
-} from "discord.js";
 import { isAdmin, text, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
@@ -14,9 +9,7 @@ import {
   join,
   leave,
   whoPlays,
-  type AppContext,
 } from "../services/index.ts";
-import type { Payload } from "../discord/index.ts";
 import {
   truncate,
   addGamesPageOf,
@@ -31,15 +24,16 @@ import {
   removeGamesView,
 } from "../views/index.ts";
 import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
-import {
-  autocomplete,
-  button,
-  chatInput,
-  memberRoleIds,
-  select,
-  userContext,
-  type Handlers,
-} from "./router.ts";
+import { autocomplete, button, chatInput, memberRoleIds, select, userContext } from "./router.ts";
+
+import type {
+  ButtonInteraction,
+  ChatInputCommandInteraction,
+  StringSelectMenuInteraction,
+} from "discord.js";
+import type { Payload } from "../discord/index.ts";
+import type { AppContext } from "../services/index.ts";
+import type { Handlers } from "./router.ts";
 
 const joinNames = (games: readonly { name: string }[]): string =>
   games.map((g) => text(g.name)).join(", ");

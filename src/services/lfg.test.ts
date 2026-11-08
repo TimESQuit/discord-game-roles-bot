@@ -1,9 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
-import type { Game } from "../db/index.ts";
+
 import { UserFacingError } from "../errors.ts";
-import { addGame, removeGame } from "./games.ts";
-import { createLfgPost, joinFromLfg, respondToLfg } from "./lfg.ts";
-import type { Payload } from "../discord/index.ts";
 import {
   A1,
   defined,
@@ -14,8 +11,13 @@ import {
   U1,
   U2,
   U3,
-  type TestContext,
 } from "../testing/index.ts";
+import { addGame, removeGame } from "./games.ts";
+import { createLfgPost, joinFromLfg, respondToLfg } from "./lfg.ts";
+
+import type { Game } from "../db/index.ts";
+import type { Payload } from "../discord/index.ts";
+import type { TestContext } from "../testing/index.ts";
 
 const CH = "100000000000000900";
 let ctx: TestContext;

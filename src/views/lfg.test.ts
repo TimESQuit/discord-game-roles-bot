@@ -1,9 +1,11 @@
 import { ComponentType, MessageFlags, TextInputStyle } from "discord.js";
 import { expect, test } from "vitest";
-import type { Game, LfgPost } from "../db/index.ts";
+
 import { customIdButtons, findComponents, flagBits, textOf } from "../testing/index.ts";
 import { lfgModal, lfgPostView } from "./lfg.ts";
 import { countComponents } from "./limits.ts";
+
+import type { Game, LfgPost } from "../db/index.ts";
 
 const game: Game = {
   id: 7,

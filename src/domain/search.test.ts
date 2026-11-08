@@ -1,4 +1,5 @@
 import { expect, test } from "vitest";
+
 import { normalize } from "../normalize.ts";
 import { findCloseMatches, parseAliases, rankGames } from "./search.ts";
 

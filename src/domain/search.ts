@@ -1,5 +1,6 @@
-import { AUTOCOMPLETE_CHOICE_LIMIT } from "../constants.ts";
 import Fuse from "fuse.js";
+
+import { AUTOCOMPLETE_CHOICE_LIMIT } from "../constants.ts";
 import { normalize } from "../normalize.ts";
 
 export interface Searchable {

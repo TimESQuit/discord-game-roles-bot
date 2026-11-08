@@ -1,10 +1,11 @@
 import { LFG_WHEN_MAX, MESSAGES, NOTE_MAX } from "../constants.ts";
-import type { LfgAnswer, LfgPost } from "../db/index.ts";
 import { toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { lfgPostView } from "../views/index.ts";
-import type { AppContext } from "./context.ts";
 import { join } from "./membership.ts";
+
+import type { LfgAnswer, LfgPost } from "../db/index.ts";
+import type { AppContext } from "./context.ts";
 
 const clean = (value: string | null): string | null => {
   const trimmed = value?.trim() ?? "";

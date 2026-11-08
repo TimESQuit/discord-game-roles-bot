@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import {
-  buildHandlers,
-  createErrorReporter,
-  createShutdown,
-  onReady,
-  type ReadyDeps,
-} from "./app.ts";
+
+import { buildHandlers, createErrorReporter, createShutdown, onReady } from "./app.ts";
 import { HANDLER_NAMES } from "./interactions/index.ts";
 import { makeContext } from "./testing/index.ts";
+
+import type { ReadyDeps } from "./app.ts";
 
 const noop = async (): Promise<void> => {};
 

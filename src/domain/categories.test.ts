@@ -1,6 +1,7 @@
 import { expect, test } from "vitest";
-import { validateCategoryName } from "./categories.ts";
+
 import { UserFacingError } from "../errors.ts";
+import { validateCategoryName } from "./categories.ts";
 
 const existing = [
   { id: 1, name: "Chill" },

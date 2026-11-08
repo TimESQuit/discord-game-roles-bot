@@ -1,5 +1,8 @@
 import { describe, expect, test } from "vitest";
-import { encodeId, isAdminId, parseId, type CustomId } from "./custom-ids.ts";
+
+import { encodeId, isAdminId, parseId } from "./custom-ids.ts";
+
+import type { CustomId } from "./custom-ids.ts";
 
 const samples: CustomId[] = [
   { kind: "panel-open" },

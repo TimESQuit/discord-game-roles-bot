@@ -1,4 +1,3 @@
-import { LFG_WHEN_MAX, NOTE_MAX, PEOPLE_SHOWN_MAX, TEXT_DISPLAY_LIMIT } from "../constants.ts";
 import {
   ButtonStyle,
   ComponentType,
@@ -7,14 +6,16 @@ import {
   ModalBuilder,
   TextInputBuilder,
   TextInputStyle,
-  type APIActionRowComponent,
-  type APIButtonComponent,
-  type APIContainerComponent,
 } from "discord.js";
+
+import { LFG_WHEN_MAX, NOTE_MAX, PEOPLE_SHOWN_MAX, TEXT_DISPLAY_LIMIT } from "../constants.ts";
+import { encodeId, text } from "../domain/index.ts";
+import { truncate } from "./limits.ts";
+
+import type { APIActionRowComponent, APIButtonComponent, APIContainerComponent } from "discord.js";
 import type { Game, LfgPost } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
-import { encodeId, text, type CustomId, type LfgTarget } from "../domain/index.ts";
-import { truncate } from "./limits.ts";
+import type { CustomId, LfgTarget } from "../domain/index.ts";
 
 /** Field IDs inside the LFG modal (read back with `interaction.fields`). */
 export const LFG_FIELD = { when: "when", note: "note" } as const;

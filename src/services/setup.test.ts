@@ -1,4 +1,5 @@
 import { describe, expect, test } from "vitest";
+
 import {
   ADMIN_CATEGORY_NAME,
   ADMIN_CHANNEL_NAME,
@@ -9,7 +10,7 @@ import {
   STARTING_CATEGORIES,
   TEMPLATE_ROLE_NAME,
 } from "../constants.ts";
-import type { Overwrite } from "../discord/index.ts";
+import { A1, ADMIN_ROLE_ID, defined, makeContext } from "../testing/index.ts";
 import {
   applySetup,
   checkSetup,
@@ -17,7 +18,8 @@ import {
   refreshPanel,
   REQUIRED_PERMISSIONS,
 } from "./setup.ts";
-import { A1, ADMIN_ROLE_ID, defined, makeContext } from "../testing/index.ts";
+
+import type { Overwrite } from "../discord/index.ts";
 
 const readOnlyForEveryone = (botId: string): Overwrite[] => [
   {

@@ -40,6 +40,7 @@ export default defineConfig({
     "typescript/no-unsafe-return": "error",
     "typescript/consistent-type-assertions": ["error", { assertionStyle: "never" }],
     "import/no-cycle": "error",
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
     "no-restricted-imports": ["error", { patterns: BARREL_FOLDERS.map(barrelOnly) }],
   },
   overrides: BARREL_FOLDERS.map((folder) => ({

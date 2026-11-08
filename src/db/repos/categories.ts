@@ -1,6 +1,8 @@
-import { sql, type Kysely } from "kysely";
-import type { DB } from "../kysely-types.ts";
+import { sql } from "kysely";
+
+import type { Kysely } from "kysely";
 import type { MoveDirection } from "../../constants.ts";
+import type { DB } from "../kysely-types.ts";
 import type { Category } from "../types.ts";
 
 export type CategoriesRepo = {

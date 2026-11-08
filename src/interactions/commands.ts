@@ -4,12 +4,8 @@ import {
   InteractionContextType,
   Routes,
   SlashCommandBuilder,
-  type REST,
-  type RESTPostAPIApplicationGuildCommandsJSONBody,
-  type SlashCommandStringOption,
-  type SlashCommandSubcommandBuilder,
 } from "discord.js";
-import type { Config } from "../config.ts";
+
 import {
   ALIASES_MAX,
   GAME_NAME_MAX,
@@ -17,6 +13,14 @@ import {
   MOVE_DIRECTIONS,
   NOTE_MAX,
 } from "../constants.ts";
+
+import type {
+  REST,
+  RESTPostAPIApplicationGuildCommandsJSONBody,
+  SlashCommandStringOption,
+  SlashCommandSubcommandBuilder,
+} from "discord.js";
+import type { Config } from "../config.ts";
 
 type Buildable = { toJSON(): RESTPostAPIApplicationGuildCommandsJSONBody };
 

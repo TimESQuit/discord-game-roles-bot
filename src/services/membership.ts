@@ -1,9 +1,10 @@
 import { SELECT_OPTION_LIMIT, MESSAGES } from "../constants.ts";
-import type { Game } from "../db/index.ts";
 import { diffSelection, byName, rankGames } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import type { AppContext } from "./context.ts";
+
+import type { Game } from "../db/index.ts";
 import type { Source } from "./audit.ts";
+import type { AppContext } from "./context.ts";
 
 async function requireGame(ctx: AppContext, gameId: number): Promise<Game> {
   const game = await ctx.repos.games.get(gameId);
