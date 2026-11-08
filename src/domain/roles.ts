@@ -42,6 +42,24 @@ export function computeRoleOrder(
   return changes;
 }
 
+/**
+ * True when two roles at or below `botTopPosition` share a position. Older servers can
+ * end up like this; the bot then can't move roles, because there is no free position
+ * below its own. Dragging any role in Server Settings makes Discord renumber them all.
+ */
+export function hasTiedRolePositions(
+  roles: readonly { position: number }[],
+  botTopPosition: number,
+): boolean {
+  const seen = new Set<number>();
+  for (const { position } of roles) {
+    if (position === 0 || position > botTopPosition) continue;
+    if (seen.has(position)) return true;
+    seen.add(position);
+  }
+  return false;
+}
+
 export function chunk<T>(items: readonly T[], size: number = SELECT_OPTION_LIMIT): T[][] {
   if (!Number.isInteger(size) || size < 1) throw new RangeError("chunk size must be at least 1");
   const out: T[][] = [];

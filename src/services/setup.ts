@@ -9,7 +9,7 @@ import {
   TEMPLATE_ROLE_NAME,
   MESSAGES,
 } from "../constants.ts";
-import { planSetup } from "../domain/index.ts";
+import { hasTiedRolePositions, planSetup } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { panelView } from "../views/index.ts";
 
@@ -57,7 +57,10 @@ export async function checkSetup(ctx: AppContext): Promise<string[]> {
     .map((p) => missingPermissionMessage(names[p] ?? p));
   const id = await ctx.repos.setup.get("templateRoleId");
   const template = id === undefined ? undefined : ctx.gateway.role(id);
-  if (template && ctx.gateway.botTopRolePosition() <= template.position) {
+  const botTop = ctx.gateway.botTopRolePosition();
+  if (hasTiedRolePositions(ctx.gateway.roles(), botTop)) {
+    problems.push(MESSAGES.rolePositionsTied);
+  } else if (template && botTop <= template.position) {
     problems.push(MESSAGES.botRoleTooLow);
   }
   return problems;

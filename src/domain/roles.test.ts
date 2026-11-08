@@ -1,7 +1,13 @@
 import { expect, test } from "vitest";
 
 import { UserFacingError } from "../errors.ts";
-import { chunk, computeRoleOrder, diffSelection, validateGameName } from "./roles.ts";
+import {
+  chunk,
+  computeRoleOrder,
+  diffSelection,
+  hasTiedRolePositions,
+  validateGameName,
+} from "./roles.ts";
 
 test("diff only touches roles shown in that dropdown", () => {
   const shown = ["a", "b", "c"];
@@ -82,6 +88,27 @@ test("already sorted → no changes", () => {
       ["a", "b"],
     ),
   ).toEqual([]);
+});
+
+test("roles sharing a position at or below the bot's role are detected", () => {
+  const roles = [
+    { position: 0 }, // @everyone
+    { position: 4 },
+    { position: 1 }, // the bot's role
+    { position: 1 }, // the template
+  ];
+  expect(hasTiedRolePositions(roles, 1)).toBe(true);
+});
+
+test("ties above the bot's role, gaps and @everyone don't count as ties", () => {
+  const roles = [
+    { position: 0 },
+    { position: 9 },
+    { position: 9 },
+    { position: 5 },
+    { position: 2 },
+  ];
+  expect(hasTiedRolePositions(roles, 5)).toBe(false);
 });
 
 test("chunk", () => {

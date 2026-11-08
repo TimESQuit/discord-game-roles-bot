@@ -1,5 +1,11 @@
 import { MESSAGES } from "../constants.ts";
-import { computeRoleOrder, validateGameName, parseAliases, text } from "../domain/index.ts";
+import {
+  computeRoleOrder,
+  hasTiedRolePositions,
+  validateGameName,
+  parseAliases,
+  text,
+} from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { normalize } from "../normalize.ts";
 import { requireCategory, requireGame } from "./lookups.ts";
@@ -17,9 +23,11 @@ export async function assertCanManageRoles(ctx: AppContext): Promise<RoleSnapsho
   if (ctx.gateway.missingBotPermissions(["ManageRoles"]).length > 0) {
     throw new UserFacingError(missingPermissionMessage(PERMISSION_NAMES.ManageRoles));
   }
-  if (ctx.gateway.botTopRolePosition() <= template.position) {
-    throw new UserFacingError(MESSAGES.botRoleTooLow);
+  const botTop = ctx.gateway.botTopRolePosition();
+  if (hasTiedRolePositions(ctx.gateway.roles(), botTop)) {
+    throw new UserFacingError(MESSAGES.rolePositionsTied);
   }
+  if (botTop <= template.position) throw new UserFacingError(MESSAGES.botRoleTooLow);
   return template;
 }
 

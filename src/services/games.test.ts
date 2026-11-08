@@ -78,6 +78,20 @@ describe("addGame", () => {
     expect(calls("createRole")).toHaveLength(0);
   });
 
+  test("roles sharing a position → exact fix, nothing created", async () => {
+    ctx.gateway.addRole({
+      id: "100000000000000999",
+      name: "Tied",
+      position: templatePosition,
+      color: 0,
+      mentionable: false,
+    });
+    await expect(add("Valheim")).rejects.toThrow(
+      "Some roles share a position, so the bot can't sort game roles. In Server Settings → Roles, drag any role down one place and back up, then try again.",
+    );
+    expect(calls("createRole")).toHaveLength(0);
+  });
+
   test("missing Manage Roles → exact fix", async () => {
     ctx.gateway.setMissingPermissions(["ManageRoles"]);
     await expect(add("Valheim")).rejects.toThrow("Give the bot the Manage Roles permission.");

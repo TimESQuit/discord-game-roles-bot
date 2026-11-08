@@ -67,6 +67,24 @@ describe("checkSetup", () => {
     expect(await checkSetup(blank)).toEqual([]);
   });
 
+  test("bot's role tied with the template → the tie fix, not 'move the bot's role'", async () => {
+    const ctx = await makeContext();
+    const position = defined(
+      ctx.gateway.roles().find((r) => r.name === "Game role template"),
+    ).position;
+    ctx.gateway.addRole({
+      id: "100000000000000999",
+      name: "Game Roles",
+      position,
+      color: 0,
+      mentionable: false,
+    });
+    ctx.gateway.setBotTopPosition(position);
+    expect(await checkSetup(ctx)).toEqual([
+      "Some roles share a position, so the bot can't sort game roles. In Server Settings → Roles, drag any role down one place and back up, then try again.",
+    ]);
+  });
+
   test("no problems on a healthy server", async () => {
     expect(await checkSetup(await makeContext())).toEqual([]);
   });

@@ -18,7 +18,14 @@ export type {
 } from "./custom-ids.ts";
 export { diffGameEdit } from "./game-edit.ts";
 export { toggleResponse } from "./lfg.ts";
-export { chunk, computeRoleOrder, diffSelection, isAdmin, validateGameName } from "./roles.ts";
+export {
+  chunk,
+  computeRoleOrder,
+  diffSelection,
+  hasTiedRolePositions,
+  isAdmin,
+  validateGameName,
+} from "./roles.ts";
 export { msUntilNextRun, selectExpiredBackups } from "./schedule.ts";
 export { byName, findCloseMatches, parseAliases, rankGames } from "./search.ts";
 export { planSetup } from "./setup-plan.ts";
