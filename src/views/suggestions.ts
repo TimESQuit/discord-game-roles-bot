@@ -72,7 +72,7 @@ export function reviewCardParts(
   return parts;
 }
 
-/** The #bot-admin card. Independent of the channel, so the review list can reuse it. */
+/** The #game-roles-admin card. Independent of the channel, so the review list can reuse it. */
 export function reviewCardView(
   s: Suggestion,
   categoryName: string | undefined,
@@ -81,7 +81,7 @@ export function reviewCardView(
   return payload(reviewCardParts(s, categoryName, aliases), false);
 }
 
-/** Posted in #game-news. The role mention shows but does not ping. */
+/** Posted in #game-roles. The role mention shows but does not ping. */
 export function announcementView(game: Game): Payload {
   return payload([display(`New game: **${text(game.name)}** — <@&${game.roleId}>`)], false);
 }

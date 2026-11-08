@@ -7,10 +7,16 @@ import {
 } from "discord.js";
 
 import {
+  ADMIN_CATEGORY_NAME,
+  ADMIN_CHANNEL_NAME,
   ALIASES_MAX,
+  BACKUPS_CHANNEL_NAME,
   CATEGORY_NAME_MAX,
   COMPONENT_LIMIT,
   GAME_NAME_MAX,
+  LOG_CHANNEL_NAME,
+  NEWS_CHANNEL_NAME,
+  PANEL_CHANNEL_NAME,
   SELECT_OPTION_LIMIT,
   TEXT_DISPLAY_LIMIT,
   TEXT_INPUT_LIMIT,
@@ -31,7 +37,7 @@ const REVIEW_BUDGET = COMPONENT_LIMIT - 2;
 // Discord counts all text displays together; leave room for the "and N more" line.
 const REVIEW_TEXT_BUDGET = TEXT_DISPLAY_LIMIT - 40;
 
-/** Compact cards with the same buttons as #bot-admin, as many as fit in 40 components. */
+/** Compact cards with the same buttons as #game-roles-admin, as many as fit in 40 components. */
 export function reviewListView(
   pending: readonly Suggestion[],
   categoriesById: ReadonlyMap<number, Category>,
@@ -59,7 +65,7 @@ export function reviewListView(
     shown += 1;
   }
   const more = pending.length - shown;
-  if (more > 0) parts.push(display(`…and ${String(more)} more in #bot-admin`));
+  if (more > 0) parts.push(display(`…and ${String(more)} more in #${ADMIN_CHANNEL_NAME}`));
   return payload(parts, true);
 }
 
@@ -161,12 +167,12 @@ export function categoriesView(categories: readonly Category[]): Payload {
 
 const ITEM_LABELS: Record<SetupItem, string> = {
   templateRole: "template role",
-  panelChannel: "panel channel",
-  newsChannel: "#game-news",
-  adminCategory: "Bot admin category",
-  adminChannel: "#bot-admin",
-  logChannel: "#bot-log",
-  backupsChannel: "#bot-backups",
+  panelChannel: `#${PANEL_CHANNEL_NAME}`,
+  newsChannel: `#${NEWS_CHANNEL_NAME}`,
+  adminCategory: `${ADMIN_CATEGORY_NAME} category`,
+  adminChannel: `#${ADMIN_CHANNEL_NAME}`,
+  logChannel: `#${LOG_CHANNEL_NAME}`,
+  backupsChannel: `#${BACKUPS_CHANNEL_NAME}`,
   categories: "starting categories",
   panelMessage: "panel message",
 };

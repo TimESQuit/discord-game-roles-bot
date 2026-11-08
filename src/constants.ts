@@ -1,9 +1,9 @@
-export const PANEL_CHANNEL_NAME = "game-roles";
-export const NEWS_CHANNEL_NAME = "game-news";
-export const ADMIN_CATEGORY_NAME = "Bot admin";
-export const ADMIN_CHANNEL_NAME = "bot-admin";
-export const LOG_CHANNEL_NAME = "bot-log";
-export const BACKUPS_CHANNEL_NAME = "bot-backups";
+export const PANEL_CHANNEL_NAME = "manage-game-roles";
+export const NEWS_CHANNEL_NAME = "game-roles";
+export const ADMIN_CATEGORY_NAME = "Game Roles Admin";
+export const ADMIN_CHANNEL_NAME = "game-roles-admin";
+export const LOG_CHANNEL_NAME = "game-roles-log";
+export const BACKUPS_CHANNEL_NAME = "game-roles-backups";
 export const TEMPLATE_ROLE_NAME = "Game role template";
 export const STARTING_CATEGORIES = ["Competitive", "Chill", "IRL activities"] as const;
 export const MAX_PENDING_SUGGESTIONS = 10;

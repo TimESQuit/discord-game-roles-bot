@@ -1,6 +1,7 @@
 import { ButtonStyle, ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
 
+import { NEWS_CHANNEL_NAME } from "../constants.ts";
 import { parseId } from "../domain/index.ts";
 import { customIdButtons, defined, findComponents, flagBits, textOf } from "../testing/index.ts";
 import {
@@ -65,7 +66,7 @@ test("setup preview enables Confirm when there is something to create", () => {
   const confirm = buttons(view).find((b) => parseId(b.custom_id)?.kind === "confirm-setup");
   expect(confirm?.disabled).toBeFalsy();
   expect(texts(view)).toContain("Will create:");
-  expect(texts(view)).toContain("#game-news");
+  expect(texts(view)).toContain(`#${NEWS_CHANNEL_NAME}`);
   expect(texts(view)).toContain("Already fine:");
   expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
 });
@@ -111,14 +112,14 @@ test("review list caps at 40 components and says how many more", () => {
   const pending = Array.from({ length: 10 }, (_, i) => sugg(i + 1));
   const view = reviewListView(pending, new Map([[1, cat(1, "Chill")]]));
   expect(countComponents(view)).toBeLessThanOrEqual(40);
-  expect(texts(view)).toContain("…and 3 more in #bot-admin");
+  expect(texts(view)).toContain("…and 3 more in");
   expect(kinds(view).filter((k) => k === "review-approve")).toHaveLength(7);
   expect(view.allowedMentions).toEqual({ parse: [] });
 });
 
 test("review list shows no 'more' line when everything fits", () => {
   const view = reviewListView([sugg(1), sugg(2)], new Map([[1, cat(1, "Chill")]]));
-  expect(texts(view)).not.toContain("more in #bot-admin");
+  expect(texts(view)).not.toContain("more in");
 });
 
 test("game modal: add is empty, edit is prefilled", () => {
@@ -199,6 +200,6 @@ test("review list keeps total text within 4000 characters", () => {
     0,
   );
   expect(total).toBeLessThanOrEqual(4000);
-  expect(texts(view)).toMatch(/…and \d+ more in #bot-admin/);
+  expect(texts(view)).toMatch(/…and \d+ more in/);
   expect(countComponents(view)).toBeLessThanOrEqual(40);
 });

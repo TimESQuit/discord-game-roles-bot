@@ -38,7 +38,7 @@ async function card(s: Suggestion) {
 }
 
 describe("submit", () => {
-  test("posts a review card in #bot-admin and records its message", async () => {
+  test("posts a review card in #game-roles-admin and records its message", async () => {
     const s = await suggest();
     expect((await ctx.repos.suggestions.get(s.id))?.reviewMessageId).toBeTruthy();
     expect(ctx.logLines).toContain(`<@${U1}> suggested **Valheim**`);
@@ -120,7 +120,7 @@ describe("approve", () => {
     expect(ctx.logLines.some((l) => l.includes("edited suggestion"))).toBe(false);
   });
 
-  test("creates the game, adds the suggester, announces in #game-news, updates the card, logs", async () => {
+  test("creates the game, adds the suggester, announces in #game-roles, updates the card, logs", async () => {
     ctx.gateway.addMember(U1, ["100000000000000999"]);
     const s = await suggest();
     const game = await approveSuggestion(ctx, s.id, A1);

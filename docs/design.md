@@ -44,16 +44,16 @@ Everything below has been agreed; open questions are collected in the last secti
 | Role order | Directly below the template role, alphabetical |
 | Categories | Competitive, Chill, IRL activities; one category per game |
 | Removing a game | The bot deletes the role, and only roles in its own table |
-| Suggestions | Members suggest; admins approve or reject in #bot-admin |
+| Suggestions | Members suggest; admins approve or reject in #game-roles-admin |
 | Admins | Members with a specific admin role (set in config) |
 | Admin tools | Extra buttons in the same menu, plus `/gameadmin` commands |
 | Slash commands | Every member and admin action also exists as a command |
 | Right-click options | "See their games" and "Games in common" |
 | LFG | Included in v1, with no cooldowns; channel limits decided later |
-| Public posts | New-game announcements and panel LFG posts go to #game-news |
-| Admin channels | #bot-admin, #bot-log and #bot-backups in an admin-only category |
+| Public posts | New-game announcements and panel LFG posts go to #game-roles |
+| Admin channels | #game-roles-admin, #game-roles-log and #game-roles-backups in an admin-only category |
 | Member log | One line per action, so admins can help members who get stuck |
-| Backups | Nightly database copy to #bot-backups, last 30 days kept |
+| Backups | Nightly database copy to #game-roles-backups, last 30 days kept |
 | Monitoring | No external uptime service; Docker restarts the bot and a "bot started" notice shows each restart |
 | Migration | One-off script kept out of the repo; new roles replace the old ones; Reaction Roles removed |
 | Repository | Public on GitHub, with secret scanning and push protection on |
@@ -77,13 +77,13 @@ Slash commands are registered to each server directly, not globally, so command 
 
 | Channel | Who can see it | Who posts | What it holds |
 | --- | --- | --- | --- |
-| Panel channel (name to be decided) | Everyone | Bot only | The single panel message with its button |
-| #game-news | Everyone | Bot | New-game announcements and LFG posts started from the panel. Members can't post here. |
-| #bot-admin | Admins | Bot | Suggestions to review and error notices. Notifications on. |
-| #bot-log | Admins | Bot | One line per member or admin action, and a line on every start. Muted. |
-| #bot-backups | Admins | Bot | Nightly database copies, last 30 days. Muted. |
+| #manage-game-roles (the panel channel) | Everyone | Bot only | The single panel message with its button |
+| #game-roles | Everyone | Bot | New-game announcements and LFG posts started from the panel. Members can't post here. |
+| #game-roles-admin | Admins | Bot | Suggestions to review and error notices. Notifications on. |
+| #game-roles-log | Admins | Bot | One line per member or admin action, and a line on every start. Muted. |
+| #game-roles-backups | Admins | Bot | Nightly database copies, last 30 days. Muted. |
 
-The three admin channels sit in one admin-only "Bot admin" category, so their permissions are set once on the category.
+The three admin channels sit in one admin-only "Game Roles Admin" category, so their permissions are set once on the category.
 
 ## Bot setup
 
@@ -99,7 +99,7 @@ Each bot needs three steps by hand; after that, `/gameadmin setup` builds the re
 
 - Checks the bot's permissions and role position first, and says exactly what to fix.
 - Shows what it will create and asks for confirmation.
-- Creates whatever is missing: the template role (mentionable, no permissions), the panel channel, #game-news, and the admin-only "Bot admin" category with #bot-admin, #bot-log and #bot-backups. The panel channel and #game-news are read-only for members.
+- Creates whatever is missing: the template role (mentionable, no permissions), the panel channel #manage-game-roles, #game-roles, and the admin-only "Game Roles Admin" category with #game-roles-admin, #game-roles-log and #game-roles-backups. The panel channel and #game-roles are read-only for members.
 - Adds the starting categories: Competitive, Chill, IRL activities.
 - Posts the panel message and records every ID in the database.
 - Running it again repairs anything deleted, never creates duplicates, and reports what was already fine.
@@ -137,7 +137,7 @@ The admin band appears only for members with the admin role; everyone else sees 
 - **My games.** The person's current games, with a shortcut to change them.
 - **Who plays…?** Pick a game, see who has it. The answer is private.
 - **My suggestions.** Each suggestion's status: pending, approved or rejected (with the reason). Pending ones have a Withdraw button. This replaces notifications, since the bot never DMs.
-- **Looking for group.** Opens the LFG form; the post goes to #game-news.
+- **Looking for group.** Opens the LFG form; the post goes to #game-roles.
 - **Admin buttons** appear only for the admin role. Covered under Admin tools.
 
 **Slash commands**
@@ -166,7 +166,7 @@ The first three are Competitive, Chill and IRL activities. Each game belongs to 
 
 ## Suggestions and approval
 
-Members suggest games; an admin approves, edits or rejects each one in #bot-admin, and the member sees the outcome under "My suggestions".
+Members suggest games; an admin approves, edits or rejects each one in #game-roles-admin, and the member sees the outcome under "My suggestions".
 
 &#91;embedded content: suggestion flow · 1 check, 3 admin choices\]
 
@@ -174,18 +174,18 @@ A close match only prompts the member; it never blocks a suggestion.
 
 - **Suggesting.** From the panel or `/games suggest`: name, category, optional note.
 - **Duplicate check.** If the name closely matches an existing game or a pending suggestion, the bot asks "Did you mean …?" The member can pick that game or submit anyway.
-- **Review card.** Each suggestion appears in #bot-admin with **Approve**, **Edit** and **Reject** buttons. Edit lets an admin fix the name, category or aliases before approving.
-- **On approval** the bot creates the role from the template and sorts it into place. It adds the suggester to the role, announces the game in #game-news, and logs it.
+- **Review card.** Each suggestion appears in #game-roles-admin with **Approve**, **Edit** and **Reject** buttons. Edit lets an admin fix the name, category or aliases before approving.
+- **On approval** the bot creates the role from the template and sorts it into place. It adds the suggester to the role, announces the game in #game-roles, and logs it.
 - **On rejection** the admin enters a reason. The member sees it under "My suggestions", and the action is logged.
 - **The suggester** checks the result under "My suggestions"; nothing is sent to them.
 - **Limit.** A member can have at most 10 pending suggestions at once. An eleventh is refused with a short explanation.
-- **Withdrawing.** A member can withdraw a pending suggestion from "My suggestions". Its review card in #bot-admin is marked withdrawn, and it's logged.
+- **Withdrawing.** A member can withdraw a pending suggestion from "My suggestions". Its review card in #game-roles-admin is marked withdrawn, and it's logged.
 
 ## Looking for group (LFG)
 
 LFG is an optional, structured way to ask "anyone up for this?": one post pings the game's role, then members respond with a click and the post keeps a live headcount. Plain `@game` posts still work for everything else.
 
-- **Starting one.** `/lfg` posts in the channel it's typed in. The panel's "Looking for group" button posts in #game-news.
+- **Starting one.** `/lfg` posts in the channel it's typed in. The panel's "Looking for group" button posts in #game-roles.
 - **The form.** Game (with autocomplete), an optional "when" (free text such as "tonight 9pm"), an optional note. "When" is shown exactly as typed; the bot doesn't interpret it.
 - **The post** shows who started it, the game, when, the note and the role ping. Below that, two lists: **In** and **Maybe**. Whoever started the post is already in **In**.
 - **Buttons on the post:** I'm in, Maybe, and Join this game's role. Clicking I'm in or Maybe again removes you, and a line under the lists says so. There's no "No" button: not answering means no.
@@ -197,21 +197,21 @@ LFG is an optional, structured way to ask "anyone up for this?": one post pings 
 
 Members with the admin role get extra buttons in the same private menu, and matching `/gameadmin` commands. Everyone else never sees either. The bot checks the role on every action, not just when showing the buttons.
 
-- **Review suggestions.** Lists pending suggestions; the same cards also sit in #bot-admin.
+- **Review suggestions.** Lists pending suggestions; the same cards also sit in #game-roles-admin.
 - **Add a game** directly: name, category, aliases.
 - **Edit a game:** rename it, move it to another category, or change its aliases.
 - **Remove a game.** Asks for confirmation, then deletes its role.
 - **Manage categories:** add, rename, reorder.
 - **Re-apply template** to every game role after the template changes.
 - **Refresh panel.** Re-posts or updates the panel message if it was deleted or changed.
-- **Run backup now.** Takes a backup immediately and posts it to #bot-backups, the same as the nightly one. Useful before a risky change and for testing. Also available as `/gameadmin backup`.
+- **Run backup now.** Takes a backup immediately and posts it to #game-roles-backups, the same as the nightly one. Useful before a risky change and for testing. Also available as `/gameadmin backup`.
 - **Run setup.** Creates or repairs the template role, channels and panel (see Bot setup). Also available as `/gameadmin setup`.
 
 ## Logging, backups and monitoring
 
-Things that need attention go to #bot-admin; routine records go to the muted #bot-log and #bot-backups.
+Things that need attention go to #game-roles-admin; routine records go to the muted #game-roles-log and #game-roles-backups.
 
-**#bot-log: one line per action**
+**#game-roles-log: one line per action**
 
 - Members: joined or left a game, and where from (panel, command, LFG post).
 - Suggestions: submitted, approved, edited, rejected, and by whom.
@@ -219,14 +219,14 @@ Things that need attention go to #bot-admin; routine records go to the muted #bo
 - A "bot started" line on every start, so repeated restarts are easy to spot.
 - Per-action lines let an admin trace what happened when a member says "my role disappeared".
 
-**#bot-admin: needs attention**
+**#game-roles-admin: needs attention**
 
 - Suggestion review cards.
 - Errors the bot caught.
 
 **Backups**
 
-- Nightly, the bot takes a consistent snapshot of its SQLite database and posts the file to #bot-backups.
+- Nightly, the bot takes a consistent snapshot of its SQLite database and posts the file to #game-roles-backups.
 - It then deletes its own backup posts older than 30 days.
 - Admins can also take a backup at any time with **Run backup now** (see Admin tools).
 - Restoring: download a file, stop the bot, replace the database file, start the bot.
@@ -252,7 +252,7 @@ A one-off script, kept out of the repo, moves members from the old roles to new 
 8. **Clean up.** Remove the Reaction Roles bot and its reaction message. Delete the script and mapping file from wherever they ran.
 9. **Go live.** Post the panel message and announce the new setup.
 
-**Where the script runs.** Rehearse it from your computer against the test server, using the dev bot's token. For production, copy the script and mapping onto the droplet and run it once in a throwaway container with the prod env file, so the prod token never leaves the droplet. The script calls Discord's API directly instead of connecting as a live bot, so it doesn't interfere with the running bot. Its actions don't appear in #bot-log; its terminal output is the record.
+**Where the script runs.** Rehearse it from your computer against the test server, using the dev bot's token. For production, copy the script and mapping onto the droplet and run it once in a throwaway container with the prod env file, so the prod token never leaves the droplet. The script calls Discord's API directly instead of connecting as a live bot, so it doesn't interfere with the running bot. Its actions don't appear in #game-roles-log; its terminal output is the record.
 
 While it runs, members shouldn't use the old reaction message, so announce a short pause beforehand.
 
@@ -277,7 +277,7 @@ The only member information the bot keeps is Discord user IDs. It stores no name
 - **Stored in the database:** the user IDs of suggesters and reviewers, LFG authors and responders, and whoever added a game. Names are looked up from Discord when shown, never saved.
 - **Not stored:** who has which role (Discord holds that), usernames or display names, message content (the bot doesn't ask for access to messages), online status, or what people are playing.
 - **Held in memory only:** the server's member list, which Discord sends so the bot can answer "Who plays…?". This needs the bot's "Server Members" setting turned on. It's gone when the bot stops.
-- **In Discord, admin-only:** #bot-log lines mention members and what they did. Backups in #bot-backups contain the database, and so the user IDs.
+- **In Discord, admin-only:** #game-roles-log lines mention members and what they did. Backups in #game-roles-backups contain the database, and so the user IDs.
 - **Never in the repo:** any member data, including in tests, which use made-up IDs.
 - **When a member leaves:** nothing changes. Their records stay; Discord removes their roles, so they drop out of "Who plays…?" on their own.
 
@@ -319,7 +319,7 @@ The bot runs in its own Docker Compose project on the existing droplet (1 vCPU, 
 2. GitHub Actions runs type-check, lint, tests and a check that every schema change has a migration. If any fail, nothing is deployed.
 3. Actions connects to the droplet over SSH as a dedicated deploy user, with a key that can only run the deploy script.
 4. The deploy script pulls the latest `main`, then rebuilds and restarts the bot's compose project, using the env file already on the droplet. The repo is public, so pulling needs no GitHub credentials on the droplet.
-5. Check the run in the Actions tab and the "bot started" line in #bot-log.
+5. Check the run in the Actions tab and the "bot started" line in #game-roles-log.
 
 Actions deploys production only. The same deploy script can also be run by hand over SSH if Actions is unavailable.
 
@@ -420,7 +420,7 @@ These are the decisions still to make before or during the build.
 
 **Open questions**
 
-- [ ] Name of the panel channel.
+- [x] Name of the panel channel: #manage-game-roles.
 - [ ] LFG: which channels allow `/lfg`, whether posts close or expire, threads, whether the author can edit.
 - [x] SQLite driver: better-sqlite3, with Drizzle for the schema and migrations and Kysely for queries.
 - [x] Fuzzy matching library: fuse.js.

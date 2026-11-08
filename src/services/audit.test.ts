@@ -11,7 +11,7 @@ test("user text can't ping or format", () => {
   expect(line).not.toMatch(/@everyone|\*\*x\*\*/);
 });
 
-test("log posts to #bot-log silently with no mentions allowed", async () => {
+test("log posts to #game-roles-log silently with no mentions allowed", async () => {
   const ctx = await makeContext();
   await ctx.audit.log({ kind: "joined", userId: U1, game: "Valheim", source: "panel" });
   const { channelId, payload } = lastSend(ctx);
@@ -22,7 +22,7 @@ test("log posts to #bot-log silently with no mentions allowed", async () => {
   expect(sentTo(ctx, "logChannelId")).toHaveLength(1);
 });
 
-test("admin notices go to #bot-admin silently", async () => {
+test("admin notices go to #game-roles-admin silently", async () => {
   const ctx = await makeContext();
   await ctx.audit.notifyAdmins("hello");
   const { channelId, payload } = lastSend(ctx);

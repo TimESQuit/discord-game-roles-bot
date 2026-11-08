@@ -1,4 +1,9 @@
-import { AUTOCOMPLETE_CHOICE_LIMIT, MESSAGES, MOVE_DIRECTIONS } from "../constants.ts";
+import {
+  AUTOCOMPLETE_CHOICE_LIMIT,
+  BACKUPS_CHANNEL_NAME,
+  MESSAGES,
+  MOVE_DIRECTIONS,
+} from "../constants.ts";
 import { validateCategoryName, diffGameEdit, text, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { normalize } from "../normalize.ts";
@@ -166,7 +171,7 @@ const refresh = (ctx: AppContext, userId: string) => async () =>
 
 const backup = (ctx: AppContext, userId: string) => async () => {
   await runBackup(ctx, ctx.db, userId);
-  return "Backup posted to #bot-backups.";
+  return `Backup posted to #${BACKUPS_CHANNEL_NAME}.`;
 };
 
 const privateAction = (make: (ctx: AppContext, userId: string) => () => Promise<string>) =>

@@ -17,7 +17,7 @@ function backupFileName(now: Date): string {
   return `game-roles-${date}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}.sqlite`;
 }
 
-/** Snapshots the database into #bot-backups, then prunes the bot's own backup posts older than 30 days. */
+/** Snapshots the database into #game-roles-backups, then prunes the bot's own backup posts older than 30 days. */
 export async function runBackup(
   ctx: AppContext,
   db: Db,
