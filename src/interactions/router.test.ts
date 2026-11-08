@@ -1,4 +1,5 @@
 import {
+  ApplicationCommandOptionType,
   ApplicationCommandType,
   BaseInteraction,
   ComponentType,
@@ -11,6 +12,7 @@ import { encodeId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../testing/index.ts";
 import { noticeView } from "../views/index.ts";
+import { commandDefinitions } from "./commands.ts";
 import {
   autocomplete,
   button,
@@ -163,6 +165,27 @@ describe("route", () => {
     expect(
       route({ type: "autocomplete", command: "gameadmin", memberRoleIds: none }, ADMIN),
     ).toEqual({ denied: true });
+  });
+
+  test("every registered command, subcommand and context menu routes to a handler", () => {
+    const routed: unknown[] = [];
+    const routeAs = (command: string, subcommand?: string, subcommandGroup?: string) => {
+      const type = subcommand === undefined && command.includes(" ") ? "user-context" : "command";
+      routed.push(routeCommand(type, command, subcommand, subcommandGroup));
+    };
+    for (const definition of commandDefinitions()) {
+      const options = "options" in definition ? (definition.options ?? []) : [];
+      const subs = options.filter((o) => o.type === ApplicationCommandOptionType.Subcommand);
+      const groups = options.filter((o) => o.type === ApplicationCommandOptionType.SubcommandGroup);
+      if (subs.length === 0 && groups.length === 0) routeAs(definition.name);
+      for (const s of subs) routeAs(definition.name, s.name);
+      for (const g of groups) {
+        for (const s of "options" in g ? (g.options ?? []) : [])
+          routeAs(definition.name, s.name, g.name);
+      }
+    }
+    expect(routed.length).toBeGreaterThan(20);
+    for (const result of routed) expect(result).toHaveProperty("handler");
   });
 
   test("IDs longer than 100 characters are unknown", () => {

@@ -80,6 +80,11 @@ const CustomIdSchema = z.discriminatedUnion("kind", [
 export type CustomId = z.infer<typeof CustomIdSchema>;
 export type CustomIdKind = CustomId["kind"];
 
+/** Every kind of ID, in schema order. */
+export const CUSTOM_ID_KINDS: readonly CustomIdKind[] = CustomIdSchema.options.map(
+  (option) => option.shape.kind.value,
+);
+
 /** For each kind, its argument names in string order, e.g. "pick" → ["purpose", "categoryId", "chunk"]. */
 const ARG_NAMES: ReadonlyMap<string, readonly string[]> = new Map(
   CustomIdSchema.options.map((option) => [

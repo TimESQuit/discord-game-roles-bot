@@ -1,6 +1,21 @@
 export { validateCategoryName } from "./categories.ts";
-export { ADMIN_KINDS, ADMIN_PURPOSES, encodeId, isAdminId, parseId } from "./custom-ids.ts";
-export type { AdminAction, CustomId, LfgTarget, MenuAction, PickPurpose } from "./custom-ids.ts";
+export {
+  ADMIN_ACTIONS,
+  CUSTOM_ID_KINDS,
+  MENU_ACTIONS,
+  PURPOSES,
+  encodeId,
+  isAdminId,
+  parseId,
+} from "./custom-ids.ts";
+export type {
+  AdminAction,
+  CustomId,
+  CustomIdKind,
+  LfgTarget,
+  MenuAction,
+  PickPurpose,
+} from "./custom-ids.ts";
 export { diffGameEdit } from "./game-edit.ts";
 export { toggleResponse } from "./lfg.ts";
 export { chunk, computeRoleOrder, diffSelection, isAdmin, validateGameName } from "./roles.ts";

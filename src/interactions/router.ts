@@ -1,6 +1,15 @@
-import { ADMIN_KINDS, ADMIN_PURPOSES, isAdmin, isAdminId, parseId } from "../domain/index.ts";
+import {
+  ADMIN_ACTIONS,
+  CUSTOM_ID_KINDS,
+  MENU_ACTIONS,
+  PURPOSES,
+  isAdmin,
+  isAdminId,
+  parseId,
+} from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { noticeView } from "../views/index.ts";
+import { SUBCOMMANDS, SUBCOMMAND_GROUPS, USER_MENUS, hasKey, keysOf } from "./commands.ts";
 import { forReply } from "./replies.ts";
 
 import type {
@@ -12,88 +21,63 @@ import type {
   StringSelectMenuInteraction,
   UserContextMenuCommandInteraction,
 } from "discord.js";
-import type { CustomId } from "../domain/index.ts";
+import type {
+  AdminAction,
+  CustomId,
+  CustomIdKind,
+  MenuAction,
+  PickPurpose,
+} from "../domain/index.ts";
 import type { AppContext } from "../services/index.ts";
+import type {
+  CommandName,
+  GameadminCategorySubcommand,
+  GameadminSubcommand,
+  GamesSubcommand,
+} from "./commands.ts";
 
-export const HANDLER_NAMES = [
-  "panel-open",
-  "add-select",
-  "add-page",
-  "remove-select",
-  "suggest-modal",
-  "dup-submit",
-  "dup-join",
-  "withdraw",
-  "lfg-modal",
-  "lfg-in",
-  "lfg-maybe",
-  "lfg-join",
-  "cancel",
-  "review-approve",
-  "review-edit",
-  "review-reject",
-  "review-edit-modal",
-  "review-reject-modal",
-  "game-add-modal",
-  "game-edit-modal",
-  "confirm-remove",
-  "confirm-setup",
-  "category-add-modal",
-  "category-rename-modal",
-  "category-move",
-  "category-add",
-  "category-rename",
-  "menu-add",
-  "menu-remove",
-  "menu-suggest",
-  "menu-mine",
-  "menu-who",
-  "menu-mysug",
-  "menu-lfg",
-  "admin-review",
-  "admin-add",
-  "admin-edit",
-  "admin-remove",
-  "admin-categories",
-  "admin-reapply",
-  "admin-refresh",
-  "admin-backup",
-  "admin-setup",
-  "pick-who",
-  "pick-lfg",
-  "pick-page-who",
-  "pick-page-lfg",
-  "pick-page-edit",
-  "pick-page-remove",
-  "pick-edit",
-  "pick-remove",
-  "games-menu",
-  "games-add",
-  "games-remove",
-  "games-suggest",
-  "games-mine",
-  "games-who",
-  "games-suggestions",
+/** ID kinds that route on one of their arguments as well (`menu` + action → `menu-add`). */
+type CompoundKind = "menu" | "admin" | "pick" | "pick-page";
+
+/** The handler names custom IDs route to: the kind, plus the action or purpose for compound kinds. */
+type IdHandlerName =
+  | Exclude<CustomIdKind, CompoundKind>
+  | `menu-${MenuAction}`
+  | `admin-${AdminAction}`
+  | `pick-${PickPurpose}`
+  | `pick-page-${PickPurpose}`;
+
+/** The handler names slash commands, their autocomplete and the context menus route to. */
+type CommandHandlerName =
+  | `games-${GamesSubcommand}`
+  | "lfg"
+  | `gameadmin-${GameadminSubcommand}`
+  | `gameadmin-category-${GameadminCategorySubcommand}`
+  | `autocomplete-${CommandName}`
+  | keyof typeof USER_MENUS;
+
+export type HandlerName = IdHandlerName | CommandHandlerName;
+
+const isCompound = (kind: CustomIdKind): kind is CompoundKind =>
+  kind === "menu" || kind === "admin" || kind === "pick" || kind === "pick-page";
+const isSimple = (kind: CustomIdKind): kind is Exclude<CustomIdKind, CompoundKind> =>
+  !isCompound(kind);
+
+/** Every name the router can return, derived from the ID schema and the command tables. */
+export const HANDLER_NAMES: readonly HandlerName[] = [
+  ...CUSTOM_ID_KINDS.filter(isSimple),
+  ...MENU_ACTIONS.map((action) => `menu-${action}` as const),
+  ...ADMIN_ACTIONS.map((action) => `admin-${action}` as const),
+  ...PURPOSES.flatMap((purpose) => [`pick-${purpose}` as const, `pick-page-${purpose}` as const]),
+  ...keysOf(SUBCOMMANDS.games).map((sub) => `games-${sub}` as const),
   "lfg",
-  "gameadmin-setup",
-  "gameadmin-backup",
-  "gameadmin-review",
-  "gameadmin-add",
-  "gameadmin-edit",
-  "gameadmin-remove",
-  "gameadmin-reapply-template",
-  "gameadmin-refresh-panel",
-  "gameadmin-category-add",
-  "gameadmin-category-rename",
-  "gameadmin-category-move",
-  "autocomplete-games",
-  "autocomplete-lfg",
-  "autocomplete-gameadmin",
-  "ctx-see-games",
-  "ctx-in-common",
-] as const;
-
-export type HandlerName = (typeof HANDLER_NAMES)[number];
+  ...keysOf(SUBCOMMANDS.gameadmin).map((sub) => `gameadmin-${sub}` as const),
+  ...keysOf(SUBCOMMAND_GROUPS.gameadmin.category).map(
+    (sub) => `gameadmin-category-${sub}` as const,
+  ),
+  ...keysOf(SUBCOMMANDS).map((command) => `autocomplete-${command}` as const),
+  ...keysOf(USER_MENUS),
+];
 
 export type Handler = (ctx: AppContext, interaction: BaseInteraction) => Promise<void>;
 export type Handlers = Partial<Record<HandlerName, Handler>>;
@@ -174,25 +158,12 @@ export type RouteInput = {
 
 export type RouteResult = { handler: HandlerName } | { denied: true } | { unknown: true };
 
-const HANDLER_SET: ReadonlySet<string> = new Set(HANDLER_NAMES);
-const isHandlerName = (value: string): value is HandlerName => HANDLER_SET.has(value);
-
-/**
- * An ID kind is its own handler name, except for those that add an action or purpose.
- * Widened to `ReadonlySet<string>` so any handler name can be looked up without a cast.
- */
-const ADMIN_HANDLER_KINDS: ReadonlySet<string> = ADMIN_KINDS;
-
-const CONTEXT_MENUS: Record<string, HandlerName> = {
-  "See their games": "ctx-see-games",
-  "Games in common": "ctx-in-common",
-};
-
-function idHandlerName(id: CustomId): string {
+function idHandlerName(id: CustomId): IdHandlerName {
   switch (id.kind) {
     case "menu":
+      return `menu-${id.action}`;
     case "admin":
-      return `${id.kind}-${id.action}`;
+      return `admin-${id.action}`;
     case "pick":
       return `pick-${id.purpose}`;
     case "pick-page":
@@ -202,53 +173,36 @@ function idHandlerName(id: CustomId): string {
   }
 }
 
-const COMMAND_SUBCOMMANDS: Record<string, readonly string[]> = {
-  games: ["menu", "add", "remove", "suggest", "mine", "who", "suggestions"],
-  lfg: [],
-  gameadmin: [
-    "setup",
-    "backup",
-    "review",
-    "add",
-    "edit",
-    "remove",
-    "reapply-template",
-    "refresh-panel",
-  ],
-};
-const CATEGORY_SUBCOMMANDS = new Set(["add", "rename", "move"]);
+function userMenuHandlerName(menu: string | undefined): CommandHandlerName | null {
+  return keysOf(USER_MENUS).find((name) => USER_MENUS[name] === menu) ?? null;
+}
 
-function commandHandlerName(input: RouteInput): string | null {
+/** Only names from the command tables resolve, so a command can never spell another handler. */
+function commandHandlerName(input: RouteInput): CommandHandlerName | null {
   const { command, subcommand, subcommandGroup } = input;
-  if (command === undefined || !Object.hasOwn(COMMAND_SUBCOMMANDS, command)) return null;
+  if (command === undefined || !hasKey(SUBCOMMANDS, command)) return null;
   if (input.type === "autocomplete") return `autocomplete-${command}`;
   if (command === "lfg") return "lfg";
   if (subcommand === undefined || subcommand === null) return null;
-  if (command === "gameadmin" && subcommandGroup) {
-    if (subcommandGroup !== "category" || !CATEGORY_SUBCOMMANDS.has(subcommand)) return null;
-    return `gameadmin-category-${subcommand}`;
+  if (command === "gameadmin") {
+    if (subcommandGroup) {
+      return subcommandGroup === "category" &&
+        hasKey(SUBCOMMAND_GROUPS.gameadmin.category, subcommand)
+        ? `gameadmin-category-${subcommand}`
+        : null;
+    }
+    return hasKey(SUBCOMMANDS.gameadmin, subcommand) ? `gameadmin-${subcommand}` : null;
   }
-  if (subcommandGroup || !COMMAND_SUBCOMMANDS[command]?.includes(subcommand)) return null;
-  return `${command}-${subcommand}`;
-}
-
-/** Decided from the resolved handler name, so the spelling of the input cannot dodge it. */
-function isAdminHandler(name: string): boolean {
-  return (
-    name.startsWith("gameadmin-") ||
-    name === "autocomplete-gameadmin" ||
-    name.startsWith("admin-") ||
-    ADMIN_PURPOSES.some((p) => name === `pick-${p}` || name === `pick-page-${p}`) ||
-    ADMIN_HANDLER_KINDS.has(name)
-  );
+  return !subcommandGroup && hasKey(SUBCOMMANDS.games, subcommand) ? `games-${subcommand}` : null;
 }
 
 export function route(input: RouteInput, adminRoleId: string): RouteResult {
-  let name: string | null;
-  let adminOnly = false;
+  let name: HandlerName | null;
+  let adminOnly: boolean;
 
   if (input.type === "user-context") {
-    name = CONTEXT_MENUS[input.command ?? ""] ?? null;
+    name = userMenuHandlerName(input.command);
+    adminOnly = false;
   } else if (input.type === "command" || input.type === "autocomplete") {
     name = commandHandlerName(input);
     // Any /gameadmin spelling is admin-only, even one that resolves to no handler.
@@ -260,13 +214,8 @@ export function route(input: RouteInput, adminRoleId: string): RouteResult {
     adminOnly = isAdminId(id);
   }
 
-  if (
-    (adminOnly || (name !== null && isAdminHandler(name))) &&
-    !isAdmin(input.memberRoleIds, adminRoleId)
-  ) {
-    return { denied: true };
-  }
-  return name !== null && isHandlerName(name) ? { handler: name } : { unknown: true };
+  if (adminOnly && !isAdmin(input.memberRoleIds, adminRoleId)) return { denied: true };
+  return name === null ? { unknown: true } : { handler: name };
 }
 
 const GENERIC_ERROR = "Something went wrong. The admins have been told.";
