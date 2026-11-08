@@ -362,6 +362,7 @@ describe("handleInteraction", () => {
     expect(ctx.adminNotices).toHaveLength(1);
     expect(ctx.adminNotices[0]).toContain("cancel");
     expect(ctx.adminNotices[0]).toContain("boom secret detail");
+    expect(ctx.adminNotices[0]).not.toContain("router.test.ts");
   });
 
   test("autocomplete errors respond with no choices and notify no one", async () => {

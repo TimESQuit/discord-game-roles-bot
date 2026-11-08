@@ -7,7 +7,7 @@ import {
   isAdminId,
   parseId,
 } from "../domain/index.ts";
-import { UserFacingError } from "../errors.ts";
+import { messageOf, UserFacingError } from "../errors.ts";
 import { noticeView } from "../views/index.ts";
 import { SUBCOMMANDS, SUBCOMMAND_GROUPS, USER_MENUS, hasKey, keysOf } from "./commands.ts";
 import { forReply } from "./replies.ts";
@@ -299,13 +299,14 @@ export async function handleInteraction(
         await sayPrivately(interaction, error.message);
       } else {
         console.error(`Handler ${result.handler} failed`, error);
-        const detail = error instanceof Error ? (error.stack ?? error.message) : String(error);
         try {
           await sayPrivately(interaction, GENERIC_ERROR);
         } catch (replyError) {
           console.error("Could not send the error reply", replyError);
         }
-        await ctx.audit.notifyAdmins(`Error in ${result.handler}:\n${detail}`.slice(0, 1500));
+        await ctx.audit.notifyAdmins(
+          `Error in ${result.handler}: ${messageOf(error)}`.slice(0, 1500),
+        );
       }
     }
   } catch (error) {
