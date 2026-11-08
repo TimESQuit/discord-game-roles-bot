@@ -45,11 +45,16 @@ function statusLine(s: Suggestion): string {
 }
 
 /** The parts of the review card, so the review list can reuse them without unwrapping a payload. */
-export function reviewCardParts(s: Suggestion, categoryName: string, aliases?: string): Part[] {
+/** `categoryName` is undefined when the category is gone. */
+export function reviewCardParts(
+  s: Suggestion,
+  categoryName: string | undefined,
+  aliases?: string,
+): Part[] {
   const shownAliases = aliases ?? s.aliases;
   const lines = [
     `**Suggestion #${s.id}:** **${text(s.name)}** from <@${s.suggesterId}>`,
-    `Category: ${text(categoryName)}`,
+    `Category: ${text(categoryName ?? "Unknown")}`,
   ];
   if (shownAliases) lines.push(`Aliases: ${text(shownAliases)}`);
   if (s.note) lines.push(`Note: ${text(s.note)}`);
@@ -68,7 +73,11 @@ export function reviewCardParts(s: Suggestion, categoryName: string, aliases?: s
 }
 
 /** The #bot-admin card. Independent of the channel, so the review list can reuse it. */
-export function reviewCardView(s: Suggestion, categoryName: string, aliases?: string): Payload {
+export function reviewCardView(
+  s: Suggestion,
+  categoryName: string | undefined,
+  aliases?: string,
+): Payload {
   return payload(reviewCardParts(s, categoryName, aliases), false);
 }
 

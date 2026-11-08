@@ -42,7 +42,7 @@ export function reviewListView(
   let chars = 0;
   let shown = 0;
   for (const s of pending) {
-    const inner = reviewCardParts(s, categoriesById.get(s.categoryId)?.name ?? "Unknown");
+    const inner = reviewCardParts(s, categoriesById.get(s.categoryId)?.name);
     // each nested component counts, rows include their buttons
     const cost = inner.reduce(
       (sum, c) => sum + 1 + ("components" in c ? c.components.length : 0),

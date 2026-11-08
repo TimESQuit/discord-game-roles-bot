@@ -38,7 +38,7 @@ export const MESSAGES = {
   pickGame: "Pick a game from the list.",
   suggestionGone: "That suggestion no longer exists.",
   formExpired: "That form has expired. Open it again.",
-  pickCategory: "Pick a category.",
+  pickCategory: "Pick a category from the list.",
   nothingChanged: "Nothing changed.",
   noGamesPicked: "You haven't picked any games yet.",
   gameRoleMissing: "That game's role is missing; the admins have been told.",

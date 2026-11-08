@@ -1,6 +1,14 @@
 import { MessageFlags } from "discord.js";
 
-import type { InteractionEditReplyOptions, InteractionReplyOptions } from "discord.js";
+import { noticeView } from "../views/index.ts";
+
+import type {
+  InteractionEditReplyOptions,
+  InteractionReplyOptions,
+  MessageComponentInteraction,
+  ModalMessageModalSubmitInteraction,
+  RepliableInteraction,
+} from "discord.js";
 import type { Payload } from "../discord/index.ts";
 
 /**
@@ -25,3 +33,27 @@ export const forReply = (view: Payload): InteractionReplyOptions => ({
   flags: view.flags,
   allowedMentions: view.allowedMentions,
 });
+
+/** Acknowledges a component (or a modal opened from one), then replaces its message with the view `render` builds. */
+export async function updateWith(
+  interaction: MessageComponentInteraction | ModalMessageModalSubmitInteraction,
+  render: () => Promise<Payload>,
+): Promise<void> {
+  await interaction.deferUpdate();
+  await interaction.editReply(forEdit(await render()));
+}
+
+/** Defers a private reply, then fills it with the view `render` builds. */
+export async function replyPrivately(
+  interaction: RepliableInteraction,
+  render: () => Promise<Payload>,
+): Promise<void> {
+  await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
+  await interaction.editReply(forEdit(await render()));
+}
+
+/** Like `replyPrivately`, for a one-line notice. */
+export const noticePrivately = (
+  interaction: RepliableInteraction,
+  run: () => Promise<string>,
+): Promise<void> => replyPrivately(interaction, async () => noticeView(await run()));

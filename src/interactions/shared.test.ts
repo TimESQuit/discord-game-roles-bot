@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, test } from "vitest";
 
 import { addGame, removeGame } from "../services/index.ts";
-import { A1, defined, makeContext } from "../testing/index.ts";
-import { resolvePickedGame } from "./lfg.ts";
+import { A1, defined, makeContext, textOf } from "../testing/index.ts";
+import { choices, gamePicker, joinedNotice, resolvePickedGame } from "./shared.ts";
 
 import type { TestContext } from "../testing/index.ts";
 
@@ -35,4 +35,19 @@ describe("resolvePickedGame", () => {
       "That game no longer exists.",
     );
   });
+});
+
+test("joinedNotice escapes the name", () => {
+  expect(joinedNotice("joined", "*Doom*")).toBe("You've joined \\*Doom\\*.");
+  expect(joinedNotice("already", "Doom")).toBe("You already have Doom.");
+});
+
+test("choices cut long names and send the ID", () => {
+  expect(choices([{ id: 3, name: "x".repeat(150) }])).toEqual([
+    { name: `${"x".repeat(99)}…`, value: "3" },
+  ]);
+});
+
+test("gamePicker lists the games for a purpose", async () => {
+  expect(textOf(await gamePicker(ctx, "who"))).toContain("Pick a game");
 });

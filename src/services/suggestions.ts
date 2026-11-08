@@ -36,11 +36,7 @@ async function refreshCard(ctx: AppContext, id: number): Promise<void> {
     const adminChannelId = await ctx.repos.setup.get("adminChannelId");
     if (!s.reviewMessageId || adminChannelId === undefined) return;
     const category = await ctx.repos.categories.get(s.categoryId);
-    await ctx.gateway.edit(
-      adminChannelId,
-      s.reviewMessageId,
-      reviewCardView(s, category?.name ?? "Unknown"),
-    );
+    await ctx.gateway.edit(adminChannelId, s.reviewMessageId, reviewCardView(s, category?.name));
   } catch (error) {
     console.error(`Could not update the review card for suggestion ${id}`, error);
     await ctx.audit.notifyAdmins(`Could not update the review card for suggestion #${id}.`);

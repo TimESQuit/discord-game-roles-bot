@@ -9,6 +9,8 @@ import {
   closeMatches,
   editSuggestion,
   rejectSuggestion,
+  requireGame,
+  requirePendingSuggestion,
   submitSuggestion,
   withdrawSuggestion,
 } from "../services/index.ts";
@@ -21,11 +23,13 @@ import {
   reviewEditModal,
   suggestModal,
 } from "../views/index.ts";
-import { PRIVATE_V2_DEFER, forEdit, forReply } from "./replies.ts";
+import { forReply, noticePrivately, replyPrivately, updateWith } from "./replies.ts";
 import { button, buttonOrChatInput, chatInput, modal } from "./router.ts";
+import { categoriesById, joinedNotice, modalCategory } from "./shared.ts";
 
 import type { ButtonInteraction, ChatInputCommandInteraction } from "discord.js";
-import type { Category, Suggestion } from "../db/index.ts";
+import type { Category } from "../db/index.ts";
+import type { Payload } from "../discord/index.ts";
 import type { AppContext } from "../services/index.ts";
 import type { Handlers } from "./router.ts";
 
@@ -64,21 +68,12 @@ async function requireCategories(ctx: AppContext): Promise<Category[]> {
   return categories;
 }
 
-async function requirePendingSuggestion(ctx: AppContext, id: number): Promise<Suggestion> {
-  const s = await ctx.repos.suggestions.get(id);
-  if (!s) throw new UserFacingError(MESSAGES.suggestionGone);
-  if (s.status !== "pending") {
-    throw new UserFacingError(`This suggestion was already ${s.status}.`);
-  }
-  return s;
-}
-
-async function mySuggestions(ctx: AppContext, userId: string) {
+async function mySuggestions(ctx: AppContext, userId: string): Promise<Payload> {
   const [suggestions, categories] = await Promise.all([
     ctx.repos.suggestions.listByUser(userId),
-    ctx.repos.categories.list(),
+    categoriesById(ctx),
   ]);
-  return mySuggestionsView(suggestions, new Map(categories.map((c) => [c.id, c])));
+  return mySuggestionsView(suggestions, categories);
 }
 
 async function openSuggestForm(
@@ -113,71 +108,63 @@ export const suggestHandlers: Handlers = {
   "games-suggest": buttonOrChatInput(openSuggestForm),
 
   "menu-mysug": button(async (ctx, interaction) => {
-    await interaction.deferUpdate();
-    await interaction.editReply(forEdit(await mySuggestions(ctx, interaction.user.id)));
+    await updateWith(interaction, () => mySuggestions(ctx, interaction.user.id));
   }),
   "games-suggestions": chatInput(async (ctx, interaction) => {
     await interaction.reply(forReply(await mySuggestions(ctx, interaction.user.id)));
   }),
 
   "suggest-modal": modal(async (ctx, interaction) => {
-    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
-    const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
-    if (!Number.isInteger(categoryId)) throw new UserFacingError(MESSAGES.pickCategory);
-    const draft: Draft = {
-      name: interaction.fields.getTextInputValue(FIELD.name).trim(),
-      categoryId,
-      note: interaction.fields.getTextInputValue(FIELD.note).trim() || null,
-    };
-    const matches = await closeMatches(ctx, draft.name);
-    if (matches.games.length > 0 || matches.pending.length > 0) {
-      draftStore.put(interaction.user.id, draft);
-      await interaction.editReply(forEdit(duplicatePromptView(matches)));
-      return;
-    }
-    await interaction.editReply(
-      forEdit(noticeView(await submitDraft(ctx, interaction.user.id, draft))),
-    );
+    await replyPrivately(interaction, async () => {
+      const draft: Draft = {
+        name: interaction.fields.getTextInputValue(FIELD.name).trim(),
+        categoryId: modalCategory(interaction),
+        note: interaction.fields.getTextInputValue(FIELD.note).trim() || null,
+      };
+      const matches = await closeMatches(ctx, draft.name);
+      if (matches.games.length > 0 || matches.pending.length > 0) {
+        draftStore.put(interaction.user.id, draft);
+        return duplicatePromptView(matches);
+      }
+      return noticeView(await submitDraft(ctx, interaction.user.id, draft));
+    });
   }),
 
   "dup-submit": button(async (ctx, interaction) => {
-    await interaction.deferUpdate();
-    const userId = interaction.user.id;
-    const draft = draftStore.get(userId);
-    if (draft === undefined) {
-      throw new UserFacingError("That suggestion form has expired. Please suggest again.");
-    }
-    // Take the draft first so a double click cannot submit twice; give it back on failure.
-    draftStore.delete(userId);
-    try {
-      await interaction.editReply(forEdit(noticeView(await submitDraft(ctx, userId, draft))));
-    } catch (error) {
-      draftStore.put(userId, draft);
-      throw error;
-    }
+    await updateWith(interaction, async () => {
+      const userId = interaction.user.id;
+      const draft = draftStore.get(userId);
+      if (draft === undefined) {
+        throw new UserFacingError("That suggestion form has expired. Please suggest again.");
+      }
+      // Take the draft first so a double click cannot submit twice; give it back on failure.
+      draftStore.delete(userId);
+      try {
+        return noticeView(await submitDraft(ctx, userId, draft));
+      } catch (error) {
+        draftStore.put(userId, draft);
+        throw error;
+      }
+    });
   }),
 
   "dup-join": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "dup-join") throw new UserFacingError(EXPIRED_MENU);
-    await interaction.deferUpdate();
-    const game = await ctx.repos.games.get(id.gameId);
-    if (!game) throw new UserFacingError(MESSAGES.gameGone);
-    const result = await join(ctx, interaction.user.id, game.id, "suggestion");
-    draftStore.delete(interaction.user.id);
-    const name = text(game.name);
-    await interaction.editReply(
-      forEdit(
-        noticeView(result === "joined" ? `You've joined ${name}.` : `You already have ${name}.`),
-      ),
-    );
+    await updateWith(interaction, async () => {
+      const game = await requireGame(ctx, id.gameId);
+      const result = await join(ctx, interaction.user.id, game.id, "suggestion");
+      draftStore.delete(interaction.user.id);
+      return noticeView(joinedNotice(result, game.name));
+    });
   }),
 
   withdraw: button(async (ctx, interaction) => {
     const id = suggestionId(interaction.customId, "withdraw");
-    await interaction.deferUpdate();
-    await withdrawSuggestion(ctx, id, interaction.user.id);
-    await interaction.editReply(forEdit(await mySuggestions(ctx, interaction.user.id)));
+    await updateWith(interaction, async () => {
+      await withdrawSuggestion(ctx, id, interaction.user.id);
+      return mySuggestions(ctx, interaction.user.id);
+    });
   }),
 
   "review-approve": button(async (ctx, interaction) => {
@@ -206,33 +193,31 @@ export const suggestHandlers: Handlers = {
   }),
   "review-edit-modal": modal(async (ctx, interaction) => {
     const id = suggestionId(interaction.customId, "review-edit-modal");
-    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
-    const categoryId = Number(interaction.fields.getStringSelectValues(FIELD.category)[0]);
-    if (!Number.isInteger(categoryId)) throw new UserFacingError(MESSAGES.pickCategory);
-    const updated = await editSuggestion(
-      ctx,
-      id,
-      {
-        name: interaction.fields.getTextInputValue(FIELD.name),
-        categoryId,
-        aliases: interaction.fields.getTextInputValue(FIELD.aliases).trim(),
-      },
-      interaction.user.id,
-    );
-    await interaction.editReply(forEdit(noticeView(`Saved changes to ${text(updated.name)}.`)));
+    await noticePrivately(interaction, async () => {
+      const updated = await editSuggestion(
+        ctx,
+        id,
+        {
+          name: interaction.fields.getTextInputValue(FIELD.name),
+          categoryId: modalCategory(interaction),
+          aliases: interaction.fields.getTextInputValue(FIELD.aliases).trim(),
+        },
+        interaction.user.id,
+      );
+      return `Saved changes to ${text(updated.name)}.`;
+    });
   }),
   "review-reject-modal": modal(async (ctx, interaction) => {
     const id = suggestionId(interaction.customId, "review-reject-modal");
-    await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
-    const s = await ctx.repos.suggestions.get(id);
-    await rejectSuggestion(
-      ctx,
-      id,
-      interaction.user.id,
-      interaction.fields.getTextInputValue(FIELD.reason),
-    );
-    await interaction.editReply(
-      forEdit(noticeView(`Rejected ${text(s?.name ?? "the suggestion")}.`)),
-    );
+    await noticePrivately(interaction, async () => {
+      const s = await ctx.repos.suggestions.get(id);
+      await rejectSuggestion(
+        ctx,
+        id,
+        interaction.user.id,
+        interaction.fields.getTextInputValue(FIELD.reason),
+      );
+      return `Rejected ${text(s?.name ?? "the suggestion")}.`;
+    });
   }),
 };
