@@ -66,6 +66,13 @@ describe("createLfgPost", () => {
     expect(post?.gameName).toBe("Valheim");
   });
 
+  test("the author starts in the In list and can drop out", async () => {
+    expect(content(lastSend(ctx).payload)).toContain(`In (1): <@${U1}>`);
+    expect((await ctx.repos.lfg.get(id))?.in).toEqual([U1]);
+    const post = await respondToLfg(ctx, id, U1, "in");
+    expect(post.in).toEqual([]);
+  });
+
   test("deletes the sent message when storing the post fails", async () => {
     vi.spyOn(ctx.repos.lfg, "add").mockRejectedValueOnce(new Error("disk full"));
     await expect(
@@ -113,27 +120,27 @@ describe("respondToLfg", () => {
   test("re-renders the post with In/Maybe lists without re-pinging", async () => {
     await respondToLfg(ctx, id, U2, "in");
     const post = await respondToLfg(ctx, id, U3, "maybe");
-    expect(post.in).toEqual([U2]);
+    expect(post.in).toEqual([U1, U2]);
     expect(post.maybe).toEqual([U3]);
     const edit = lastEdit(ctx);
     expect(edit.channelId).toBe(CH);
     expect(edit.messageId).toBe(id);
     const payload = edit.payload;
     expect(payload.allowedMentions).toEqual({ parse: [] });
-    expect(content(payload)).toContain(`In (1): <@${U2}>`);
+    expect(content(payload)).toContain(`In (2): <@${U1}>, <@${U2}>`);
     expect(content(payload)).toContain(`Maybe (1): <@${U3}>`);
   });
 
   test("clicking the same button again clears the answer", async () => {
     await respondToLfg(ctx, id, U2, "in");
     const post = await respondToLfg(ctx, id, U2, "in");
-    expect(post.in).toEqual([]);
+    expect(post.in).toEqual([U1]);
   });
 
   test("switching from in to maybe moves the user", async () => {
     await respondToLfg(ctx, id, U2, "in");
     const post = await respondToLfg(ctx, id, U2, "maybe");
-    expect(post.in).toEqual([]);
+    expect(post.in).toEqual([U1]);
     expect(post.maybe).toEqual([U2]);
   });
 
@@ -159,7 +166,7 @@ describe("respondToLfg", () => {
     await new Promise((r) => setTimeout(r, 10));
     const b = respondToLfg(ctx, id, U3, "maybe");
     await Promise.all([a, b]);
-    expect(content(landedLast)).toContain(`In (1): <@${U2}>`);
+    expect(content(landedLast)).toContain(`In (2): <@${U1}>, <@${U2}>`);
     expect(content(landedLast)).toContain(`Maybe (1): <@${U3}>`);
   });
 

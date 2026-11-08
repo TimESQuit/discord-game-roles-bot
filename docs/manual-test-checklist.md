@@ -27,7 +27,8 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 
 ## LFG
 
-- [ ] Both: start an LFG post from the panel; it appears in `#game-news`.
+- [ ] Both: start an LFG post from the panel; it appears in `#game-news` with you already under In.
+- [ ] The "Click your answer again to remove it." line shows as small grey text under the lists.
 - [ ] The LFG role mention inside the newer layout actually pings the role, and editing the post does not ping again.
 
 ## Right-click options and logs

@@ -113,6 +113,7 @@ test("LFG lists keep response order", async () => {
     when: null,
     note: null,
     createdAt: T0,
+    in: [],
   });
   await r.lfg.setResponse(M1, U3, "in");
   await r.lfg.setResponse(M1, U2, "in");
@@ -121,6 +122,23 @@ test("LFG lists keep response order", async () => {
   await r.lfg.setResponse(M1, U3, "maybe");
   expect(await r.lfg.get(M1)).toMatchObject({ in: [U2], maybe: [U1, U3] });
   expect(await r.lfg.get("999")).toBeUndefined();
+});
+
+test("a new LFG post stores its initial In list", async () => {
+  const { r, game } = await setup();
+  await r.lfg.add({
+    messageId: M1,
+    channelId: CH,
+    gameId: game.id,
+    gameName: game.name,
+    authorId: U1,
+    when: null,
+    note: null,
+    createdAt: T0,
+    in: [U1],
+  });
+  await r.lfg.setResponse(M1, U2, "in");
+  expect(await r.lfg.get(M1)).toMatchObject({ in: [U1, U2], maybe: [] });
 });
 
 test("removing a game keeps its LFG posts, with gameId null and gameName kept", async () => {
@@ -134,6 +152,7 @@ test("removing a game keeps its LFG posts, with gameId null and gameName kept", 
     when: null,
     note: null,
     createdAt: T0,
+    in: [],
   });
   const s = await r.suggestions.add({
     suggesterId: U1,

@@ -5,7 +5,8 @@ import type { DB } from "../kysely-types.ts";
 import type { LfgAnswer, LfgPost } from "../types.ts";
 
 export type LfgRepo = {
-  add(post: Omit<LfgPost, LfgAnswer>): Promise<void>;
+  /** Stores the post and its starting In list together. */
+  add(post: Omit<LfgPost, "maybe">): Promise<void>;
   get(messageId: string): Promise<LfgPost | undefined>;
   setResponse(messageId: string, userId: string, kind: LfgAnswer | null): Promise<void>;
 };
@@ -25,19 +26,32 @@ export function createLfg(kysely: Kysely<DB>): LfgRepo {
 
   return {
     async add(post) {
-      await kysely
-        .insertInto("lfg_posts")
-        .values({
-          message_id: post.messageId,
-          channel_id: post.channelId,
-          game_id: post.gameId,
-          game_name: post.gameName,
-          author_id: post.authorId,
-          when: post.when,
-          note: post.note,
-          created_at: post.createdAt,
-        })
-        .execute();
+      await kysely.transaction().execute(async (trx) => {
+        await trx
+          .insertInto("lfg_posts")
+          .values({
+            message_id: post.messageId,
+            channel_id: post.channelId,
+            game_id: post.gameId,
+            game_name: post.gameName,
+            author_id: post.authorId,
+            when: post.when,
+            note: post.note,
+            created_at: post.createdAt,
+          })
+          .execute();
+        for (const userId of post.in) {
+          await trx
+            .insertInto("lfg_responses")
+            .values({
+              message_id: post.messageId,
+              user_id: userId,
+              kind: "in",
+              responded_at: post.createdAt,
+            })
+            .execute();
+        }
+      });
     },
     async get(messageId) {
       const row = await kysely

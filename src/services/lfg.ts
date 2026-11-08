@@ -55,7 +55,8 @@ export async function createLfgPost(
   }
   const game = await requireGame(ctx, input.gameId);
   await assertRoleExists(ctx, game);
-  const post: Omit<LfgPost, LfgAnswer> = {
+  // The author is going, so they start in the In list; clicking I'm in takes them out.
+  const post: Omit<LfgPost, "maybe"> = {
     messageId: "",
     channelId: input.channelId,
     gameId: game.id,
@@ -64,8 +65,9 @@ export async function createLfgPost(
     when,
     note,
     createdAt: ctx.now().toISOString(),
+    in: [input.authorId],
   };
-  const view = lfgPostView({ ...post, in: [], maybe: [] }, game);
+  const view = lfgPostView({ ...post, maybe: [] }, game);
   const messageId = await ctx.gateway.send(input.channelId, {
     ...view,
     allowedMentions: { roles: [game.roleId], parse: [] },

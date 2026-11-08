@@ -34,7 +34,9 @@ export function lfgPostView(post: LfgPost, game: Game | null): Payload {
       container(
         display(head.join("\n")),
         separator(),
-        display(`${people("In", post.in)}\n${people("Maybe", post.maybe)}`),
+        display(
+          `${people("In", post.in)}\n${people("Maybe", post.maybe)}\n-# Click your answer again to remove it.`,
+        ),
         buttonRow(
           button({ kind: "lfg-in" }, "I'm in", ButtonStyle.Success),
           button({ kind: "lfg-maybe" }, "Maybe"),

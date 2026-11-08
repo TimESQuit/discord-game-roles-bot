@@ -188,8 +188,8 @@ LFG is an optional, structured way to ask "anyone up for this?": one post pings 
 
 - **Starting one.** `/lfg` posts in the channel it's typed in. The panel's "Looking for group" button posts in #game-news.
 - **The form.** Game (with autocomplete), an optional "when" (free text such as "tonight 9pm"), an optional note. "When" is shown exactly as typed; the bot doesn't interpret it.
-- **The post** shows who started it, the game, when, the note and the role ping. Below that, two lists: **In** and **Maybe**.
-- **Buttons on the post:** I'm in, Maybe, and Join this game's role. Clicking I'm in or Maybe again removes you.
+- **The post** shows who started it, the game, when, the note and the role ping. Below that, two lists: **In** and **Maybe**. Whoever started the post is already in **In**.
+- **Buttons on the post:** I'm in, Maybe, and Join this game's role. Clicking I'm in or Maybe again removes you, and a line under the lists says so. There's no "No" button: not answering means no.
 - **Join this game's role** lets someone who doesn't follow the game sign up from the post itself. It's logged like any other join.
 - **No cooldowns to start. Deferred to later:** which channels allow `/lfg`, whether posts close or expire, and whether a post opens a thread.
 - **Old posts keep working.** If a post's game has since been removed, its buttons say so instead of failing.
