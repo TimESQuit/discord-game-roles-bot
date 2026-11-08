@@ -67,7 +67,7 @@ describe("checkSetup", () => {
     const ctx = await makeContext();
     ctx.gateway.setBotTopPosition(5);
     expect(await checkSetup(ctx)).toEqual([
-      "Move the bot's role above Game role template in Server Settings → Roles",
+      "Move the bot's role above Game role template in Server Settings → Roles.",
     ]);
     const blank = await makeContext({ setup: false });
     blank.gateway.setBotTopPosition(5);

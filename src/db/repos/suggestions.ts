@@ -51,6 +51,17 @@ function toSuggestion(row: Selectable<DB["suggestions"]>): Suggestion {
   };
 }
 
+type SuggestionPatch = Partial<Pick<Suggestion, "name" | "categoryId" | "note" | "aliases">>;
+
+function toColumns(patch: SuggestionPatch) {
+  return {
+    ...(patch.name === undefined ? {} : { name: patch.name }),
+    ...(patch.categoryId === undefined ? {} : { category_id: patch.categoryId }),
+    ...(patch.note === undefined ? {} : { note: patch.note }),
+    ...(patch.aliases === undefined ? {} : { aliases: patch.aliases }),
+  };
+}
+
 export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
   const select = () => kysely.selectFrom("suggestions").selectAll();
 
@@ -132,24 +143,12 @@ export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
         .execute();
     },
     async update(id, patch) {
-      const set: {
-        name?: string;
-        category_id?: number;
-        note?: string | null;
-        aliases?: string | null;
-      } = {};
-      if (patch.name !== undefined) set.name = patch.name;
-      if (patch.categoryId !== undefined) set.category_id = patch.categoryId;
-      if (patch.note !== undefined) set.note = patch.note;
-      if (patch.aliases !== undefined) set.aliases = patch.aliases;
+      const set = toColumns(patch);
       if (Object.keys(set).length === 0) return;
       await kysely.updateTable("suggestions").set(set).where("id", "=", id).execute();
     },
     async updatePending(id, patch) {
-      const set: { name?: string; category_id?: number; aliases?: string | null } = {};
-      if (patch.name !== undefined) set.name = patch.name;
-      if (patch.categoryId !== undefined) set.category_id = patch.categoryId;
-      if (patch.aliases !== undefined) set.aliases = patch.aliases;
+      const set = toColumns(patch);
       if (Object.keys(set).length === 0) return (await get(id))?.status === "pending";
       const result = await kysely
         .updateTable("suggestions")

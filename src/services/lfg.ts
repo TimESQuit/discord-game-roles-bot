@@ -1,8 +1,9 @@
-import { LFG_WHEN_MAX, MESSAGES, NOTE_MAX } from "../constants.ts";
+import { LFG_WHEN_MAX, NOTE_MAX } from "../constants.ts";
 import { toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { lfgPostView } from "../views/index.ts";
-import { join } from "./membership.ts";
+import { requireGame } from "./lookups.ts";
+import { assertRoleExists, join } from "./membership.ts";
 
 import type { LfgAnswer, LfgPost } from "../db/index.ts";
 import type { AppContext } from "./context.ts";
@@ -52,14 +53,8 @@ export async function createLfgPost(
   if (note !== null && note.length > NOTE_MAX) {
     throw new UserFacingError(`Keep the note under ${NOTE_MAX} characters.`);
   }
-  const game = await ctx.repos.games.get(input.gameId);
-  if (!game) throw new UserFacingError(MESSAGES.gameGone);
-  if (!ctx.gateway.role(game.roleId)) {
-    await ctx.audit.notifyAdmins(
-      `The role for ${game.name} is missing in Discord. Remove the game or recreate it.`,
-    );
-    throw new UserFacingError(MESSAGES.gameRoleMissing);
-  }
+  const game = await requireGame(ctx, input.gameId);
+  await assertRoleExists(ctx, game);
   const post: Omit<LfgPost, LfgAnswer> = {
     messageId: "",
     channelId: input.channelId,

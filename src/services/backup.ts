@@ -4,7 +4,7 @@ import { join } from "node:path";
 
 import { BACKUP_RETENTION_DAYS, MESSAGES } from "../constants.ts";
 import { msUntilNextRun, selectExpiredBackups } from "../domain/index.ts";
-import { UserFacingError } from "../errors.ts";
+import { messageOf, UserFacingError } from "../errors.ts";
 
 import type { Db } from "../db/index.ts";
 import type { AppContext } from "./context.ts";
@@ -15,9 +15,6 @@ function backupFileName(now: Date): string {
   const date = `${now.getUTCFullYear()}-${pad(now.getUTCMonth() + 1)}-${pad(now.getUTCDate())}`;
   return `game-roles-${date}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}.sqlite`;
 }
-
-const messageOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 /** Snapshots the database into #bot-backups, then prunes the bot's own backup posts older than 30 days. */
 export async function runBackup(

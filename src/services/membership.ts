@@ -1,15 +1,19 @@
 import { SELECT_OPTION_LIMIT, MESSAGES } from "../constants.ts";
 import { diffSelection, byName, rankGames } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
+import { requireGame } from "./lookups.ts";
 
 import type { Game } from "../db/index.ts";
 import type { Source } from "./audit.ts";
 import type { AppContext } from "./context.ts";
 
-async function requireGame(ctx: AppContext, gameId: number): Promise<Game> {
-  const game = await ctx.repos.games.get(gameId);
-  if (!game) throw new UserFacingError(MESSAGES.gameGone);
-  return game;
+/** Tells the admins a game's role is gone and stops the member's request. */
+export async function assertRoleExists(ctx: AppContext, game: Game): Promise<void> {
+  if (ctx.gateway.role(game.roleId)) return;
+  await ctx.audit.notifyAdmins(
+    `The role for ${game.name} is missing in Discord. Remove the game or recreate it.`,
+  );
+  throw new UserFacingError(MESSAGES.gameRoleMissing);
 }
 
 export async function applySelection(
@@ -65,12 +69,7 @@ export async function join(
   source: Source,
 ): Promise<"joined" | "already"> {
   const game = await requireGame(ctx, gameId);
-  if (!ctx.gateway.role(game.roleId)) {
-    await ctx.audit.notifyAdmins(
-      `The role for ${game.name} is missing in Discord. Remove the game or recreate it.`,
-    );
-    throw new UserFacingError(MESSAGES.gameRoleMissing);
-  }
+  await assertRoleExists(ctx, game);
   if (ctx.gateway.memberRoleIds(userId).has(game.roleId)) return "already";
   await ctx.gateway.addMemberRole(userId, game.roleId, `Joined ${game.name} via ${source}`);
   await ctx.audit.log({ kind: "joined", userId, game: game.name, source });

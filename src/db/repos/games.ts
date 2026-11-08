@@ -92,19 +92,14 @@ export function createGames(kysely: Kysely<DB>): GamesRepo {
     },
     async update(id, patch) {
       await kysely.transaction().execute(async (trx) => {
-        if (patch.name !== undefined) {
-          await trx
-            .updateTable("games")
-            .set({ name: patch.name, normalized_name: normalize(patch.name) })
-            .where("id", "=", id)
-            .execute();
-        }
-        if (patch.categoryId !== undefined) {
-          await trx
-            .updateTable("games")
-            .set({ category_id: patch.categoryId })
-            .where("id", "=", id)
-            .execute();
+        const set = {
+          ...(patch.name === undefined
+            ? {}
+            : { name: patch.name, normalized_name: normalize(patch.name) }),
+          ...(patch.categoryId === undefined ? {} : { category_id: patch.categoryId }),
+        };
+        if (Object.keys(set).length > 0) {
+          await trx.updateTable("games").set(set).where("id", "=", id).execute();
         }
         if (patch.aliases !== undefined) await writeAliases(trx, id, patch.aliases);
       });

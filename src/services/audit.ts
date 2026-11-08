@@ -1,4 +1,4 @@
-import { escapeMarkdown } from "discord.js";
+import { text } from "../domain/index.ts";
 
 import type { Repos } from "../db/index.ts";
 import type { Gateway } from "../discord/index.ts";
@@ -31,11 +31,6 @@ const SOURCE_LABELS = {
 } as const satisfies Record<string, string>;
 
 export type Source = keyof typeof SOURCE_LABELS;
-
-/** Escapes Markdown and breaks up "@" so user-typed text can neither format nor ping. */
-function text(value: string): string {
-  return escapeMarkdown(value).replaceAll("@", "@​");
-}
 
 const user = (id: string): string => `<@${id}>`;
 

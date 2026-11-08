@@ -2,6 +2,8 @@ import { MESSAGES } from "../constants.ts";
 import { computeRoleOrder, validateGameName, parseAliases, text } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { normalize } from "../normalize.ts";
+import { requireCategory, requireGame } from "./lookups.ts";
+import { missingPermissionMessage, PERMISSION_NAMES } from "./setup.ts";
 
 import type { Game } from "../db/index.ts";
 import type { RoleSnapshot } from "../discord/index.ts";
@@ -13,14 +15,10 @@ export async function assertCanManageRoles(ctx: AppContext): Promise<RoleSnapsho
   const template = templateId === undefined ? undefined : ctx.gateway.role(templateId);
   if (!template) throw new UserFacingError(MESSAGES.setupFirst);
   if (ctx.gateway.missingBotPermissions(["ManageRoles"]).length > 0) {
-    throw new UserFacingError(
-      "Give the bot the Manage Roles permission in Server Settings → Roles.",
-    );
+    throw new UserFacingError(missingPermissionMessage(PERMISSION_NAMES.ManageRoles));
   }
   if (ctx.gateway.botTopRolePosition() <= template.position) {
-    throw new UserFacingError(
-      "Move the bot's role above Game role template in Server Settings → Roles",
-    );
+    throw new UserFacingError(MESSAGES.botRoleTooLow);
   }
   return template;
 }
@@ -50,12 +48,6 @@ async function checkCollisions(
       }
     }
   }
-}
-
-async function requireCategory(ctx: AppContext, categoryId: number) {
-  const category = await ctx.repos.categories.get(categoryId);
-  if (!category) throw new UserFacingError(MESSAGES.categoryGone);
-  return category;
 }
 
 export async function sortGameRoles(ctx: AppContext, actorId = "the bot"): Promise<void> {
@@ -114,8 +106,7 @@ export async function editGame(
   patch: { name?: string; categoryId?: number; aliases?: string },
   actorId: string,
 ): Promise<Game> {
-  const game = await ctx.repos.games.get(gameId);
-  if (!game) throw new UserFacingError(MESSAGES.gameGone);
+  const game = await requireGame(ctx, gameId);
 
   const name = patch.name === undefined ? game.name : validateGameName(patch.name);
   const nameChanged = name !== game.name;
@@ -157,8 +148,7 @@ export async function removeGame(
   gameId: number,
   actorId: string,
 ): Promise<{ game: Game; hadMembers: number }> {
-  const game = await ctx.repos.games.get(gameId);
-  if (!game) throw new UserFacingError(MESSAGES.gameGone);
+  const game = await requireGame(ctx, gameId);
   await assertCanManageRoles(ctx);
   const hadMembers = ctx.gateway.roleMemberIds(game.roleId).length;
   if (ctx.gateway.role(game.roleId)) {

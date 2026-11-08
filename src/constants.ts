@@ -42,4 +42,5 @@ export const MESSAGES = {
   nothingChanged: "Nothing changed.",
   noGamesPicked: "You haven't picked any games yet.",
   gameRoleMissing: "That game's role is missing; the admins have been told.",
+  botRoleTooLow: `Move the bot's role above ${TEMPLATE_ROLE_NAME} in Server Settings → Roles.`,
 } as const;

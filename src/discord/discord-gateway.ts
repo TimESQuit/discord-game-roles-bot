@@ -1,10 +1,9 @@
-import { ChannelType, DiscordAPIError, MessageFlags, PermissionsBitField } from "discord.js";
+import { ChannelType, MessageFlags, PermissionsBitField } from "discord.js";
+
+import { DISCORD_ERROR, isDiscordError } from "./discord-errors.ts";
 
 import type { Client, Guild, OverwriteResolvable, PermissionsString, Role } from "discord.js";
 import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "./gateway.ts";
-
-const UNKNOWN_MESSAGE = 10008;
-const UNKNOWN_CHANNEL = 10003;
 
 function snapshot(role: Role): RoleSnapshot {
   return {
@@ -132,10 +131,7 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
         await ch.messages.fetch(messageId);
         return true;
       } catch (error) {
-        if (
-          error instanceof DiscordAPIError &&
-          (error.code === UNKNOWN_MESSAGE || error.code === UNKNOWN_CHANNEL)
-        ) {
+        if (isDiscordError(error, DISCORD_ERROR.unknownMessage, DISCORD_ERROR.unknownChannel)) {
           return false;
         }
         throw error;
@@ -152,7 +148,7 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
         await ch.messages.edit(messageId, channelBody(payload));
         return true;
       } catch (error) {
-        if (error instanceof DiscordAPIError && error.code === UNKNOWN_MESSAGE) return false;
+        if (isDiscordError(error, DISCORD_ERROR.unknownMessage)) return false;
         throw error;
       }
     },

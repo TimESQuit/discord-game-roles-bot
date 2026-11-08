@@ -1,5 +1,5 @@
-import { STARTING_CATEGORIES } from "../constants.ts";
-import { openDatabase, createRepos } from "../db/index.ts";
+import { STARTING_CATEGORIES, TEMPLATE_ROLE_NAME } from "../constants.ts";
+import { openDatabase, createRepos, SETUP_KEYS } from "../db/index.ts";
 import { createAudit } from "../services/index.ts";
 import { FakeGateway } from "./fake-gateway.ts";
 
@@ -18,14 +18,10 @@ export const U3 = "100000000000000003";
 export const A1 = "100000000000000011";
 export const A2 = "100000000000000012";
 
-const CHANNEL_KEYS = [
-  "panelChannelId",
-  "newsChannelId",
-  "adminCategoryId",
-  "adminChannelId",
-  "logChannelId",
-  "backupsChannelId",
-] as const satisfies readonly SetupKey[];
+type ChannelKey = Exclude<SetupKey, "templateRoleId" | "panelMessageId">;
+const isChannelKey = (key: SetupKey): key is ChannelKey =>
+  key !== "templateRoleId" && key !== "panelMessageId";
+const CHANNEL_KEYS = SETUP_KEYS.filter(isChannelKey);
 
 /** Reads the setup table directly, so it must track src/db/schema.ts. Synchronous read of a setup value, so the `logLines` and `adminNotices` getters stay synchronous. */
 function setupValue(db: Db, key: SetupKey): string | undefined {
@@ -65,7 +61,7 @@ export async function makeContext(
     for (const name of STARTING_CATEGORIES) await repos.categories.add(name);
     gateway.addRole({
       id: TEMPLATE_ROLE_ID,
-      name: "Game role template",
+      name: TEMPLATE_ROLE_NAME,
       position: templatePosition,
       color: TEMPLATE_COLOR,
       mentionable: true,

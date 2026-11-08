@@ -82,16 +82,14 @@ describe("addGame", () => {
   test("bot below the template → exact fix, nothing created", async () => {
     ctx.gateway.setBotTopPosition(templatePosition - 1);
     await expect(add("Valheim")).rejects.toThrow(
-      "Move the bot's role above Game role template in Server Settings → Roles",
+      "Move the bot's role above Game role template in Server Settings → Roles.",
     );
     expect(calls("createRole")).toHaveLength(0);
   });
 
   test("missing Manage Roles → exact fix", async () => {
     ctx.gateway.setMissingPermissions(["ManageRoles"]);
-    await expect(add("Valheim")).rejects.toThrow(
-      "Give the bot the Manage Roles permission in Server Settings → Roles.",
-    );
+    await expect(add("Valheim")).rejects.toThrow("Give the bot the Manage Roles permission.");
     expect(calls("createRole")).toHaveLength(0);
   });
 

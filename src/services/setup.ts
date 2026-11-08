@@ -33,7 +33,7 @@ export const REQUIRED_PERMISSIONS = [
 
 type RequiredPermission = (typeof REQUIRED_PERMISSIONS)[number];
 
-const PERMISSION_NAMES = {
+export const PERMISSION_NAMES = {
   ManageRoles: "Manage Roles",
   ManageChannels: "Manage Channels",
   ViewChannel: "View Channels",
@@ -45,17 +45,20 @@ const PERMISSION_NAMES = {
   AddReactions: "Add Reactions",
 } as const satisfies Record<RequiredPermission, string>;
 
+export const missingPermissionMessage = (name: string): string =>
+  `Give the bot the ${name} permission.`;
+
 /** The problems to fix before setup can run, each a full sentence. */
 export async function checkSetup(ctx: AppContext): Promise<string[]> {
   // The gateway reports any PermissionsString, so look names up as optional.
   const names: Partial<Record<PermissionsString, string>> = PERMISSION_NAMES;
   const problems = ctx.gateway
     .missingBotPermissions(REQUIRED_PERMISSIONS)
-    .map((p) => `Give the bot the ${names[p] ?? p} permission.`);
+    .map((p) => missingPermissionMessage(names[p] ?? p));
   const id = await ctx.repos.setup.get("templateRoleId");
   const template = id === undefined ? undefined : ctx.gateway.role(id);
   if (template && ctx.gateway.botTopRolePosition() <= template.position) {
-    problems.push(`Move the bot's role above ${TEMPLATE_ROLE_NAME} in Server Settings → Roles`);
+    problems.push(MESSAGES.botRoleTooLow);
   }
   return problems;
 }
@@ -87,20 +90,21 @@ export async function previewSetup(
   return { problems, plan: await planFor(ctx, problems.length === 0) };
 }
 
-let setupRunning = false;
-let refreshRunning = false;
-
-export async function applySetup(
-  ctx: AppContext,
-  actorId: string,
-): Promise<{ created: SetupItem[]; fine: SetupItem[] }> {
-  if (setupRunning) throw new UserFacingError("Setup is already running.");
-  setupRunning = true;
-  try {
-    return await runSetup(ctx, actorId);
-  } finally {
-    setupRunning = false;
-  }
+/** Wraps `fn` so a call made while another is still running fails with `busyMessage`. */
+export function exclusive<Args extends unknown[], R>(
+  busyMessage: string,
+  fn: (...args: Args) => Promise<R>,
+): (...args: Args) => Promise<R> {
+  let running = false;
+  return async (...args) => {
+    if (running) throw new UserFacingError(busyMessage);
+    running = true;
+    try {
+      return await fn(...args);
+    } finally {
+      running = false;
+    }
+  };
 }
 
 const list = (items: SetupItem[]): string => (items.length > 0 ? items.join(", ") : "none");
@@ -206,18 +210,7 @@ async function runSetup(
   return { created: plan.create, fine: plan.fine };
 }
 
-export async function refreshPanel(
-  ctx: AppContext,
-  actorId: string,
-): Promise<"updated" | "reposted"> {
-  if (refreshRunning) throw new UserFacingError("The panel is already being refreshed.");
-  refreshRunning = true;
-  try {
-    return await runRefresh(ctx, actorId);
-  } finally {
-    refreshRunning = false;
-  }
-}
+export const applySetup = exclusive("Setup is already running.", runSetup);
 
 async function runRefresh(ctx: AppContext, actorId: string): Promise<"updated" | "reposted"> {
   const channelId = await ctx.repos.setup.get("panelChannelId");
@@ -237,3 +230,5 @@ async function runRefresh(ctx: AppContext, actorId: string): Promise<"updated" |
   });
   return result;
 }
+
+export const refreshPanel = exclusive("The panel is already being refreshed.", runRefresh);

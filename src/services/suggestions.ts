@@ -1,27 +1,18 @@
 import { MAX_PENDING_SUGGESTIONS, MESSAGES } from "../constants.ts";
-import { validateGameName, findCloseMatches } from "../domain/index.ts";
+import { validateGameName, findCloseMatches, text } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { announcementView, reviewCardView } from "../views/index.ts";
 import { addGame } from "./games.ts";
+import {
+  requireCategory,
+  requirePendingSuggestion,
+  requireSuggestion,
+  alreadyDecided,
+} from "./lookups.ts";
 import { join } from "./membership.ts";
 
 import type { Game, Suggestion } from "../db/index.ts";
 import type { AppContext } from "./context.ts";
-
-async function requireSuggestion(ctx: AppContext, id: number): Promise<Suggestion> {
-  const s = await ctx.repos.suggestions.get(id);
-  if (!s) throw new UserFacingError(MESSAGES.suggestionGone);
-  return s;
-}
-
-async function requireCategory(ctx: AppContext, categoryId: number) {
-  const category = await ctx.repos.categories.get(categoryId);
-  if (!category) throw new UserFacingError(MESSAGES.categoryGone);
-  return category;
-}
-
-const alreadyDecided = (status: string): UserFacingError =>
-  new UserFacingError(`This suggestion was already ${status}.`);
 
 /** Claims a pending suggestion (first wins) or throws with its current status. */
 async function claim(
@@ -95,7 +86,7 @@ export async function submitSuggestion(
     console.error(`Could not post the review card for suggestion ${s.id}`, error);
     await ctx.repos.suggestions.remove(s.id);
     await ctx.audit.notifyAdmins(
-      `Could not post a review card for the suggestion **${name.replaceAll("@", "@\u200b")}**. Check the bot's permissions in this channel.`,
+      `Could not post a review card for the suggestion **${text(name)}**. Check the bot's permissions in this channel.`,
     );
     throw new UserFacingError("Couldn't post your suggestion for review. Please try again later.");
   }
@@ -155,8 +146,7 @@ export async function editSuggestion(
   patch: { name?: string; categoryId?: number; aliases?: string },
   adminId: string,
 ): Promise<Suggestion> {
-  const s = await requireSuggestion(ctx, id);
-  if (s.status !== "pending") throw alreadyDecided(s.status);
+  await requirePendingSuggestion(ctx, id);
   const name = patch.name === undefined ? undefined : validateGameName(patch.name);
   if (patch.categoryId !== undefined) await requireCategory(ctx, patch.categoryId);
   const wrote = await ctx.repos.suggestions.updatePending(id, {

@@ -1,4 +1,5 @@
 import { HEARTBEAT_INTERVAL_MS } from "./constants.ts";
+import { messageOf } from "./errors.ts";
 import {
   adminHandlers,
   lfgHandlers,
@@ -34,9 +35,6 @@ export interface ReadyDeps {
   onMembersReady?: () => void;
   version: string;
 }
-
-const messageOf = (error: unknown): string =>
-  error instanceof Error ? error.message : String(error);
 
 /** Runs the startup steps and returns a function that stops the backup and heartbeat timers. */
 export async function onReady(ctx: AppContext, deps: ReadyDeps): Promise<() => void> {

@@ -6,6 +6,7 @@ import { buildHandlers, createErrorReporter, createShutdown, onReady } from "./a
 import { loadConfig } from "./config.ts";
 import { closeDatabase, openDatabase, createRepos } from "./db/index.ts";
 import { createDiscordGateway } from "./discord/index.ts";
+import { messageOf } from "./errors.ts";
 import { registerCommands, handleInteraction } from "./interactions/index.ts";
 import { createAudit } from "./services/index.ts";
 
@@ -125,7 +126,7 @@ try {
 } catch (error) {
   console.error(
     'Could not log in to Discord. Check DISCORD_TOKEN and the network; "Disallowed intents" means Server Members is off in the Developer Portal.',
-    error instanceof Error ? error.message : String(error),
+    messageOf(error),
   );
   await closeDatabase(db).catch(() => {});
   process.exit(1);
