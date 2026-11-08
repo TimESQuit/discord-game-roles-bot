@@ -10,7 +10,7 @@ function snapshot(role: Role): RoleSnapshot {
     id: role.id,
     name: role.name,
     position: role.position,
-    color: role.color,
+    color: role.colors.primaryColor,
     mentionable: role.mentionable,
   };
 }
@@ -69,15 +69,16 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
     async createRole(o, reason) {
       const role = await guild().roles.create({
         name: o.name,
-        color: o.color,
+        colors: { primaryColor: o.color },
         mentionable: o.mentionable,
         permissions: [],
         reason,
       });
       return snapshot(role);
     },
-    async editRole(id, patch, reason) {
-      await requireRole(id).edit({ ...patch, reason });
+    async editRole(id, { color, ...patch }, reason) {
+      const colors = color === undefined ? {} : { colors: { primaryColor: color } };
+      await requireRole(id).edit({ ...patch, ...colors, reason });
     },
     async deleteRole(id, reason) {
       await requireRole(id).delete(reason);
