@@ -54,7 +54,7 @@ Everything below has been agreed; open questions are collected in the last secti
 | Admin channels | #bot-admin, #bot-log and #bot-backups in an admin-only category |
 | Member log | One line per action, so admins can help members who get stuck |
 | Backups | Nightly database copy to #bot-backups, last 30 days kept |
-| Monitoring | healthchecks.io free tier, alerting #bot-admin through a Discord webhook |
+| Monitoring | No external uptime service; Docker restarts the bot and a "bot started" notice shows each restart |
 | Migration | One-off script kept out of the repo; new roles replace the old ones; Reaction Roles removed |
 | Repository | Public on GitHub, with secret scanning and push protection on |
 | Setup | /gameadmin setup creates the template role, channels and panel, and records their IDs in the database |
@@ -68,7 +68,6 @@ The same code runs as two separate bot applications: a dev bot in the test serve
 - Bot token and application ID
 - Server ID
 - Admin role ID
-- healthchecks.io ping URL (optional)
 
 Everything else (the template role, the channels, the panel message) is created by setup and recorded in the database.
 
@@ -80,7 +79,7 @@ Slash commands are registered to each server directly, not globally, so command 
 | --- | --- | --- | --- |
 | Panel channel (name to be decided) | Everyone | Bot only | The single panel message with its button |
 | #game-news | Everyone | Bot | New-game announcements and LFG posts started from the panel. Members can't post here. |
-| #bot-admin | Admins | Bot, healthchecks.io | Suggestions to review, down alerts, restart and error notices. Notifications on. |
+| #bot-admin | Admins | Bot | Suggestions to review, restart and error notices. Notifications on. |
 | #bot-log | Admins | Bot | One line per member or admin action. Muted. |
 | #bot-backups | Admins | Bot | Nightly database copies, last 30 days. Muted. |
 
@@ -105,7 +104,7 @@ Each bot needs three steps by hand; after that, `/gameadmin setup` builds the re
 - Posts the panel message and records every ID in the database.
 - Running it again repairs anything deleted, never creates duplicates, and reports what was already fine.
 
-**Then, by hand:** set the template role's color, and create a webhook in #bot-admin (channel settings → Integrations) for healthchecks.io to post alerts to.
+**Then, by hand:** set the template role's color.
 
 Manage Channels is only needed for setup and repair.
 
@@ -224,7 +223,6 @@ Things that need attention go to #bot-admin; routine records go to the muted #bo
 - Suggestion review cards.
 - A "bot started" notice on every start, so repeated restarts are easy to spot.
 - Errors the bot caught.
-- Down alerts from healthchecks.io.
 
 **Backups**
 
@@ -238,8 +236,7 @@ Things that need attention go to #bot-admin; routine records go to the muted #bo
 
 - **Crash:** Docker restarts the container automatically.
 - **Lost connection to Discord:** discord.js reconnects on its own.
-- **Stuck, crash-looping, or droplet down:** the bot checks in with healthchecks.io every few minutes, only while it's connected to Discord. When check-ins stop, healthchecks.io posts an alert to #bot-admin through a Discord webhook. That works even with the bot down, because healthchecks.io sends it, not the bot.
-- Uses the healthchecks.io free tier.
+- **Stuck or droplet down:** nothing alerts. The bot shows as offline in the member list, and an admin restarts it when they notice. For a single server, live down alerts aren't worth the setup of an external service.
 
 ## Migration from Reaction Roles
 
@@ -329,7 +326,7 @@ Actions deploys production only. The same deploy script can also be run by hand 
 **Development** uses the dev bot against the test server. It runs only on your own computer, never on the droplet, so the droplet's resources go to Django and the prod bot.
 
 - **How it runs:** run it directly with Node 26 and pnpm, or with the same compose file under Docker. It uses its own dev env file and its own local database file.
-- **Monitoring and backups work in dev too.** Dev has its own healthchecks.io check and its own channels in the test server (see Testing). With no check-in URL set, the bot simply skips check-ins.
+- **Backups work in dev too.** Dev has its own channels in the test server (see Testing).
 
 **Before the first deploy**
 
@@ -343,7 +340,7 @@ The repo is public, but no secret ever enters it or GitHub. GitHub stores only w
 
 **In the repo:** the code, tests, Dockerfile, compose file, deploy workflow, an example env file with placeholder values, a license, and a README. The README says the bot is built for one server and explains how to run your own copy.
 
-**Never in the repo:** the env file, the migration script and its mapping file, bot tokens, the healthchecks.io URL, the database and backups, the droplet's address, and server, channel or role IDs. Member names and the server's name also stay out; they live in config or the database.
+**Never in the repo:** the env file, the migration script and its mapping file, bot tokens, the database and backups, the droplet's address, and server, channel or role IDs. Member names and the server's name also stay out; they live in config or the database.
 
 **Stored in GitHub** (repository secrets; no per-environment secrets needed, since only production deploys):
 
@@ -382,7 +379,6 @@ The repo is public, but no secret ever enters it or GitHub. GitHub stores only w
 
 - **Bot token:** reset it in the Discord Developer Portal, update the env file, restart the bot. Reset first, clean up git history after.
 - **SSH key:** remove it from the droplet's `authorized_keys`, create a new key, update the GitHub secret.
-- **healthchecks.io URL:** create a new check and update the env file.
 
 ## Discord limits and constraints
 
@@ -418,8 +414,6 @@ Calls to Discord sit behind a thin layer, so this logic runs in tests without a 
 
 **Testers.** Anyone you invite to the test server can test along with you. Give some testers the dev admin role and leave others without it, so both views get checked. The dev bot only answers while it runs on your computer; otherwise clicks show "This interaction failed".
 
-**Monitoring in dev.** The dev bot has its own healthchecks.io check, which alerts the test server's #bot-admin through its own webhook. To test it, stop the bot and wait for the alert. Pause the check in healthchecks.io when you're done testing, or it will alert whenever your computer sleeps.
-
 ## Open items and future ideas
 
 These are the decisions still to make before or during the build.
@@ -431,7 +425,6 @@ These are the decisions still to make before or during the build.
 - [x] SQLite driver: better-sqlite3, with Drizzle for the schema and migrations and Kysely for queries.
 - [x] Fuzzy matching library: fuse.js.
 - [ ] Time of day for the nightly backup.
-- [ ] healthchecks.io check-in interval and how long to wait before alerting.
 - [ ] Container memory limit, after checking the droplet's memory and swap.
 - [ ] Register slash commands on every startup, or with a separate script.
 - [ ] License: MIT (others may reuse the code) or none (people can read it but not reuse it).

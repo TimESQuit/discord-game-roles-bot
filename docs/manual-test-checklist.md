@@ -52,7 +52,6 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 - [ ] Bot loses Manage Roles, or its role is dragged below the template: role actions reply with the exact fix ("Move the bot's role above Game role template in Server Settings → Roles") instead of "This interaction failed".
 - [ ] Quickly ticking then unticking the same game in one dropdown within a moment may be a no-op (member cache lag); re-open the menu to confirm.
 
-## Backups and monitoring
+## Backups
 
 - [ ] Admin: Run backup now posts a file to `#bot-backups`. Download it and run `sqlite3 <file> .tables`; it opens and lists the tables.
-- [ ] Stop the dev bot and wait: the healthchecks.io alert arrives in `#bot-admin`. Pause the check afterwards.

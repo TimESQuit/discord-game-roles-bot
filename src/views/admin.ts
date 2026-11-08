@@ -207,7 +207,7 @@ export function setupReportView(result: {
           "### Setup finished",
           `Created: ${itemList(result.created)}`,
           `Already fine: ${itemList(result.fine)}`,
-          "Next: set the template role's color, and add a healthchecks.io webhook in #bot-admin.",
+          "Next: set the template role's color.",
         ].join("\n"),
       ),
     ],

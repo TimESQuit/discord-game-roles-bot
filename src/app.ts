@@ -1,4 +1,3 @@
-import { HEARTBEAT_INTERVAL_MS } from "./constants.ts";
 import { messageOf } from "./errors.ts";
 import {
   adminHandlers,
@@ -6,7 +5,7 @@ import {
   memberHandlers,
   suggestHandlers,
 } from "./interactions/index.ts";
-import { scheduleNightlyBackups, startHeartbeat } from "./services/index.ts";
+import { scheduleNightlyBackups } from "./services/index.ts";
 
 import type { Handlers } from "./interactions/index.ts";
 import type { AppContext } from "./services/index.ts";
@@ -28,7 +27,6 @@ export function buildHandlers(
 export interface ReadyDeps {
   registerCommands: () => Promise<void>;
   fetchMembers: () => Promise<void>;
-  isConnected: () => boolean;
   /** True once shutdown has begun; startup then skips the timers. */
   isStopping: () => boolean;
   /** Called once the member fetch has finished (also when it failed). */
@@ -36,7 +34,7 @@ export interface ReadyDeps {
   version: string;
 }
 
-/** Runs the startup steps and returns a function that stops the backup and heartbeat timers. */
+/** Runs the startup steps and returns a function that stops the backup timer. */
 export async function onReady(ctx: AppContext, deps: ReadyDeps): Promise<() => void> {
   try {
     await deps.fetchMembers();
@@ -54,16 +52,7 @@ export async function onReady(ctx: AppContext, deps: ReadyDeps): Promise<() => v
   await ctx.audit.notifyAdmins(`Bot started (version ${deps.version}).`);
 
   if (deps.isStopping()) return () => {};
-  const stopBackups = scheduleNightlyBackups(ctx, ctx.db);
-  const stopHeartbeat = startHeartbeat({
-    url: ctx.config.healthcheckUrl,
-    intervalMs: HEARTBEAT_INTERVAL_MS,
-    isConnected: deps.isConnected,
-  });
-  return () => {
-    stopBackups();
-    stopHeartbeat();
-  };
+  return scheduleNightlyBackups(ctx, ctx.db);
 }
 
 /** Reports a problem to the console and the admins. A failing or re-entrant notify cannot loop. */

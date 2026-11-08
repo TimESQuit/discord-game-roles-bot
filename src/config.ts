@@ -3,7 +3,6 @@ export interface Config {
   applicationId: string;
   guildId: string;
   adminRoleId: string;
-  healthcheckUrl: string | null;
   databasePath: string;
   backupHourUtc: number;
 }
@@ -34,13 +33,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
   const guildId = snowflake("DISCORD_GUILD_ID");
   const adminRoleId = snowflake("ADMIN_ROLE_ID");
 
-  let healthcheckUrl: string | null = null;
-  const rawUrl = env["HEALTHCHECK_URL"];
-  if (rawUrl !== undefined && rawUrl !== "") {
-    if (URL.canParse(rawUrl) && new URL(rawUrl).protocol === "https:") healthcheckUrl = rawUrl;
-    else problems.push("HEALTHCHECK_URL must be an https URL");
-  }
-
   const databasePath = env["DATABASE_PATH"] || "data/bot.sqlite";
 
   let backupHourUtc = 4;
@@ -58,7 +50,6 @@ export function loadConfig(env: Record<string, string | undefined>): Config {
     applicationId,
     guildId,
     adminRoleId,
-    healthcheckUrl,
     databasePath,
     backupHourUtc,
   };

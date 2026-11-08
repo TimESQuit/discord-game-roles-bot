@@ -15,7 +15,6 @@ const deps = (calls: string[], over: Partial<ReadyDeps> = {}): ReadyDeps => ({
   fetchMembers: async () => {
     calls.push("fetch");
   },
-  isConnected: () => true,
   isStopping: () => false,
   version: "1.2.3",
   ...over,
@@ -72,9 +71,7 @@ describe("onReady", () => {
   });
 
   test("a failing registerCommands is reported and the timers still start", async () => {
-    const ctx = await makeContext({ config: { healthcheckUrl: "https://example.test/ping" } });
-    const fetchMock = vi.fn<typeof fetch>(async () => new Response("ok"));
-    vi.stubGlobal("fetch", fetchMock);
+    const ctx = await makeContext();
     const calls: string[] = [];
     const notices: string[] = [];
     vi.spyOn(ctx.audit, "notifyAdmins").mockImplementation(async (t) => {
@@ -91,23 +88,17 @@ describe("onReady", () => {
     expect(calls).toEqual(["fetch"]);
     expect(notices[0]).toContain("boom");
     expect(notices.at(-1)).toBe("Bot started (version 1.2.3).");
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    await vi.advanceTimersByTimeAsync(300_000);
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBeGreaterThanOrEqual(1);
     stop();
-    vi.unstubAllGlobals();
   });
 
-  test("stop cancels the heartbeat and the nightly backup", async () => {
-    const ctx = await makeContext({ config: { healthcheckUrl: "https://example.test/ping" } });
-    const fetchMock = vi.fn<typeof fetch>(async () => new Response("ok"));
-    vi.stubGlobal("fetch", fetchMock);
+  test("stop cancels the nightly backup", async () => {
+    const ctx = await makeContext();
     vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
     const stop = await onReady(ctx, deps([]));
-    expect(vi.getTimerCount()).toBeGreaterThanOrEqual(2);
+    expect(vi.getTimerCount()).toBeGreaterThanOrEqual(1);
     stop();
     expect(vi.getTimerCount()).toBe(0);
-    vi.unstubAllGlobals();
   });
 });
 

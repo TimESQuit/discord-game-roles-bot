@@ -107,7 +107,6 @@ client.once(Events.ClientReady, (ready) => {
     onMembersReady: () => {
       membersReady = true;
     },
-    isConnected: () => client.isReady(),
     isStopping: () => shutdown.isStopping(),
     version,
   })

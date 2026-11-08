@@ -15,20 +15,19 @@ Stack: Node 26 (runs the TypeScript directly), discord.js, SQLite with Kysely, D
 3. In Server Settings, Roles, drag the bot's role high enough for the game roles to go below it.
 4. Copy `.env.example` to `.env` and fill it in:
 
-   | Variable                 | Meaning                                                  |
-   | ------------------------ | -------------------------------------------------------- |
-   | `DISCORD_TOKEN`          | The bot token                                            |
-   | `DISCORD_APPLICATION_ID` | The application ID                                       |
-   | `DISCORD_GUILD_ID`       | The server the bot serves                                |
-   | `ADMIN_ROLE_ID`          | The role whose members are admins                        |
-   | `HEALTHCHECK_URL`        | Optional healthchecks.io ping URL; empty skips check-ins |
-   | `DATABASE_PATH`          | SQLite file, default `data/bot.sqlite`                   |
-   | `BACKUP_HOUR_UTC`        | Hour of the nightly backup, default 4                    |
+   | Variable                 | Meaning                                |
+   | ------------------------ | -------------------------------------- |
+   | `DISCORD_TOKEN`          | The bot token                          |
+   | `DISCORD_APPLICATION_ID` | The application ID                     |
+   | `DISCORD_GUILD_ID`       | The server the bot serves              |
+   | `ADMIN_ROLE_ID`          | The role whose members are admins      |
+   | `DATABASE_PATH`          | SQLite file, default `data/bot.sqlite` |
+   | `BACKUP_HOUR_UTC`        | Hour of the nightly backup, default 4  |
 
 5. `pnpm install`, then `pnpm dev` (restarts on file changes).
 6. In the server, run `/gameadmin setup` as an admin. It checks permissions, shows what it will create, asks for confirmation, then builds the template role, channels and panel, and records their IDs. Running it again repairs anything deleted.
 7. In Server Settings, Integrations, open the bot, then `/gameadmin`, and restrict the command to the admin role. The bot checks admin rights itself regardless; this just hides the command from everyone else.
-8. Set the template role's color, and create a webhook in the bot-admin channel (channel settings, Integrations) for healthchecks.io alerts.
+8. Set the template role's color.
 
 Other scripts: `pnpm check` (type-check, lint, format check, migration check, tests), `pnpm format`, `pnpm test`.
 
@@ -88,9 +87,8 @@ The bot runs in its own Docker Compose project, with no open ports. Replace `<dr
    `restrict` is equivalent to `no-pty,no-port-forwarding,no-agent-forwarding,no-X11-forwarding` plus more; spelling those four out instead is also fine.
 
 7. **SSH hardening.** Keys only: no password logins, no root login.
-8. **Monitoring.** In healthchecks.io create a check with period 5 minutes and grace 10 minutes. Add a Discord integration using the webhook of the bot-admin channel, and put the check's ping URL in `HEALTHCHECK_URL`.
-9. **By hand.** If Actions is unavailable, an admin can run the script as the deploy user: `sudo -u deploy env SSH_ORIGINAL_COMMAND=<40-character-commit-sha> /usr/local/bin/deploy-game-roles-bot`.
-10. **Rolling back.** The script refuses to move to an older commit, on purpose: old code could meet a newer database schema. To roll back, in this order: (1) stop the bot (`docker compose stop`) so the bad release can't touch the restored database; (2) restore a database backup from before the bad release (see below); (3) push a revert commit to `main` and let the pipeline deploy it, which starts the bot again. The revert must be a new commit, because the never-backwards guard rejects a deploy of an older one.
+8. **By hand.** If Actions is unavailable, an admin can run the script as the deploy user: `sudo -u deploy env SSH_ORIGINAL_COMMAND=<40-character-commit-sha> /usr/local/bin/deploy-game-roles-bot`.
+9. **Rolling back.** The script refuses to move to an older commit, on purpose: old code could meet a newer database schema. To roll back, in this order: (1) stop the bot (`docker compose stop`) so the bad release can't touch the restored database; (2) restore a database backup from before the bad release (see below); (3) push a revert commit to `main` and let the pipeline deploy it, which starts the bot again. The revert must be a new commit, because the never-backwards guard rejects a deploy of an older one.
 
 ## GitHub setup checklist
 
@@ -128,7 +126,6 @@ The bot posts a database copy to the backups channel every night and keeps 30 da
 
 - **Bot token:** reset it in the Discord Developer Portal, update the env file, restart the bot. Reset first, clean up git history after.
 - **SSH key:** remove it from the droplet's `authorized_keys`, create a new key, update the `DEPLOY_SSH_KEY` secret.
-- **healthchecks.io URL:** create a new check and update the env file.
 
 ## License
 

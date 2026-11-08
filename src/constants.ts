@@ -8,7 +8,6 @@ export const TEMPLATE_ROLE_NAME = "Game role template";
 export const STARTING_CATEGORIES = ["Competitive", "Chill", "IRL activities"] as const;
 export const MAX_PENDING_SUGGESTIONS = 10;
 export const BACKUP_RETENTION_DAYS = 30;
-export const HEARTBEAT_INTERVAL_MS = 300_000;
 export const SELECT_OPTION_LIMIT = 25;
 export const COMPONENT_LIMIT = 40;
 export const TEXT_LIMIT = 100;

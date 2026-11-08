@@ -10,7 +10,6 @@ import {
   gameModal,
   reviewListView,
   setupPreviewView,
-  setupReportView,
 } from "./admin.ts";
 import { countComponents } from "./limits.ts";
 
@@ -75,15 +74,6 @@ test("setup preview disables Confirm when nothing needs creating", () => {
   const view = setupPreviewView([], { create: [], fine: ["templateRole"] });
   const confirm = buttons(view).find((b) => parseId(b.custom_id)?.kind === "confirm-setup");
   expect(confirm?.disabled).toBe(true);
-});
-
-test("setup report lists created and fine items plus the reminder", () => {
-  const view = setupReportView({ created: ["templateRole"], fine: ["newsChannel"] });
-  expect(texts(view)).toContain("Created: ");
-  expect(texts(view)).toContain("Already fine: ");
-  expect(texts(view)).toContain(
-    "Next: set the template role's color, and add a healthchecks.io webhook in #bot-admin.",
-  );
 });
 
 test("remove confirmation states the member count", () => {

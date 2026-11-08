@@ -66,7 +66,6 @@ test("registerCommands PUTs the guild commands", async () => {
     applicationId: "100000000000000100",
     guildId: "100000000000000200",
     adminRoleId: "100000000000000300",
-    healthcheckUrl: null,
     databasePath: ":memory:",
     backupHourUtc: 4,
   };

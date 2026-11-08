@@ -49,7 +49,6 @@ export async function makeContext(
     applicationId: "100000000000000100",
     guildId: gateway.guildId,
     adminRoleId: ADMIN_ROLE_ID,
-    healthcheckUrl: null,
     databasePath: ":memory:",
     backupHourUtc: 4,
     ...overrides.config,
