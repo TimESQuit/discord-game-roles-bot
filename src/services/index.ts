@@ -19,6 +19,7 @@ export {
   whoPlays,
 } from "./membership.ts";
 export { applySetup, previewSetup, refreshPanel } from "./setup.ts";
+export { applyUninstall, leaveServer, previewUninstall } from "./uninstall.ts";
 export {
   approveSuggestion,
   closeMatches,

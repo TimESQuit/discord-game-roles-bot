@@ -71,6 +71,8 @@ export interface Gateway {
     parentId: string | null,
     overwrites: readonly Overwrite[],
   ): Promise<string>;
+  /** Deletes a channel or category. Deleting a category leaves its channels in place. */
+  deleteChannel(id: string, reason: string): Promise<void>;
   /** Moves a channel under a category without copying the category's permissions. */
   setChannelParent(channelId: string, parentId: string): Promise<void>;
   /** False if the message or its channel is gone. */
@@ -81,4 +83,8 @@ export interface Gateway {
   edit(channelId: string, messageId: string, payload: Payload): Promise<boolean>;
   ownMessages(channelId: string, limit: number): Promise<OwnMessage[]>;
   deleteMessage(channelId: string, messageId: string): Promise<void>;
+  /** Removes the bot's slash commands from the server. */
+  clearCommands(): Promise<void>;
+  /** The bot leaves the server for good; Discord also deletes the bot's own role. */
+  leave(): Promise<void>;
 }

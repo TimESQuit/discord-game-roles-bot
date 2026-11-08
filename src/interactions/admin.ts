@@ -4,7 +4,14 @@ import {
   MESSAGES,
   MOVE_DIRECTIONS,
 } from "../constants.ts";
-import { validateCategoryName, diffGameEdit, text, parseId } from "../domain/index.ts";
+import {
+  validateCategoryName,
+  diffGameEdit,
+  text,
+  parseId,
+  choicesFromBits,
+  choicesFromValues,
+} from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { normalize } from "../normalize.ts";
 import {
@@ -15,7 +22,10 @@ import {
   removeGame,
   autocompleteGames,
   applySetup,
+  applyUninstall,
+  leaveServer,
   previewSetup,
+  previewUninstall,
   refreshPanel,
   requireCategory,
   requireGame,
@@ -29,6 +39,8 @@ import {
   setupPreviewView,
   setupReportView,
   noticeView,
+  uninstallPreviewView,
+  uninstallReportView,
   FIELD,
 } from "../views/index.ts";
 import { parseCategoryId } from "./parse.ts";
@@ -45,6 +57,7 @@ import type {
 import type { MoveDirection } from "../constants.ts";
 import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
+import type { UninstallChoices } from "../domain/index.ts";
 import type { AppContext } from "../services/index.ts";
 import type { Handlers } from "./router.ts";
 
@@ -163,6 +176,12 @@ async function previewInto(
   });
 }
 
+const uninstallPreview = async (
+  ctx: AppContext,
+  channelId: string | null,
+  picked: UninstallChoices,
+): Promise<Payload> => uninstallPreviewView(await previewUninstall(ctx, channelId), picked);
+
 const reapply = (ctx: AppContext, userId: string) => async () =>
   `Re-applied the template to ${String(await reapplyTemplate(ctx, userId))} game roles.`;
 
@@ -254,6 +273,30 @@ export const adminHandlers: Handlers = {
     await updateWith(interaction, async () =>
       setupReportView(await applySetup(ctx, interaction.user.id)),
     );
+  }),
+
+  "gameadmin-uninstall": chatInput(async (ctx, interaction) => {
+    await replyPrivately(interaction, () =>
+      uninstallPreview(ctx, interaction.channelId, new Set()),
+    );
+  }),
+  "uninstall-options": select(async (ctx, interaction) => {
+    await updateWith(interaction, () =>
+      uninstallPreview(ctx, interaction.channelId, choicesFromValues(interaction.values)),
+    );
+  }),
+  "uninstall-confirm": button(async (ctx, interaction) => {
+    const id = parseId(interaction.customId);
+    if (id?.kind !== "uninstall-confirm") throw new UserFacingError(MESSAGES.menuExpired);
+    const picked = choicesFromBits(id.choices);
+    await updateWith(interaction, async () =>
+      uninstallReportView(
+        await applyUninstall(ctx, interaction.user.id, picked, interaction.channelId),
+        picked,
+      ),
+    );
+    // Last, once the report and backup have reached the admin.
+    if (picked.has("leave")) await leaveServer(ctx);
   }),
 
   "category-add": button(async (_ctx, interaction) => {

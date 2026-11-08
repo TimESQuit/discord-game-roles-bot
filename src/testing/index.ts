@@ -3,6 +3,7 @@ export {
   A2,
   ADMIN_ROLE_ID,
   TEMPLATE_COLOR,
+  TEMPLATE_ROLE_ID,
   U1,
   U2,
   U3,

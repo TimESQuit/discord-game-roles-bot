@@ -122,6 +122,10 @@ The bot posts a database copy to the backups channel every night and keeps 30 da
 3. Replace `data/bot.sqlite` with the downloaded file, and, as an admin, run `chown 1000:1000` on it. Remove any leftover `bot.sqlite-wal` and `bot.sqlite-shm` files.
 4. Start the bot: `docker compose up -d`. Check for the "Bot started" line in the log channel.
 
+## Uninstalling
+
+Run `/gameadmin uninstall` as an admin, from a channel you're keeping. Choose what to keep (roles, member channels, admin channels) and whether the bot leaves the server, then press Uninstall. The report has a backup of the database attached. If the bot left, stop its container: `docker compose down` in `/opt/game-roles-bot`.
+
 ## If something leaks
 
 - **Bot token:** reset it in the Discord Developer Portal, update the env file, restart the bot. Reset first, clean up git history after.

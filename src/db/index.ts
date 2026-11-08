@@ -1,4 +1,4 @@
-export { closeDatabase, openDatabase } from "./database.ts";
+export { clearData, closeDatabase, openDatabase } from "./database.ts";
 export type { Db } from "./database.ts";
 export { SETUP_KEYS } from "./schema.ts";
 export { createRepos } from "./repos/index.ts";

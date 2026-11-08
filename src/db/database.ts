@@ -37,3 +37,21 @@ export async function closeDatabase(db: Db): Promise<void> {
   // Kysely only closes the handle once it has run a query.
   if (db.sqlite.open) db.sqlite.close();
 }
+
+/**
+ * Deletes every row the bot stores, in one transaction, keeping the schema and its migration
+ * history. Tables are listed from the database itself, so a new table is covered without a change.
+ */
+export function clearData(db: Db): void {
+  const tables = db.sqlite
+    .prepare<[], { name: string }>(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '__drizzle_migrations'",
+    )
+    .all()
+    .map((t) => t.name);
+  db.sqlite.transaction(() => {
+    // Foreign keys are checked at commit, when every table is empty, so the order doesn't matter.
+    db.sqlite.pragma("defer_foreign_keys = ON");
+    for (const table of tables) db.sqlite.prepare(`DELETE FROM "${table}"`).run();
+  })();
+}

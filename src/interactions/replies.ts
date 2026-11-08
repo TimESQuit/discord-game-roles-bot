@@ -26,6 +26,7 @@ export const forEdit = (view: Payload): InteractionEditReplyOptions => ({
   components: view.components,
   flags: MessageFlags.IsComponentsV2,
   allowedMentions: view.allowedMentions,
+  files: view.files,
 });
 
 export const forReply = (view: Payload): InteractionReplyOptions => ({

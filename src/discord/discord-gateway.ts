@@ -128,6 +128,9 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
       });
       return ch.id;
     },
+    async deleteChannel(id, reason) {
+      await guild().channels.delete(id, reason);
+    },
     async setChannelParent(channelId, parentId) {
       const ch = guild().channels.cache.get(channelId) ?? (await client.channels.fetch(channelId));
       if (!ch || !("setParent" in ch)) throw new Error(`Channel ${channelId} cannot be moved`);
@@ -179,6 +182,12 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
     async deleteMessage(channelId, messageId) {
       const ch = await textChannel(channelId);
       await ch.messages.delete(messageId);
+    },
+    async clearCommands() {
+      await client.application.commands.set([], guildId);
+    },
+    async leave() {
+      await guild().leave();
     },
   };
 }

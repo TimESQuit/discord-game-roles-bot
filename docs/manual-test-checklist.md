@@ -42,6 +42,10 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 - [ ] `/gameadmin setup` on a server missing a permission shows the problem list, not an error.
 - [ ] A recreated Game Roles Admin category gets the existing admin channels moved into it.
 - [ ] Restart behaviour: "Bot started" appears once per start.
+- [ ] `/gameadmin uninstall` run from `#game-roles-admin` with nothing kept: Uninstall is disabled until "Keep admin channels" is ticked.
+- [ ] Uninstall keeping nothing, run from another channel: roles and channels are gone, the report has a backup file that opens with `sqlite3`, and `/gameadmin setup` then rebuilds everything.
+- [ ] Uninstall keeping roles: members still have their game roles afterwards.
+- [ ] Uninstall with "Leave the server": the report arrives, then the bot leaves and its commands disappear. Invite it again afterwards.
 
 ## Review Focus
 

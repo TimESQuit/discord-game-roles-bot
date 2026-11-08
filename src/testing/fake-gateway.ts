@@ -18,11 +18,14 @@ type RecordedMethod =
   | "removeMemberRole"
   | "createCategory"
   | "createTextChannel"
+  | "deleteChannel"
   | "setChannelParent"
   | "messageExists"
   | "send"
   | "edit"
-  | "deleteMessage";
+  | "deleteMessage"
+  | "clearCommands"
+  | "leave";
 
 /** A recorded call, keyed by method so each one's arguments keep the Gateway's types. */
 export type GatewayCall = {
@@ -221,6 +224,11 @@ export class FakeGateway implements Gateway {
     this.#channels.add(id);
     return id;
   }
+  async deleteChannel(id: string, reason: string): Promise<void> {
+    this.#begin({ method: "deleteChannel", args: [id, reason] });
+    if (!this.#channels.has(id)) throw new Error(`Unknown channel ${id}`);
+    this.deleteChannelBehindBotsBack(id);
+  }
   async setChannelParent(channelId: string, parentId: string): Promise<void> {
     this.#begin({ method: "setChannelParent", args: [channelId, parentId] });
   }
@@ -251,6 +259,12 @@ export class FakeGateway implements Gateway {
   async deleteMessage(channelId: string, messageId: string): Promise<void> {
     this.#begin({ method: "deleteMessage", args: [channelId, messageId] });
     this.deleteMessageBehindBotsBack(channelId, messageId);
+  }
+  async clearCommands(): Promise<void> {
+    this.#begin({ method: "clearCommands", args: [] });
+  }
+  async leave(): Promise<void> {
+    this.#begin({ method: "leave", args: [] });
   }
 
   // ---- internals ----

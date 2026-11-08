@@ -31,3 +31,17 @@ export { byName, findCloseMatches, parseAliases, rankGames } from "./search.ts";
 export { planSetup } from "./setup-plan.ts";
 export type { SetupItem } from "./setup-plan.ts";
 export { text } from "./text.ts";
+export {
+  UNINSTALL_OPTIONS,
+  choicesFromBits,
+  choicesFromValues,
+  choicesToBits,
+  deletesHere,
+} from "./uninstall.ts";
+export type {
+  ChannelGroup,
+  UninstallChoices,
+  UninstallOption,
+  UninstallResult,
+  UninstallSummary,
+} from "./uninstall.ts";

@@ -106,7 +106,17 @@ Each bot needs three steps by hand; after that, `/gameadmin setup` builds the re
 
 **Then, by hand:** set the template role's color.
 
-Manage Channels is only needed for setup and repair.
+Manage Channels is only needed for setup, repair and uninstalling.
+
+**Uninstalling.** `/gameadmin uninstall` (a command only, never a menu button, so nobody reaches it by accident):
+
+- Shows what the bot owns, with counts, and a menu to keep any of: the roles (game roles and the template), the member channels (#manage-game-roles and #game-roles), the admin channels (the Game Roles Admin category and its three channels). A fourth choice makes the bot leave the server afterwards. Nothing is kept by default.
+- A red Uninstall button runs it. It's disabled while the admin is in a channel that would be deleted, so the report can reach them.
+- Deletes what isn't kept. Kept member channels lose the panel message, since its buttons would stop working. Anything already deleted by hand is skipped.
+- If a deletion fails, it stops and says why, without touching the bot's data; running it again finishes the job.
+- Once everything is deleted, it attaches a backup of the database to the private report, then wipes the data. Kept roles and channels become ordinary ones the bot no longer manages; setup afterwards starts fresh and creates new ones.
+- If chosen, the bot then removes its slash commands and leaves the server, which also deletes its own role. Its container should then be stopped.
+- LFG posts made with `/lfg` in other channels stay behind, with buttons that no longer work.
 
 ## Roles
 
@@ -206,6 +216,7 @@ Members with the admin role get extra buttons in the same private menu, and matc
 - **Refresh panel.** Re-posts or updates the panel message if it was deleted or changed.
 - **Run backup now.** Takes a backup immediately and posts it to #game-roles-backups, the same as the nightly one. Useful before a risky change and for testing. Also available as `/gameadmin backup`.
 - **Run setup.** Creates or repairs the template role, channels and panel (see Bot setup). Also available as `/gameadmin setup`.
+- **Uninstall.** `/gameadmin uninstall` only. Deletes the bot's roles and channels, except those chosen to keep, and wipes its data (see Bot setup).
 
 ## Logging, backups and monitoring
 

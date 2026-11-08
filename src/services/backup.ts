@@ -17,6 +17,22 @@ function backupFileName(now: Date): string {
   return `game-roles-${date}-${pad(now.getUTCHours())}${pad(now.getUTCMinutes())}.sqlite`;
 }
 
+/** A consistent copy of the database as a file to attach, named for when it was taken. */
+export async function snapshotDatabase(
+  db: Db,
+  now: Date,
+): Promise<{ name: string; attachment: Buffer }> {
+  const name = backupFileName(now);
+  const folder = await mkdtemp(join(tmpdir(), "game-roles-backup-"));
+  try {
+    const path = join(folder, name);
+    await db.sqlite.backup(path);
+    return { name, attachment: await readFile(path) };
+  } finally {
+    await rm(folder, { recursive: true, force: true });
+  }
+}
+
 /** Snapshots the database into #game-roles-backups, then prunes the bot's own backup posts older than 30 days. */
 export async function runBackup(
   ctx: AppContext,
@@ -27,23 +43,15 @@ export async function runBackup(
   if (channelId === undefined) throw new UserFacingError(MESSAGES.setupFirst);
 
   const now = ctx.now();
-  const name = backupFileName(now);
-  const folder = await mkdtemp(join(tmpdir(), "game-roles-backup-"));
-  try {
-    const path = join(folder, name);
-    await db.sqlite.backup(path);
-    const attachment = await readFile(path);
-    await ctx.gateway.send(
-      channelId,
-      silent({
-        content: actorId === null ? "Nightly backup" : `Backup requested by <@${actorId}>`,
-        files: [{ attachment, name }],
-        allowedMentions: { parse: [] },
-      }),
-    );
-  } finally {
-    await rm(folder, { recursive: true, force: true });
-  }
+  const { name, attachment } = await snapshotDatabase(db, now);
+  await ctx.gateway.send(
+    channelId,
+    silent({
+      content: actorId === null ? "Nightly backup" : `Backup requested by <@${actorId}>`,
+      files: [{ attachment, name }],
+      allowedMentions: { parse: [] },
+    }),
+  );
 
   let pruned = 0;
   try {

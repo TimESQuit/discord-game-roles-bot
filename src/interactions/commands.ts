@@ -80,6 +80,7 @@ const GAMEADMIN = {
   remove: sub("Remove a game", gameOption),
   "reapply-template": sub("Copy the template role's settings to all game roles"),
   "refresh-panel": sub("Rebuild the panel message"),
+  uninstall: sub("Delete the bot's roles and channels and wipe its data"),
 } satisfies Record<string, Subcommand>;
 
 /** `/gameadmin category …` */
