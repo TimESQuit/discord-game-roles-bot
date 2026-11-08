@@ -79,8 +79,8 @@ Slash commands are registered to each server directly, not globally, so command 
 | --- | --- | --- | --- |
 | Panel channel (name to be decided) | Everyone | Bot only | The single panel message with its button |
 | #game-news | Everyone | Bot | New-game announcements and LFG posts started from the panel. Members can't post here. |
-| #bot-admin | Admins | Bot | Suggestions to review, restart and error notices. Notifications on. |
-| #bot-log | Admins | Bot | One line per member or admin action. Muted. |
+| #bot-admin | Admins | Bot | Suggestions to review and error notices. Notifications on. |
+| #bot-log | Admins | Bot | One line per member or admin action, and a line on every start. Muted. |
 | #bot-backups | Admins | Bot | Nightly database copies, last 30 days. Muted. |
 
 The three admin channels sit in one admin-only "Bot admin" category, so their permissions are set once on the category.
@@ -216,12 +216,12 @@ Things that need attention go to #bot-admin; routine records go to the muted #bo
 - Members: joined or left a game, and where from (panel, command, LFG post).
 - Suggestions: submitted, approved, edited, rejected, and by whom.
 - Admins: games added, edited or removed; categories changed; template re-applied.
+- A "bot started" line on every start, so repeated restarts are easy to spot.
 - Per-action lines let an admin trace what happened when a member says "my role disappeared".
 
 **#bot-admin: needs attention**
 
 - Suggestion review cards.
-- A "bot started" notice on every start, so repeated restarts are easy to spot.
 - Errors the bot caught.
 
 **Backups**
@@ -319,7 +319,7 @@ The bot runs in its own Docker Compose project on the existing droplet (1 vCPU, 
 2. GitHub Actions runs type-check, lint, tests and a check that every schema change has a migration. If any fail, nothing is deployed.
 3. Actions connects to the droplet over SSH as a dedicated deploy user, with a key that can only run the deploy script.
 4. The deploy script pulls the latest `main`, then rebuilds and restarts the bot's compose project, using the env file already on the droplet. The repo is public, so pulling needs no GitHub credentials on the droplet.
-5. Check the run in the Actions tab and the "bot started" notice in #bot-admin.
+5. Check the run in the Actions tab and the "bot started" line in #bot-log.
 
 Actions deploys production only. The same deploy script can also be run by hand over SSH if Actions is unavailable.
 

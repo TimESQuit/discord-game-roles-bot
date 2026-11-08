@@ -22,7 +22,8 @@ export type AuditEvent =
   | { kind: "category-changed"; userId: string; detail: string }
   | { kind: "template-reapplied"; userId: string; count: number }
   | { kind: "backup"; userId: string | null; file: string }
-  | { kind: "setup"; userId: string; detail: string };
+  | { kind: "setup"; userId: string; detail: string }
+  | { kind: "started"; version: string };
 
 const SOURCE_LABELS = {
   panel: "panel",
@@ -68,6 +69,8 @@ export function formatAuditLine(e: AuditEvent): string {
         : `${user(e.userId)} created backup ${text(e.file)}`;
     case "setup":
       return `${user(e.userId)} ran setup: ${text(e.detail)}`;
+    case "started":
+      return `Bot started (version ${text(e.version)}).`;
     default: {
       const unhandled: never = e;
       throw new Error(`Unhandled audit event: ${JSON.stringify(unhandled)}`);

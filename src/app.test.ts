@@ -2,11 +2,13 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { buildHandlers, createErrorReporter, createShutdown, onReady } from "./app.ts";
 import { HANDLER_NAMES } from "./interactions/index.ts";
+import { formatAuditLine } from "./services/index.ts";
 import { makeContext } from "./testing/index.ts";
 
 import type { ReadyDeps } from "./app.ts";
 
 const noop = async (): Promise<void> => {};
+const started = formatAuditLine({ kind: "started", version: "1.2.3" });
 
 const deps = (calls: string[], over: Partial<ReadyDeps> = {}): ReadyDeps => ({
   registerCommands: async () => {
@@ -58,25 +60,19 @@ describe("onReady", () => {
     vi.useRealTimers();
   });
 
-  test("registers, fetches members, then posts the started notice", async () => {
+  test("fetches members, registers, then logs the started line, not an admin notice", async () => {
     const ctx = await makeContext();
     const calls: string[] = [];
-    const notify = vi.spyOn(ctx.audit, "notifyAdmins").mockImplementation(async (t) => {
-      calls.push(`notify:${t}`);
-    });
     const stop = await onReady(ctx, deps(calls));
-    expect(calls).toEqual(["fetch", "register", "notify:Bot started (version 1.2.3)."]);
-    expect(notify).toHaveBeenCalledTimes(1);
+    expect(calls).toEqual(["fetch", "register"]);
+    expect(ctx.logLines).toEqual([started]);
+    expect(ctx.adminNotices).toEqual([]);
     stop();
   });
 
   test("a failing registerCommands is reported and the timers still start", async () => {
     const ctx = await makeContext();
     const calls: string[] = [];
-    const notices: string[] = [];
-    vi.spyOn(ctx.audit, "notifyAdmins").mockImplementation(async (t) => {
-      notices.push(t);
-    });
     const stop = await onReady(
       ctx,
       deps(calls, {
@@ -86,8 +82,8 @@ describe("onReady", () => {
       }),
     );
     expect(calls).toEqual(["fetch"]);
-    expect(notices[0]).toContain("boom");
-    expect(notices.at(-1)).toBe("Bot started (version 1.2.3).");
+    expect(ctx.adminNotices).toEqual([expect.stringContaining("boom")]);
+    expect(ctx.logLines).toEqual([started]);
     expect(vi.getTimerCount()).toBeGreaterThanOrEqual(1);
     stop();
   });

@@ -120,7 +120,7 @@ The bot posts a database copy to the backups channel every night and keeps 30 da
 1. Download the backup file from the backups channel.
 2. Stop the bot: `docker compose stop` in `/opt/game-roles-bot` (as the deploy user).
 3. Replace `data/bot.sqlite` with the downloaded file, and, as an admin, run `chown 1000:1000` on it. Remove any leftover `bot.sqlite-wal` and `bot.sqlite-shm` files.
-4. Start the bot: `docker compose up -d`. Check for the "Bot started" notice in the admin channel.
+4. Start the bot: `docker compose up -d`. Check for the "Bot started" line in the log channel.
 
 ## If something leaks
 

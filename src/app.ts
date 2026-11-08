@@ -49,7 +49,7 @@ export async function onReady(ctx: AppContext, deps: ReadyDeps): Promise<() => v
     console.error("Registering commands failed", error);
     await ctx.audit.notifyAdmins(`Registering commands failed: ${messageOf(error)}`);
   }
-  await ctx.audit.notifyAdmins(`Bot started (version ${deps.version}).`);
+  await ctx.audit.log({ kind: "started", version: deps.version });
 
   if (deps.isStopping()) return () => {};
   return scheduleNightlyBackups(ctx, ctx.db);
