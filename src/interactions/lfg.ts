@@ -1,22 +1,25 @@
 import { MESSAGES } from "../constants.ts";
 import { DISCORD_ERROR, isDiscordError } from "../discord/index.ts";
-import { parseId } from "../domain/index.ts";
+import { isAdmin, parseId, text } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   autocompleteGames,
+  closeLfgPost,
   createLfgPost,
-  joinFromLfg,
   lfgChannel,
+  lfgPostToManage,
   respondToLfg,
+  toggleRoleFromLfg,
 } from "../services/index.ts";
-import { LFG_FIELD, lfgModal } from "../views/index.ts";
+import { LFG_FIELD, lfgManageView, lfgModal, noticeView } from "../views/index.ts";
 import { parseGameId } from "./parse.ts";
-import { noticePrivately, showPrivately } from "./replies.ts";
-import { autocomplete, button, chatInput, modal, select } from "./router.ts";
-import { choices, gamePicker, joinedNotice, resolvePickedGame } from "./shared.ts";
+import { noticePrivately, showPrivately, updateWith } from "./replies.ts";
+import { autocomplete, button, chatInput, memberRoleIds, modal, select } from "./router.ts";
+import { choices, gamePicker, resolvePickedGame } from "./shared.ts";
 
 import type { BaseInteraction } from "discord.js";
-import type { AppContext } from "../services/index.ts";
+import type { LfgOutcome } from "../db/index.ts";
+import type { AppContext, LfgActor } from "../services/index.ts";
 import type { Handlers } from "./router.ts";
 
 const CANNOT_POST = "I can't post in this channel.";
@@ -53,6 +56,30 @@ async function postLfg(
   }
   return `Posted in <#${channelId}>.`;
 }
+
+/** Who clicked, and whether they hold the admin role, for the starter-or-admin checks. */
+const actorOf = (ctx: AppContext, interaction: BaseInteraction): LfgActor => ({
+  userId: interaction.user.id,
+  isAdmin: isAdmin(memberRoleIds(interaction), ctx.config.adminRoleId),
+});
+
+const OUTCOMES = {
+  "lfg-finish": { outcome: "finished", notice: "Finished." },
+  "lfg-cancel": { outcome: "cancelled", notice: "Cancelled." },
+} as const satisfies Record<string, { outcome: LfgOutcome; notice: string }>;
+
+/** Finish or Cancel post, clicked in the private Manage menu: the menu becomes a short notice. */
+const closeFromMenu = button(async (ctx, interaction) => {
+  const id = parseId(interaction.customId);
+  if (id?.kind !== "lfg-finish" && id?.kind !== "lfg-cancel") {
+    throw new UserFacingError(MESSAGES.menuExpired);
+  }
+  const { outcome, notice } = OUTCOMES[id.kind];
+  await updateWith(interaction, async () => {
+    await closeLfgPost(ctx, id.messageId, actorOf(ctx, interaction), outcome);
+    return noticeView(notice);
+  });
+});
 
 export const lfgHandlers: Handlers = {
   lfg: chatInput(async (ctx, interaction) => {
@@ -107,11 +134,23 @@ export const lfgHandlers: Handlers = {
     await respondToLfg(ctx, interaction.message.id, interaction.user.id, "maybe");
   }),
 
-  "lfg-join": button(async (ctx, interaction) => {
+  "lfg-role": button(async (ctx, interaction) => {
     await noticePrivately(interaction, async () => {
-      const post = await ctx.repos.lfg.get(interaction.message.id);
-      const result = await joinFromLfg(ctx, interaction.message.id, interaction.user.id);
-      return joinedNotice(result, post?.gameName ?? "this game");
+      const { result, gameName } = await toggleRoleFromLfg(
+        ctx,
+        interaction.message.id,
+        interaction.user.id,
+      );
+      return result === "joined"
+        ? `You've joined ${text(gameName)}.`
+        : `You've left ${text(gameName)}.`;
     });
   }),
+
+  "lfg-manage": button(async (ctx, interaction) => {
+    const post = await lfgPostToManage(ctx, interaction.message.id, actorOf(ctx, interaction));
+    await showPrivately(interaction, lfgManageView(post));
+  }),
+  "lfg-finish": closeFromMenu,
+  "lfg-cancel": closeFromMenu,
 };

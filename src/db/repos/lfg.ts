@@ -2,13 +2,15 @@ import { sql } from "kysely";
 
 import type { Kysely } from "kysely";
 import type { DB } from "../kysely-types.ts";
-import type { LfgAnswer, LfgPost } from "../types.ts";
+import type { LfgAnswer, LfgOutcome, LfgPost, NewLfgPost } from "../types.ts";
 
 export type LfgRepo = {
   /** Stores the post and its starting In list together. */
-  add(post: Omit<LfgPost, "maybe">): Promise<void>;
+  add(post: NewLfgPost): Promise<void>;
   get(messageId: string): Promise<LfgPost | undefined>;
   setResponse(messageId: string, userId: string, kind: LfgAnswer | null): Promise<void>;
+  /** Closes an open post; false if there was no open post to close. */
+  close(messageId: string, outcome: LfgOutcome, by: string, at: string): Promise<boolean>;
 };
 
 export function createLfg(kysely: Kysely<DB>): LfgRepo {
@@ -69,6 +71,9 @@ export function createLfg(kysely: Kysely<DB>): LfgRepo {
         when: row.when,
         note: row.note,
         createdAt: row.created_at,
+        status: row.status,
+        closedBy: row.closed_by,
+        closedAt: row.closed_at,
         in: await usersOf(messageId, "in"),
         maybe: await usersOf(messageId, "maybe"),
       };
@@ -106,6 +111,15 @@ export function createLfg(kysely: Kysely<DB>): LfgRepo {
           })
           .execute();
       });
+    },
+    async close(messageId, outcome, by, at) {
+      const result = await kysely
+        .updateTable("lfg_posts")
+        .set({ status: outcome, closed_by: by, closed_at: at })
+        .where("message_id", "=", messageId)
+        .where("status", "=", "open")
+        .executeTakeFirst();
+      return result.numUpdatedRows > 0n;
     },
   };
 }

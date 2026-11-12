@@ -1,11 +1,11 @@
 import { LFG_WHEN_MAX, MESSAGES, NEWS_CHANNEL_NAME, NOTE_MAX } from "../constants.ts";
 import { toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { lfgPostView } from "../views/index.ts";
+import { lfgClosedView, lfgPostView } from "../views/index.ts";
 import { requireGame } from "./lookups.ts";
-import { assertRoleExists, join } from "./membership.ts";
+import { assertRoleExists, join, leave } from "./membership.ts";
 
-import type { LfgAnswer, LfgPost } from "../db/index.ts";
+import type { LfgAnswer, LfgOutcome, LfgPost, NewLfgPost } from "../db/index.ts";
 import type { AppContext } from "./context.ts";
 
 const clean = (value: string | null): string | null => {
@@ -13,13 +13,33 @@ const clean = (value: string | null): string | null => {
   return trimmed === "" ? null : trimmed;
 };
 
+/** Why a click on an LFG post, or on its Manage menu, did nothing. */
+export const LFG_REFUSALS = {
+  gone: "That post is no longer active.",
+  finished: "This post is finished.",
+  cancelled: "This post was cancelled.",
+  gameRemoved: "This game has been removed.",
+  notAllowed: "You don't have permission for this action.",
+} as const;
+
+/** Who clicked, and whether they hold the admin role. */
+export type LfgActor = { userId: string; isAdmin: boolean };
+
+/** The post, if it exists and hasn't been finished or cancelled. */
+async function requireOpenPost(ctx: AppContext, messageId: string): Promise<LfgPost> {
+  const post = await ctx.repos.lfg.get(messageId);
+  if (!post) throw new UserFacingError(LFG_REFUSALS.gone);
+  if (post.status !== "open") throw new UserFacingError(LFG_REFUSALS[post.status]);
+  return post;
+}
+
+/** An open post whose game still exists, for the buttons that act on the game. */
 async function requireActivePost(
   ctx: AppContext,
   messageId: string,
 ): Promise<{ post: LfgPost; gameId: number }> {
-  const post = await ctx.repos.lfg.get(messageId);
-  if (!post) throw new UserFacingError("That post is no longer active.");
-  if (post.gameId === null) throw new UserFacingError("This game has been removed.");
+  const post = await requireOpenPost(ctx, messageId);
+  if (post.gameId === null) throw new UserFacingError(LFG_REFUSALS.gameRemoved);
   return { post, gameId: post.gameId };
 }
 
@@ -82,7 +102,7 @@ export async function createLfgPost(
   const game = await requireGame(ctx, input.gameId);
   await assertRoleExists(ctx, game);
   // The author is going, so they start in the In list; clicking I'm in takes them out.
-  const post: Omit<LfgPost, "maybe"> = {
+  const post: NewLfgPost = {
     messageId: "",
     channelId: input.channelId,
     gameId: game.id,
@@ -93,7 +113,10 @@ export async function createLfgPost(
     createdAt: ctx.now().toISOString(),
     in: [input.authorId],
   };
-  const view = lfgPostView({ ...post, maybe: [] }, game);
+  const view = lfgPostView(
+    { ...post, status: "open", closedBy: null, closedAt: null, maybe: [] },
+    game,
+  );
   const messageId = await ctx.gateway.send(input.channelId, {
     ...view,
     allowedMentions: { roles: [game.roleId], parse: [] },
@@ -131,11 +154,55 @@ export function respondToLfg(
   });
 }
 
-export async function joinFromLfg(
+/** Joins the post's game role, or leaves it if the member already has it. */
+export async function toggleRoleFromLfg(
   ctx: AppContext,
   messageId: string,
   userId: string,
-): Promise<"joined" | "already"> {
-  const { gameId } = await requireActivePost(ctx, messageId);
-  return join(ctx, userId, gameId, "lfg");
+): Promise<{ result: "joined" | "left"; gameName: string }> {
+  const { post, gameId } = await requireActivePost(ctx, messageId);
+  const joined = await join(ctx, userId, gameId, "lfg");
+  if (joined === "joined") return { result: "joined", gameName: post.gameName };
+  await leave(ctx, userId, gameId, "lfg");
+  return { result: "left", gameName: post.gameName };
+}
+
+/** The open post, if `actor` started it or is an admin; only they may finish or cancel it. */
+export async function lfgPostToManage(
+  ctx: AppContext,
+  messageId: string,
+  actor: LfgActor,
+): Promise<LfgPost> {
+  const post = await requireOpenPost(ctx, messageId);
+  if (post.authorId !== actor.userId && !actor.isAdmin) {
+    throw new UserFacingError(LFG_REFUSALS.notAllowed);
+  }
+  return post;
+}
+
+/**
+ * Finishes or cancels a post: it's stored as closed, its message shrinks to one line (plus who
+ * went, when finished) with no buttons, and it's logged. Queued with the post's responses, so a
+ * click landing at the same moment can't redraw the buttons afterwards.
+ */
+export function closeLfgPost(
+  ctx: AppContext,
+  messageId: string,
+  actor: LfgActor,
+  outcome: LfgOutcome,
+): Promise<void> {
+  return serialised(messageId, async () => {
+    const post = await lfgPostToManage(ctx, messageId, actor);
+    if (!(await ctx.repos.lfg.close(messageId, outcome, actor.userId, ctx.now().toISOString()))) {
+      throw new UserFacingError(LFG_REFUSALS.gone);
+    }
+    await ctx.gateway.edit(post.channelId, messageId, lfgClosedView(post, outcome, actor.userId));
+    await ctx.audit.log({
+      kind: "lfg-closed",
+      userId: actor.userId,
+      authorId: post.authorId,
+      game: post.gameName,
+      outcome,
+    });
+  });
 }

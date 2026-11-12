@@ -207,9 +207,11 @@ LFG is an optional, structured way to ask "anyone up for this?": one post pings 
 - **Starting one.** `/lfg`, or "Looking for group" in the menu, posts in the channel it was started from. Started from the panel or #game-roles, it posts in #game-roles. Anywhere else, the member must be able to post in that channel themselves; otherwise the bot refuses, so it never posts for someone in a channel they can't write in (such as #rules or #announcements).
 - **The form.** Game (with autocomplete), an optional "when" (free text such as "tonight 9pm"), an optional note. "When" is shown exactly as typed; the bot doesn't interpret it.
 - **The post** shows who started it, the game, when, the note and the role ping. Below that, two lists: **In** and **Maybe**. Whoever started the post is already in **In**.
-- **Buttons on the post:** I'm in, Maybe, and Join this game's role. Clicking I'm in or Maybe again removes you, and a line under the lists says so. There's no "No" button: not answering means no.
-- **Join this game's role** lets someone who doesn't follow the game sign up from the post itself. It's logged like any other join.
-- **No cooldowns to start. Deferred to later:** whether posts close or expire, and whether a post opens a thread.
+- **Buttons on the post:** I'm in, Maybe, Join / leave role, and Manage. Clicking I'm in or Maybe again removes you, and a line under the lists says so. There's no "No" button: not answering means no.
+- **Join / leave role** lets someone sign up for the game from the post itself, or drop it if they already have it. The private reply says which happened, and it's logged like any other join or leave. The "Join this game's role" button on posts made before this change works the same way.
+- **Manage** opens a private menu with **Finish** and **Cancel post**, for whoever started the post and for admins. Anyone else gets "You don't have permission for this action." The check runs again when Finish or Cancel is clicked.
+- **Closing a post.** The post is edited in place, never deleted, and loses its buttons, ping, when and note. A finished post becomes one line saying who finished it, plus the final In list as a record of who went. A cancelled post is one line saying who cancelled it. Neither edit pings anyone. Closing is logged, and the post stays in the database with who closed it and when. Clicks on a closed post (for example from a Manage menu opened before it closed) say it's finished or cancelled.
+- **No cooldowns to start. Deferred to later:** whether posts expire on their own, and whether a post opens a thread.
 - **Old posts keep working.** If a post's game has since been removed, its buttons say so instead of failing.
 
 ## Admin tools
@@ -234,6 +236,7 @@ Suggestions to review go to #game-roles-admin; everything else, errors included,
 **#game-roles-log: one line per action**
 
 - Members: joined or left a game, and where from (panel, command, LFG post).
+- LFG posts: finished or cancelled, and by whom.
 - Suggestions: submitted, approved, edited, rejected, and by whom.
 - Admins: games added, edited or removed; categories changed; template re-applied.
 - A "bot started" line on every start, so repeated restarts are easy to spot.
@@ -280,7 +283,7 @@ One SQLite file holds what Discord doesn't. Discord stays the source of truth fo
 | Games | Name, category, Discord role ID, aliases, who added or approved it, when |
 | Categories | Name, display order |
 | Suggestions | Who suggested, name, category, note, status (pending, approved, rejected, withdrawn), reviewer, rejection reason, decision date |
-| LFG posts | Message, game, author, when, note, In and Maybe lists |
+| LFG posts | Message, game, author, when, note, In and Maybe lists, status (open, finished, cancelled), who closed it and when |
 | Setup | IDs of the template role, channels and panel message, recorded by setup |
 
 Tokens, the server ID and the admin role ID live in each environment's config, not the database.
@@ -436,7 +439,7 @@ These are the decisions still to make before or during the build.
 **Open questions**
 
 - [x] Name of the panel channel: #manage-game-roles.
-- [ ] LFG: whether posts close or expire, threads, whether the author can edit.
+- [ ] LFG: whether posts expire on their own, threads, whether the author can edit. (Closing is decided: the starter or an admin can finish or cancel a post.)
 - [x] SQLite driver: better-sqlite3, with Drizzle for the schema and migrations and Kysely for queries.
 - [x] Fuzzy matching library: fuse.js.
 - [ ] Time of day for the nightly backup.

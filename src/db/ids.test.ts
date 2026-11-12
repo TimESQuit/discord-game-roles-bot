@@ -104,6 +104,10 @@ test("upgrading from the previous migration keeps every row and foreign key", as
   expect(count("suggestions")).toBe(2);
   expect(count("lfg_posts")).toBe(1);
   expect(count("lfg_responses")).toBe(1);
+  expect(db.sqlite.prepare("SELECT status, closed_by FROM lfg_posts").get()).toEqual({
+    status: "open",
+    closed_by: null,
+  });
   expect(count("setup")).toBe(1);
   expect(db.sqlite.pragma("foreign_key_check")).toEqual([]);
   expect(db.sqlite.pragma("foreign_keys", { simple: true })).toBe(1);

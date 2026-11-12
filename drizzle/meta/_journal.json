@@ -22,6 +22,13 @@
       "when": 1794069437933,
       "tag": "0002_tired_killmonger",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1794454991592,
+      "tag": "0003_large_vengeance",
+      "breakpoints": true
     }
   ]
 }

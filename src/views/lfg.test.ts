@@ -1,8 +1,18 @@
 import { ComponentType, MessageFlags, TextInputStyle } from "discord.js";
-import { expect, test } from "vitest";
+import { describe, expect, test } from "vitest";
 
-import { customIdButtons, findComponents, flagBits, textOf } from "../testing/index.ts";
-import { lfgModal, lfgPostView } from "./lfg.ts";
+import {
+  A1 as ADMIN,
+  U2,
+  U3,
+  buttonKinds,
+  customIdButtons,
+  findComponents,
+  flagBits,
+  parsedIds,
+  textOf,
+} from "../testing/index.ts";
+import { lfgClosedView, lfgManageView, lfgModal, lfgPostView } from "./lfg.ts";
 import { countComponents } from "./limits.ts";
 
 import type { Game, LfgPost } from "../db/index.ts";
@@ -26,6 +36,9 @@ const base: LfgPost = {
   when: null,
   note: null,
   createdAt: "2026-01-15T12:00:00Z",
+  status: "open",
+  closedBy: null,
+  closedAt: null,
   in: [],
   maybe: [],
 };
@@ -83,13 +96,10 @@ test("a very long In list stays under the text display limit", () => {
   expect(all(v)).toContain("In (300):");
 });
 
-test("has the three buttons with fixed IDs", () => {
-  const buttons = customIdButtons(lfgPostView(post(), game));
-  expect(buttons.map((b) => [b.custom_id, b.label])).toEqual([
-    ["gr:lfg-in", "I'm in"],
-    ["gr:lfg-maybe", "Maybe"],
-    ["gr:lfg-join", "Join this game's role"],
-  ]);
+test("has the answer, role and Manage buttons, which fit one row", () => {
+  const v = lfgPostView(post(), game);
+  expect(buttonKinds(v)).toEqual(["lfg-in", "lfg-maybe", "lfg-role", "lfg-manage"]);
+  expect(findComponents(v, ComponentType.ActionRow)).toHaveLength(1);
 });
 
 test("post for a removed game still renders, labelled removed", () => {
@@ -124,4 +134,49 @@ test("worst-case when and note of escapable characters stay under 4000 per text 
   const v = lfgPostView(post({ when: "*".repeat(100), note: "*".repeat(300) }), game);
   for (const t of textParts(v)) expect(t.content.length).toBeLessThanOrEqual(4000);
   expect(all(v)).toContain(`<@&${game.roleId}>`);
+});
+
+describe("lfgClosedView", () => {
+  const closed = post({ in: [base.authorId, U2], maybe: [U3] });
+
+  test.each(["finished", "cancelled"] as const)(
+    "a %s post is public, has no buttons and pings nobody",
+    (outcome) => {
+      const v = lfgClosedView(closed, outcome, ADMIN);
+      expect(flagBits(v) & MessageFlags.IsComponentsV2).toBeTruthy();
+      expect(flagBits(v) & MessageFlags.Ephemeral).toBe(0);
+      expect(customIdButtons(v)).toEqual([]);
+      expect(v.allowedMentions).toEqual({ parse: [] });
+      expect(all(v)).toContain(`<@${ADMIN}>`);
+      expect(all(v)).toContain("Valheim");
+      expect(all(v)).not.toContain("<@&");
+    },
+  );
+
+  test("a finished post keeps who went, and only them", () => {
+    const text = all(lfgClosedView(closed, "finished", ADMIN));
+    expect(text).toContain(`<@${base.authorId}>, <@${U2}>`);
+    expect(text).not.toContain(`<@${U3}>`);
+  });
+
+  test("a cancelled post lists nobody", () => {
+    const text = all(lfgClosedView(closed, "cancelled", ADMIN));
+    expect(text).not.toContain(`<@${base.authorId}>`);
+    expect(text).not.toContain(`<@${U2}>`);
+  });
+
+  test("the game name can't add formatting", () => {
+    const text = all(lfgClosedView(post({ gameName: "**Bold**" }), "cancelled", ADMIN));
+    expect(text).toContain("\\*\\*Bold\\*\\*");
+  });
+});
+
+test("the Manage menu is private and its Finish and Cancel buttons name the post", () => {
+  const v = lfgManageView(post());
+  expect(flagBits(v) & MessageFlags.Ephemeral).toBeTruthy();
+  expect(buttonKinds(v)).toEqual(["lfg-finish", "lfg-cancel", "close"]);
+  expect(parsedIds(v).slice(0, 2)).toEqual([
+    { kind: "lfg-finish", messageId: base.messageId },
+    { kind: "lfg-cancel", messageId: base.messageId },
+  ]);
 });

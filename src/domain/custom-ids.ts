@@ -36,6 +36,9 @@ const int = z
   .regex(/^\d{1,15}$/)
   .transform(Number);
 
+/** A Discord ID (snowflake), such as a message ID: too long for `int`, so it stays a string. */
+const snowflake = z.string().regex(/^\d{17,20}$/);
+
 /** One kind of ID: its name, then its arguments in the order they appear in the string. */
 function id<K extends string, Args extends z.ZodRawShape>(kind: K, args: Args) {
   return z.object({ kind: z.literal(kind), ...args });
@@ -56,7 +59,10 @@ const CustomIdSchema = z.discriminatedUnion("kind", [
   id("lfg-modal", { gameId: int }),
   id("lfg-in", {}),
   id("lfg-maybe", {}),
-  id("lfg-join", {}),
+  id("lfg-role", {}),
+  id("lfg-manage", {}),
+  id("lfg-finish", { messageId: snowflake }),
+  id("lfg-cancel", { messageId: snowflake }),
   id("close", {}),
   id("admin", { action: z.enum(ADMIN_ACTIONS) }),
   id("review-approve", { suggestionId: int }),
@@ -115,9 +121,13 @@ export const ADMIN_KINDS: ReadonlySet<CustomIdKind> = new Set<CustomIdKind>([
 
 /**
  * Kinds that were renamed, so buttons still on screen from an older build keep working after a
- * deploy. Private messages, where these buttons live, last until the person's client reloads.
+ * deploy. Private messages last until the person's client reloads; LFG posts stay for good.
  */
-const RENAMED_KINDS: ReadonlyMap<string, CustomIdKind> = new Map([["cancel", "close"]]);
+const RENAMED_KINDS: ReadonlyMap<string, CustomIdKind> = new Map([
+  ["cancel", "close"],
+  // "Join this game's role" became "Join / leave role".
+  ["lfg-join", "lfg-role"],
+]);
 
 /** "gr:pick:who:3:0" → { kind: "pick", purpose: "who", categoryId: 3, chunk: 0 }, or null if it isn't one of ours. */
 export function parseId(raw: string): CustomId | null {

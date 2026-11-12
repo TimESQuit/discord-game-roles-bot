@@ -184,3 +184,28 @@ test("updatePending only writes while pending; remove deletes the row", async ()
   await r.suggestions.remove(s.id);
   expect(await r.suggestions.get(s.id)).toBeUndefined();
 });
+
+test("an LFG post starts open and closes only once, keeping who closed it and its lists", async () => {
+  const { r, game } = await setup();
+  await r.lfg.add({
+    messageId: M1,
+    channelId: CH,
+    gameId: game.id,
+    gameName: game.name,
+    authorId: U1,
+    when: null,
+    note: null,
+    createdAt: T0,
+    in: [U1],
+  });
+  expect(await r.lfg.get(M1)).toMatchObject({ status: "open", closedBy: null, closedAt: null });
+  expect(await r.lfg.close(M1, "finished", U2, T0)).toBe(true);
+  expect(await r.lfg.close(M1, "cancelled", U3, T0)).toBe(false);
+  expect(await r.lfg.close("999", "finished", U2, T0)).toBe(false);
+  expect(await r.lfg.get(M1)).toMatchObject({
+    status: "finished",
+    closedBy: U2,
+    closedAt: T0,
+    in: [U1],
+  });
+});

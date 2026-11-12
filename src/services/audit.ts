@@ -1,12 +1,13 @@
 import { text } from "../domain/index.ts";
 import { silent } from "../views/index.ts";
 
-import type { Repos } from "../db/index.ts";
+import type { LfgOutcome, Repos } from "../db/index.ts";
 import type { Gateway } from "../discord/index.ts";
 
 export type AuditEvent =
   | { kind: "joined" | "left"; userId: string; game: string; source: Source }
   | { kind: "suggested"; userId: string; name: string }
+  | { kind: "lfg-closed"; userId: string; authorId: string; game: string; outcome: LfgOutcome }
   | {
       kind:
         | "suggestion-approved"
@@ -54,6 +55,10 @@ export function formatAuditLine(e: AuditEvent): string {
       return `${user(e.userId)} joined **${text(e.game)}** (${SOURCE_LABELS[e.source]})`;
     case "left":
       return `${user(e.userId)} left **${text(e.game)}** (${SOURCE_LABELS[e.source]})`;
+    case "lfg-closed": {
+      const whose = e.authorId === e.userId ? "their" : `${user(e.authorId)}'s`;
+      return `${user(e.userId)} ${e.outcome} ${whose} **${text(e.game)}** LFG post`;
+    }
     case "suggested":
       return `${user(e.userId)} suggested **${text(e.name)}**`;
     case "suggestion-approved":

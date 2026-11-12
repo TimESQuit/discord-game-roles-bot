@@ -4,6 +4,8 @@ import { MESSAGES } from "../constants.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   A1,
+  A2,
+  buttonKinds,
   defined,
   lastEdit,
   lastSend,
@@ -14,7 +16,15 @@ import {
   U3,
 } from "../testing/index.ts";
 import { addGame, removeGame } from "./games.ts";
-import { createLfgPost, joinFromLfg, lfgChannel, respondToLfg } from "./lfg.ts";
+import {
+  LFG_REFUSALS,
+  closeLfgPost,
+  createLfgPost,
+  lfgChannel,
+  lfgPostToManage,
+  respondToLfg,
+  toggleRoleFromLfg,
+} from "./lfg.ts";
 
 import type { Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
@@ -199,22 +209,113 @@ describe("respondToLfg", () => {
     const err = await respondToLfg(ctx, "999", U2, "in").catch((e: unknown) => e);
     expect(err).toBeInstanceOf(UserFacingError);
     expect(err).toMatchObject({ message: "That post is no longer active." });
-    await expect(joinFromLfg(ctx, "999", U2)).rejects.toThrow("That post is no longer active.");
+    await expect(toggleRoleFromLfg(ctx, "999", U2)).rejects.toThrow(
+      "That post is no longer active.",
+    );
   });
 });
 
-describe("joinFromLfg", () => {
-  test("joins the role and logs source 'LFG post'", async () => {
+describe("toggleRoleFromLfg", () => {
+  test("joins the role, then leaves it, logging source 'LFG post' each time", async () => {
     ctx.gateway.addMember(U2, []);
-    expect(await joinFromLfg(ctx, id, U2)).toBe("joined");
+    expect(await toggleRoleFromLfg(ctx, id, U2)).toEqual({ result: "joined", gameName: "Valheim" });
     expect(ctx.gateway.memberRoleIds(U2).has(valheim.roleId)).toBe(true);
     expect(ctx.logLines.at(-1)).toContain("(LFG post)");
-    expect(await joinFromLfg(ctx, id, U2)).toBe("already");
+    expect(await toggleRoleFromLfg(ctx, id, U2)).toEqual({ result: "left", gameName: "Valheim" });
+    expect(ctx.gateway.memberRoleIds(U2).has(valheim.roleId)).toBe(false);
+    expect(ctx.logLines.at(-1)).toContain("(LFG post)");
   });
 });
 
 test("buttons on a post whose game was removed answer 'This game has been removed.'", async () => {
   await removeGame(ctx, valheim.id, A1);
   await expect(respondToLfg(ctx, id, U2, "in")).rejects.toThrow("This game has been removed.");
-  await expect(joinFromLfg(ctx, id, U2)).rejects.toThrow("This game has been removed.");
+  await expect(toggleRoleFromLfg(ctx, id, U2)).rejects.toThrow("This game has been removed.");
+});
+
+const starter = { userId: U1, isAdmin: false };
+const admin = { userId: A2, isAdmin: true };
+const someoneElse = { userId: U2, isAdmin: false };
+
+describe("lfgPostToManage", () => {
+  test("the starter and admins may manage the post", async () => {
+    expect((await lfgPostToManage(ctx, id, starter)).messageId).toBe(id);
+    expect((await lfgPostToManage(ctx, id, admin)).messageId).toBe(id);
+  });
+
+  test("anyone else is refused", async () => {
+    await expect(lfgPostToManage(ctx, id, someoneElse)).rejects.toThrow(LFG_REFUSALS.notAllowed);
+  });
+});
+
+describe("closeLfgPost", () => {
+  test("finishing turns the post into a record of who went, without buttons or pings", async () => {
+    await respondToLfg(ctx, id, U2, "in");
+    await respondToLfg(ctx, id, U3, "maybe");
+    await closeLfgPost(ctx, id, starter, "finished");
+    const edit = lastEdit(ctx);
+    expect(edit).toMatchObject({ channelId: CH, messageId: id });
+    expect(buttonKinds(edit.payload)).toEqual([]);
+    expect(edit.payload.allowedMentions).toEqual({ parse: [] });
+    expect(content(edit.payload)).toContain(`<@${U1}>, <@${U2}>`);
+    expect(content(edit.payload)).not.toContain(`<@${U3}>`);
+    expect(await ctx.repos.lfg.get(id)).toMatchObject({
+      status: "finished",
+      closedBy: U1,
+      in: [U1, U2],
+      maybe: [U3],
+    });
+    expect(ctx.logLines.at(-1)).toContain(`<@${U1}> finished`);
+  });
+
+  test("an admin can cancel someone else's post, and it's logged as theirs", async () => {
+    await closeLfgPost(ctx, id, admin, "cancelled");
+    expect(buttonKinds(lastEdit(ctx).payload)).toEqual([]);
+    expect(await ctx.repos.lfg.get(id)).toMatchObject({ status: "cancelled", closedBy: A2 });
+    expect(ctx.logLines.at(-1)).toContain(`<@${A2}> cancelled`);
+  });
+
+  test("anyone else is refused, and the post stays open", async () => {
+    ctx.gateway.calls.length = 0;
+    await expect(closeLfgPost(ctx, id, someoneElse, "cancelled")).rejects.toThrow(
+      LFG_REFUSALS.notAllowed,
+    );
+    expect((await ctx.repos.lfg.get(id))?.status).toBe("open");
+    expect(ctx.gateway.calls.some((c) => c.method === "edit")).toBe(false);
+  });
+
+  test.each([
+    ["finished", LFG_REFUSALS.finished],
+    ["cancelled", LFG_REFUSALS.cancelled],
+  ] as const)("once %s, every button on the post or its menu says so", async (outcome, why) => {
+    await closeLfgPost(ctx, id, starter, outcome);
+    await expect(respondToLfg(ctx, id, U2, "in")).rejects.toThrow(why);
+    await expect(toggleRoleFromLfg(ctx, id, U2)).rejects.toThrow(why);
+    await expect(lfgPostToManage(ctx, id, admin)).rejects.toThrow(why);
+    await expect(closeLfgPost(ctx, id, admin, "finished")).rejects.toThrow(why);
+    expect((await ctx.repos.lfg.get(id))?.closedBy).toBe(U1);
+  });
+
+  test("the starter can still close a post whose game was removed", async () => {
+    await removeGame(ctx, valheim.id, A1);
+    await closeLfgPost(ctx, id, starter, "cancelled");
+    expect((await ctx.repos.lfg.get(id))?.status).toBe("cancelled");
+  });
+
+  test("a response that lands as the post closes can't bring the buttons back", async () => {
+    const originalGet = ctx.repos.games.get.bind(ctx.repos.games);
+    let first = true;
+    vi.spyOn(ctx.repos.games, "get").mockImplementation(async (gameId) => {
+      if (first) {
+        first = false;
+        await new Promise((r) => setTimeout(r, 40));
+      }
+      return originalGet(gameId);
+    });
+    const respond = respondToLfg(ctx, id, U2, "in");
+    await new Promise((r) => setTimeout(r, 10));
+    await Promise.all([respond, closeLfgPost(ctx, id, starter, "finished")]);
+    expect(buttonKinds(lastEdit(ctx).payload)).toEqual([]);
+    expect(content(lastEdit(ctx).payload)).toContain(`<@${U1}>, <@${U2}>`);
+  });
 });

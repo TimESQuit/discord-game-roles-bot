@@ -23,6 +23,7 @@ export {
   defined,
   findComponents,
   flagBits,
+  parsedIds,
   textOf,
 } from "./payloads.ts";
 export type { AnyComponent, ComponentSource } from "./payloads.ts";

@@ -31,7 +31,10 @@ const samples: CustomId[] = [
   { kind: "lfg-modal", gameId: 5 },
   { kind: "lfg-in" },
   { kind: "lfg-maybe" },
-  { kind: "lfg-join" },
+  { kind: "lfg-role" },
+  { kind: "lfg-manage" },
+  { kind: "lfg-finish", messageId: "100000000000000950" },
+  { kind: "lfg-cancel", messageId: "12345678901234567890" },
   { kind: "close" },
   { kind: "admin", action: "review" },
   { kind: "admin", action: "add" },
@@ -74,6 +77,10 @@ describe("custom IDs", () => {
     expect(parseId("gr:cancel:extra")).toBeNull();
   });
 
+  test("a Join this game's role button on a post from before the rename toggles the role", () => {
+    expect(parseId("gr:lfg-join")).toEqual({ kind: "lfg-role" });
+  });
+
   test("foreign or malformed IDs parse to null", () => {
     for (const raw of [
       "other:1",
@@ -89,6 +96,9 @@ describe("custom IDs", () => {
       "gr:pick:what:1:0",
       "gr:category-move:1:sideways",
       "gr:lfg-modal:1:news",
+      "gr:lfg-finish:abc",
+      "gr:lfg-finish:1234",
+      "gr:lfg-cancel:123456789012345678901",
       "gr:panel-open:extra",
       `gr:menu:add${"x".repeat(100)}`,
       `gr:add-page:${"1".repeat(100)}`,

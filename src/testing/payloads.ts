@@ -9,7 +9,7 @@ import type {
   APITextDisplayComponent,
 } from "discord.js";
 import type { Payload } from "../discord/index.ts";
-import type { CustomIdKind } from "../domain/index.ts";
+import type { CustomId, CustomIdKind } from "../domain/index.ts";
 
 /** Any component a message or a modal can hold, as the API sends it. */
 export type AnyComponent = APIMessageComponent | APIModalComponent;
@@ -74,6 +74,11 @@ export function customIdButtons(source: ComponentSource): APIButtonComponentWith
 /** The custom-ID kind of each of the bot's buttons, in order (undefined for an ID it can't parse). */
 export function buttonKinds(source: ComponentSource): (CustomIdKind | undefined)[] {
   return customIdButtons(source).map((b) => parseId(b.custom_id)?.kind);
+}
+
+/** The parsed custom ID of each of the bot's buttons, in order (null for one it can't parse). */
+export function parsedIds(source: ComponentSource): (CustomId | null)[] {
+  return customIdButtons(source).map((b) => parseId(b.custom_id));
 }
 
 /** All text-display content, joined with newlines. */

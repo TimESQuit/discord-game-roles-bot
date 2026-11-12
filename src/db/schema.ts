@@ -16,6 +16,9 @@ export const SUGGESTION_STATUSES = ["pending", "approved", "rejected", "withdraw
 
 export const LFG_ANSWERS = ["in", "maybe"] as const;
 
+/** An LFG post is open until its starter or an admin finishes or cancels it. */
+export const LFG_STATUSES = ["open", "finished", "cancelled"] as const;
+
 /** A SQL list of the values, for CHECK constraints that must match the TypeScript union. */
 const sqlList = (values: readonly string[]) => sql.raw(values.map((v) => `'${v}'`).join(", "));
 
@@ -78,16 +81,23 @@ export const suggestions = sqliteTable(
   ],
 );
 
-export const lfgPosts = sqliteTable("lfg_posts", {
-  messageId: text("message_id").primaryKey(),
-  channelId: text("channel_id").notNull(),
-  gameId: integer("game_id").references(() => games.id, { onDelete: "set null" }),
-  gameName: text("game_name").notNull(),
-  authorId: text("author_id").notNull(),
-  when: text("when"),
-  note: text("note"),
-  createdAt: text("created_at").notNull(),
-});
+export const lfgPosts = sqliteTable(
+  "lfg_posts",
+  {
+    messageId: text("message_id").primaryKey(),
+    channelId: text("channel_id").notNull(),
+    gameId: integer("game_id").references(() => games.id, { onDelete: "set null" }),
+    gameName: text("game_name").notNull(),
+    authorId: text("author_id").notNull(),
+    when: text("when"),
+    note: text("note"),
+    createdAt: text("created_at").notNull(),
+    status: text("status", { enum: LFG_STATUSES }).notNull().default("open"),
+    closedBy: text("closed_by"),
+    closedAt: text("closed_at"),
+  },
+  (t) => [check("lfg_posts_status_check", sql`${t.status} IN (${sqlList(LFG_STATUSES)})`)],
+);
 
 export const lfgResponses = sqliteTable(
   "lfg_responses",

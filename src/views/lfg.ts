@@ -2,10 +2,19 @@ import { ButtonStyle, MessageFlags, ModalBuilder, TextInputStyle } from "discord
 
 import { LFG_WHEN_MAX, NOTE_MAX } from "../constants.ts";
 import { encodeId, text } from "../domain/index.ts";
-import { button, buttonRow, container, display, separator, shownPeople } from "./components.ts";
+import {
+  button,
+  buttonRow,
+  closeButton,
+  container,
+  display,
+  payload,
+  separator,
+  shownPeople,
+} from "./components.ts";
 import { inputLabel, textInput } from "./modals.ts";
 
-import type { Game, LfgPost } from "../db/index.ts";
+import type { Game, LfgOutcome, LfgPost } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 
 /** Field IDs inside the LFG modal (read back with `interaction.fields`). */
@@ -39,12 +48,41 @@ export function lfgPostView(post: LfgPost, game: Game | null): Payload {
         buttonRow(
           button({ kind: "lfg-in" }, "I'm in", ButtonStyle.Success),
           button({ kind: "lfg-maybe" }, "Maybe"),
-          button({ kind: "lfg-join" }, "Join this game's role", ButtonStyle.Primary),
+          button({ kind: "lfg-role" }, "Join / leave role", ButtonStyle.Primary),
+          button({ kind: "lfg-manage" }, "Manage"),
         ),
       ),
     ],
     allowedMentions: game ? { roles: [game.roleId], parse: [] } : { parse: [] },
   };
+}
+
+/**
+ * What an LFG post becomes once it is finished or cancelled: one line, plus who went when it
+ * finished. No buttons, and the mentions never ping.
+ */
+export function lfgClosedView(post: LfgPost, outcome: LfgOutcome, closedBy: string): Payload {
+  const head = `**${text(post.gameName)}** LFG, ${outcome} by <@${closedBy}>`;
+  return payload(
+    [display(outcome === "finished" ? `${head}\n${people("Went", post.in)}` : head)],
+    false,
+  );
+}
+
+/** The private menu the starter or an admin gets from Manage. */
+export function lfgManageView(post: LfgPost): Payload {
+  const { messageId } = post;
+  return payload(
+    [
+      display(`Close the **${text(post.gameName)}** LFG post? Its buttons go away either way.`),
+      buttonRow(
+        button({ kind: "lfg-finish", messageId }, "Finish", ButtonStyle.Success),
+        button({ kind: "lfg-cancel", messageId }, "Cancel post", ButtonStyle.Danger),
+        closeButton(),
+      ),
+    ],
+    true,
+  );
 }
 
 export function lfgModal(gameId: number): ModalBuilder {
