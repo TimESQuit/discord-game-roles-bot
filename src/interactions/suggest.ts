@@ -29,7 +29,7 @@ import {
   updateWith,
 } from "./replies.ts";
 import { button, buttonOrChatInput, chatInput, modal } from "./router.ts";
-import { categoriesById, joinedNotice, modalCategory } from "./shared.ts";
+import { categoriesById, roleNotice, modalCategory } from "./shared.ts";
 
 import type { ButtonInteraction, ChatInputCommandInteraction } from "discord.js";
 import type { Category } from "../db/index.ts";
@@ -159,7 +159,7 @@ export const suggestHandlers: Handlers = {
       const game = await requireGame(ctx, id.gameId);
       const result = await join(ctx, interaction.user.id, game.id, "suggestion");
       draftStore.delete(interaction.user.id);
-      return noticeView(joinedNotice(result, game.name));
+      return noticeView(roleNotice(result, game.name));
     });
   }),
 

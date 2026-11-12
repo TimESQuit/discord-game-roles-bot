@@ -46,9 +46,16 @@ export async function categoriesById(ctx: AppContext): Promise<Map<number, Categ
   return new Map((await ctx.repos.categories.list()).map((c) => [c.id, c]));
 }
 
-/** The reply after a join attempt; `name` is the raw game name. */
-export const joinedNotice = (result: "joined" | "already", name: string): string =>
-  result === "joined" ? `You've joined ${text(name)}.` : `You already have ${text(name)}.`;
+const ROLE_NOTICES = {
+  joined: "You've joined",
+  already: "You already have",
+  left: "You've left",
+  "not-member": "You don't have",
+} as const;
+
+/** The reply after a join or leave attempt; `name` is the raw game name. */
+export const roleNotice = (result: keyof typeof ROLE_NOTICES, name: string): string =>
+  `${ROLE_NOTICES[result]} ${text(name)}.`;
 
 /** Autocomplete choices: the name (cut to fit) shown, the ID sent back. */
 export const choices = (

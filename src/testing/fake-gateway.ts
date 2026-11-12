@@ -126,6 +126,9 @@ export class FakeGateway implements Gateway {
   memberRoleIds(userId: string): ReadonlySet<string> {
     return new Set(this.#members.get(userId) ?? []);
   }
+  async fetchMemberRoleIds(userId: string): Promise<ReadonlySet<string>> {
+    return new Set(this.#members.get(userId) ?? []);
+  }
   roleMemberIds(roleId: string): string[] {
     return [...this.#members].filter(([, roles]) => roles.has(roleId)).map(([id]) => id);
   }

@@ -10,7 +10,7 @@ export {
 } from "./custom-ids.ts";
 export type { AdminAction, CustomId, CustomIdKind, MenuAction, PickPurpose } from "./custom-ids.ts";
 export { diffGameEdit } from "./game-edit.ts";
-export { toggleResponse } from "./lfg.ts";
+export { openLfgPost, toggleResponse } from "./lfg.ts";
 export {
   chunk,
   computeRoleOrder,

@@ -62,6 +62,28 @@ export async function applySelection(
   return { added, removed, missing };
 }
 
+/** Gives the member the game's role and logs it, without checking whether they had it. */
+export async function addRole(
+  ctx: AppContext,
+  userId: string,
+  game: Game,
+  source: Source,
+): Promise<void> {
+  await ctx.gateway.addMemberRole(userId, game.roleId, `Joined ${game.name} via ${source}`);
+  await ctx.audit.log({ kind: "joined", userId, game: game.name, source });
+}
+
+/** Takes the game's role from the member and logs it, without checking whether they had it. */
+export async function removeRole(
+  ctx: AppContext,
+  userId: string,
+  game: Game,
+  source: Source,
+): Promise<void> {
+  await ctx.gateway.removeMemberRole(userId, game.roleId, `Left ${game.name} via ${source}`);
+  await ctx.audit.log({ kind: "left", userId, game: game.name, source });
+}
+
 export async function join(
   ctx: AppContext,
   userId: string,
@@ -71,8 +93,7 @@ export async function join(
   const game = await requireGame(ctx, gameId);
   await assertRoleExists(ctx, game);
   if (ctx.gateway.memberRoleIds(userId).has(game.roleId)) return "already";
-  await ctx.gateway.addMemberRole(userId, game.roleId, `Joined ${game.name} via ${source}`);
-  await ctx.audit.log({ kind: "joined", userId, game: game.name, source });
+  await addRole(ctx, userId, game, source);
   return "joined";
 }
 
@@ -84,8 +105,7 @@ export async function leave(
 ): Promise<"left" | "not-member"> {
   const game = await requireGame(ctx, gameId);
   if (!ctx.gateway.memberRoleIds(userId).has(game.roleId)) return "not-member";
-  await ctx.gateway.removeMemberRole(userId, game.roleId, `Left ${game.name} via ${source}`);
-  await ctx.audit.log({ kind: "left", userId, game: game.name, source });
+  await removeRole(ctx, userId, game, source);
   return "left";
 }
 

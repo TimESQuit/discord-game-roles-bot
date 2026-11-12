@@ -11,6 +11,8 @@ export type LfgRepo = {
   setResponse(messageId: string, userId: string, kind: LfgAnswer | null): Promise<void>;
   /** Closes an open post; false if there was no open post to close. */
   close(messageId: string, outcome: LfgOutcome, by: string, at: string): Promise<boolean>;
+  /** Undoes `close`, for when the closed post couldn't be redrawn. */
+  reopen(messageId: string): Promise<void>;
 };
 
 export function createLfg(kysely: Kysely<DB>): LfgRepo {
@@ -120,6 +122,13 @@ export function createLfg(kysely: Kysely<DB>): LfgRepo {
         .where("status", "=", "open")
         .executeTakeFirst();
       return result.numUpdatedRows > 0n;
+    },
+    async reopen(messageId) {
+      await kysely
+        .updateTable("lfg_posts")
+        .set({ status: "open", closed_by: null, closed_at: null })
+        .where("message_id", "=", messageId)
+        .execute();
     },
   };
 }

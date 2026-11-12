@@ -1,6 +1,6 @@
 import { MESSAGES } from "../constants.ts";
 import { DISCORD_ERROR, isDiscordError } from "../discord/index.ts";
-import { isAdmin, parseId, text } from "../domain/index.ts";
+import { isAdmin, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   autocompleteGames,
@@ -15,7 +15,7 @@ import { LFG_FIELD, lfgManageView, lfgModal, noticeView } from "../views/index.t
 import { parseGameId } from "./parse.ts";
 import { noticePrivately, showPrivately, updateWith } from "./replies.ts";
 import { autocomplete, button, chatInput, memberRoleIds, modal, select } from "./router.ts";
-import { choices, gamePicker, resolvePickedGame } from "./shared.ts";
+import { choices, gamePicker, resolvePickedGame, roleNotice } from "./shared.ts";
 
 import type { BaseInteraction } from "discord.js";
 import type { LfgOutcome } from "../db/index.ts";
@@ -141,9 +141,7 @@ export const lfgHandlers: Handlers = {
         interaction.message.id,
         interaction.user.id,
       );
-      return result === "joined"
-        ? `You've joined ${text(gameName)}.`
-        : `You've left ${text(gameName)}.`;
+      return roleNotice(result, gameName);
     });
   }),
 

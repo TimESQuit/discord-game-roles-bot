@@ -9,7 +9,6 @@ export {
   requireSuggestion,
 } from "./lookups.ts";
 export {
-  LFG_REFUSALS,
   closeLfgPost,
   createLfgPost,
   lfgChannel,

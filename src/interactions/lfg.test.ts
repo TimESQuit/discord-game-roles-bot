@@ -1,7 +1,8 @@
 import { beforeEach, expect, test } from "vitest";
 
 import { encodeId } from "../domain/index.ts";
-import { LFG_REFUSALS, addGame, createLfgPost } from "../services/index.ts";
+import { UserFacingError } from "../errors.ts";
+import { addGame, createLfgPost } from "../services/index.ts";
 import {
   ADMIN_ROLE_ID,
   A1,
@@ -58,7 +59,7 @@ const manage = (calls: Call[], roles: string[] = []) =>
 
 test("Manage refuses someone who neither started the post nor is an admin", async () => {
   const calls: Call[] = [];
-  await expect(manage(calls)).rejects.toThrow(LFG_REFUSALS.notAllowed);
+  await expect(manage(calls)).rejects.toThrow(UserFacingError);
   expect(methods(calls)).toEqual([]);
 });
 
@@ -92,6 +93,6 @@ test("Cancel post from a stranger's stale menu is refused and leaves the post op
       ctx,
       fakeButton(calls, { customId: encodeId({ kind: "lfg-cancel", messageId: postId }) }),
     ),
-  ).rejects.toThrow(LFG_REFUSALS.notAllowed);
+  ).rejects.toThrow(UserFacingError);
   expect((await ctx.repos.lfg.get(postId))?.status).toBe("open");
 });

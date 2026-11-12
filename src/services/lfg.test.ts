@@ -225,6 +225,26 @@ describe("toggleRoleFromLfg", () => {
     expect(ctx.gateway.memberRoleIds(U2).has(valheim.roleId)).toBe(false);
     expect(ctx.logLines.at(-1)).toContain("(LFG post)");
   });
+
+  test("a double-click joins then leaves, even while the member cache lags behind", async () => {
+    ctx.gateway.addMember(U2, []);
+    ctx.gateway.calls.length = 0;
+    vi.spyOn(ctx.gateway, "memberRoleIds").mockReturnValue(new Set());
+    // Discord takes a moment to add the role, so the second click arrives while it's in flight.
+    const originalAdd = ctx.gateway.addMemberRole.bind(ctx.gateway);
+    vi.spyOn(ctx.gateway, "addMemberRole").mockImplementation(async (...args) => {
+      await new Promise((r) => setTimeout(r, 20));
+      return originalAdd(...args);
+    });
+    const results = await Promise.all([
+      toggleRoleFromLfg(ctx, id, U2),
+      toggleRoleFromLfg(ctx, id, U2),
+    ]);
+    expect(results.map((r) => r.result)).toEqual(["joined", "left"]);
+    expect(await ctx.gateway.fetchMemberRoleIds(U2)).not.toContain(valheim.roleId);
+    const roleCalls = ctx.gateway.calls.filter((c) => c.method !== "send");
+    expect(roleCalls.map((c) => c.method)).toEqual(["addMemberRole", "removeMemberRole"]);
+  });
 });
 
 test("buttons on a post whose game was removed answer 'This game has been removed.'", async () => {
@@ -294,6 +314,30 @@ describe("closeLfgPost", () => {
     await expect(lfgPostToManage(ctx, id, admin)).rejects.toThrow(why);
     await expect(closeLfgPost(ctx, id, admin, "finished")).rejects.toThrow(why);
     expect((await ctx.repos.lfg.get(id))?.closedBy).toBe(U1);
+  });
+
+  test("if the post can't be redrawn, it stays open and can be closed again", async () => {
+    ctx.gateway.failNext("edit", new Error("Missing Access"));
+    await expect(closeLfgPost(ctx, id, starter, "finished")).rejects.toThrow("Missing Access");
+    expect(await ctx.repos.lfg.get(id)).toMatchObject({
+      status: "open",
+      closedBy: null,
+      closedAt: null,
+    });
+    await closeLfgPost(ctx, id, starter, "finished");
+    expect((await ctx.repos.lfg.get(id))?.status).toBe("finished");
+    expect(buttonKinds(lastEdit(ctx).payload)).toEqual([]);
+  });
+
+  test("a post closed elsewhere just before this close says how it ended", async () => {
+    const originalClose = ctx.repos.lfg.close.bind(ctx.repos.lfg);
+    vi.spyOn(ctx.repos.lfg, "close").mockImplementation(async (messageId, _outcome, _by, at) => {
+      await originalClose(messageId, "cancelled", A2, at);
+      return false;
+    });
+    await expect(closeLfgPost(ctx, id, starter, "finished")).rejects.toThrow(
+      LFG_REFUSALS.cancelled,
+    );
   });
 
   test("the starter can still close a post whose game was removed", async () => {

@@ -9,7 +9,6 @@ export type {
   LfgAnswer,
   LfgOutcome,
   LfgPost,
-  LfgStatus,
   NewLfgPost,
   SetupKey,
   Suggestion,

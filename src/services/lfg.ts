@@ -1,11 +1,11 @@
 import { LFG_WHEN_MAX, MESSAGES, NEWS_CHANNEL_NAME, NOTE_MAX } from "../constants.ts";
-import { toggleResponse } from "../domain/index.ts";
+import { openLfgPost, toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { lfgClosedView, lfgPostView } from "../views/index.ts";
 import { requireGame } from "./lookups.ts";
-import { assertRoleExists, join, leave } from "./membership.ts";
+import { addRole, assertRoleExists, removeRole } from "./membership.ts";
 
-import type { LfgAnswer, LfgOutcome, LfgPost, NewLfgPost } from "../db/index.ts";
+import type { LfgAnswer, LfgOutcome, LfgPost } from "../db/index.ts";
 import type { AppContext } from "./context.ts";
 
 const clean = (value: string | null): string | null => {
@@ -25,11 +25,14 @@ export const LFG_REFUSALS = {
 /** Who clicked, and whether they hold the admin role. */
 export type LfgActor = { userId: string; isAdmin: boolean };
 
+/** Why a post that isn't open can't be acted on: it's gone, finished or cancelled. */
+const refusalFor = (post: LfgPost | undefined): string =>
+  post && post.status !== "open" ? LFG_REFUSALS[post.status] : LFG_REFUSALS.gone;
+
 /** The post, if it exists and hasn't been finished or cancelled. */
 async function requireOpenPost(ctx: AppContext, messageId: string): Promise<LfgPost> {
   const post = await ctx.repos.lfg.get(messageId);
-  if (!post) throw new UserFacingError(LFG_REFUSALS.gone);
-  if (post.status !== "open") throw new UserFacingError(LFG_REFUSALS[post.status]);
+  if (post?.status !== "open") throw new UserFacingError(refusalFor(post));
   return post;
 }
 
@@ -102,7 +105,7 @@ export async function createLfgPost(
   const game = await requireGame(ctx, input.gameId);
   await assertRoleExists(ctx, game);
   // The author is going, so they start in the In list; clicking I'm in takes them out.
-  const post: NewLfgPost = {
+  const post = openLfgPost({
     messageId: "",
     channelId: input.channelId,
     gameId: game.id,
@@ -112,11 +115,8 @@ export async function createLfgPost(
     note,
     createdAt: ctx.now().toISOString(),
     in: [input.authorId],
-  };
-  const view = lfgPostView(
-    { ...post, status: "open", closedBy: null, closedAt: null, maybe: [] },
-    game,
-  );
+  });
+  const view = lfgPostView(post, game);
   const messageId = await ctx.gateway.send(input.channelId, {
     ...view,
     allowedMentions: { roles: [game.roleId], parse: [] },
@@ -154,17 +154,27 @@ export function respondToLfg(
   });
 }
 
-/** Joins the post's game role, or leaves it if the member already has it. */
-export async function toggleRoleFromLfg(
+/**
+ * Joins the post's game role, or leaves it if the member already has it. Reads the member's roles
+ * from Discord rather than the cache, which lags behind the bot's own role changes, and takes one
+ * click per member at a time, so a double-click joins then leaves instead of joining twice.
+ */
+export function toggleRoleFromLfg(
   ctx: AppContext,
   messageId: string,
   userId: string,
 ): Promise<{ result: "joined" | "left"; gameName: string }> {
-  const { post, gameId } = await requireActivePost(ctx, messageId);
-  const joined = await join(ctx, userId, gameId, "lfg");
-  if (joined === "joined") return { result: "joined", gameName: post.gameName };
-  await leave(ctx, userId, gameId, "lfg");
-  return { result: "left", gameName: post.gameName };
+  return serialised(`role:${userId}`, async () => {
+    const { gameId } = await requireActivePost(ctx, messageId);
+    const game = await requireGame(ctx, gameId);
+    if ((await ctx.gateway.fetchMemberRoleIds(userId)).has(game.roleId)) {
+      await removeRole(ctx, userId, game, "lfg");
+      return { result: "left", gameName: game.name };
+    }
+    await assertRoleExists(ctx, game);
+    await addRole(ctx, userId, game, "lfg");
+    return { result: "joined", gameName: game.name };
+  });
 }
 
 /** The open post, if `actor` started it or is an admin; only they may finish or cancel it. */
@@ -183,7 +193,8 @@ export async function lfgPostToManage(
 /**
  * Finishes or cancels a post: it's stored as closed, its message shrinks to one line (plus who
  * went, when finished) with no buttons, and it's logged. Queued with the post's responses, so a
- * click landing at the same moment can't redraw the buttons afterwards.
+ * click landing at the same moment can't redraw the buttons afterwards. If the message can't be
+ * redrawn, the post is reopened, so its buttons keep working and closing it can be tried again.
  */
 export function closeLfgPost(
   ctx: AppContext,
@@ -194,9 +205,14 @@ export function closeLfgPost(
   return serialised(messageId, async () => {
     const post = await lfgPostToManage(ctx, messageId, actor);
     if (!(await ctx.repos.lfg.close(messageId, outcome, actor.userId, ctx.now().toISOString()))) {
-      throw new UserFacingError(LFG_REFUSALS.gone);
+      throw new UserFacingError(refusalFor(await ctx.repos.lfg.get(messageId)));
     }
-    await ctx.gateway.edit(post.channelId, messageId, lfgClosedView(post, outcome, actor.userId));
+    try {
+      await ctx.gateway.edit(post.channelId, messageId, lfgClosedView(post, outcome, actor.userId));
+    } catch (error) {
+      await ctx.repos.lfg.reopen(messageId);
+      throw error;
+    }
     await ctx.audit.log({
       kind: "lfg-closed",
       userId: actor.userId,

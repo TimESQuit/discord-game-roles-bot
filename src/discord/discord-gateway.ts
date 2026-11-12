@@ -103,6 +103,10 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
       const m = guild().members.cache.get(userId);
       return new Set(m ? m.roles.cache.keys() : []);
     },
+    async fetchMemberRoleIds(userId) {
+      const m = await guild().members.fetch({ user: userId, force: true });
+      return new Set(m.roles.cache.keys());
+    },
     roleMemberIds: (roleId) => [...(guild().roles.cache.get(roleId)?.members.keys() ?? [])],
     async addMemberRole(userId, roleId, reason) {
       await (await guild().members.fetch(userId)).roles.add(roleId, reason);

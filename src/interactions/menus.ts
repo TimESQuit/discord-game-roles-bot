@@ -4,7 +4,7 @@ import { DISCORD_ERROR, isDiscordError } from "../discord/index.ts";
 export const TOKEN_LIFETIME_MS = 15 * 60 * 1000;
 
 /** How long a one-line notice stays up before it closes itself. */
-export const NOTICE_LIFETIME_MS = 20 * 1000;
+export const NOTICE_LIFETIME_MS = 7 * 1000;
 
 /**
  * Deletes one private message through an interaction's webhook. It should hold only that webhook

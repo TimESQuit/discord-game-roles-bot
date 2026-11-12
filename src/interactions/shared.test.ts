@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 
 import { addGame, removeGame } from "../services/index.ts";
 import { A1, defined, makeContext } from "../testing/index.ts";
-import { choices, joinedNotice, resolvePickedGame } from "./shared.ts";
+import { choices, roleNotice, resolvePickedGame } from "./shared.ts";
 
 import type { TestContext } from "../testing/index.ts";
 
@@ -34,9 +34,9 @@ describe("resolvePickedGame", () => {
   });
 });
 
-test("joinedNotice escapes the name", () => {
-  expect(joinedNotice("joined", "*Doom*")).toBe("You've joined \\*Doom\\*.");
-  expect(joinedNotice("already", "Doom")).toBe("You already have Doom.");
+test("roleNotice escapes the name", () => {
+  expect(roleNotice("joined", "*Doom*")).toBe("You've joined \\*Doom\\*.");
+  expect(roleNotice("already", "Doom")).toBe("You already have Doom.");
 });
 
 test("choices cut long names and send the ID", () => {

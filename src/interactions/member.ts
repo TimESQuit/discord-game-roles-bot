@@ -25,7 +25,7 @@ import { closeIfPresent, openMenus } from "./menus.ts";
 import { parseGameId } from "./parse.ts";
 import { noticePrivately, showPrivately, updateWith } from "./replies.ts";
 import { autocomplete, button, chatInput, memberRoleIds, select, userContext } from "./router.ts";
-import { catalog, choices, gamePicker, joinedNotice } from "./shared.ts";
+import { catalog, choices, gamePicker, roleNotice } from "./shared.ts";
 
 import type { ButtonInteraction, ChatInputCommandInteraction } from "discord.js";
 import type { Payload } from "../discord/index.ts";
@@ -88,11 +88,9 @@ async function commandJoinLeave(
   await noticePrivately(interaction, async () => {
     const game = await requireGame(ctx, gameId);
     if (action === "join") {
-      return joinedNotice(await join(ctx, interaction.user.id, gameId, "command"), game.name);
+      return roleNotice(await join(ctx, interaction.user.id, gameId, "command"), game.name);
     }
-    const result = await leave(ctx, interaction.user.id, gameId, "command");
-    const name = text(game.name);
-    return result === "left" ? `You've left ${name}.` : `You don't have ${name}.`;
+    return roleNotice(await leave(ctx, interaction.user.id, gameId, "command"), game.name);
   });
 }
 

@@ -61,6 +61,11 @@ export interface Gateway {
   missingBotPermissions(required: readonly PermissionsString[]): PermissionsString[];
   /** Empty set if the member is not cached. */
   memberRoleIds(userId: string): ReadonlySet<string>;
+  /**
+   * The member's roles as Discord has them now. The cache only catches up when Discord reports a
+   * change, so it can miss a role the bot added or removed a moment ago.
+   */
+  fetchMemberRoleIds(userId: string): Promise<ReadonlySet<string>>;
   roleMemberIds(roleId: string): string[];
   addMemberRole(userId: string, roleId: string, reason: string): Promise<void>;
   removeMemberRole(userId: string, roleId: string, reason: string): Promise<void>;
