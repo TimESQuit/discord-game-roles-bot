@@ -91,26 +91,30 @@ export function formatAuditLine(e: AuditEvent): string {
   }
 }
 
+/** Marks an error report among the routine lines of #game-roles-log. */
+export const ERROR_PREFIX = "⚠️ ";
+
 export interface Audit {
   log(e: AuditEvent): Promise<void>;
-  notifyAdmins(text: string): Promise<void>;
+  /** Posts a problem the bot caught to #game-roles-log, marked so it stands out. */
+  reportError(text: string): Promise<void>;
 }
 
 export function createAudit(repos: Repos, gateway: Gateway): Audit {
-  async function post(key: "logChannelId" | "adminChannelId", content: string): Promise<void> {
+  async function post(content: string): Promise<void> {
     try {
-      const channelId = await repos.setup.get(key);
+      const channelId = await repos.setup.get("logChannelId");
       if (channelId === undefined) {
         console.log(content);
         return;
       }
       await gateway.send(channelId, silent({ content, allowedMentions: { parse: [] } }));
     } catch (error) {
-      console.error(`Could not post to ${key}`, error);
+      console.error("Could not post to logChannelId", error);
     }
   }
   return {
-    log: (e) => post("logChannelId", formatAuditLine(e)),
-    notifyAdmins: (notice) => post("adminChannelId", notice),
+    log: (e) => post(formatAuditLine(e)),
+    reportError: (notice) => post(`${ERROR_PREFIX}${notice}`),
   };
 }

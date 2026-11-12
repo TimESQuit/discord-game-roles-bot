@@ -1,6 +1,6 @@
 import { STARTING_CATEGORIES, TEMPLATE_ROLE_NAME } from "../constants.ts";
 import { openDatabase, createRepos, SETUP_KEYS } from "../db/index.ts";
-import { createAudit } from "../services/index.ts";
+import { createAudit, ERROR_PREFIX } from "../services/index.ts";
 import { FakeGateway } from "./fake-gateway.ts";
 
 import type { Config } from "../config.ts";
@@ -23,7 +23,7 @@ const isChannelKey = (key: SetupKey): key is ChannelKey =>
   key !== "templateRoleId" && key !== "panelMessageId";
 const CHANNEL_KEYS = SETUP_KEYS.filter(isChannelKey);
 
-/** Reads the setup table directly, so it must track src/db/schema.ts. Synchronous read of a setup value, so the `logLines` and `adminNotices` getters stay synchronous. */
+/** Reads the setup table directly, so it must track src/db/schema.ts. Synchronous read of a setup value, so the `logLines` and `errorReports` getters stay synchronous. */
 function setupValue(db: Db, key: SetupKey): string | undefined {
   const row = db.sqlite
     .prepare<[string], { value: string }>("SELECT value FROM setup WHERE key = ?")
@@ -34,8 +34,10 @@ function setupValue(db: Db, key: SetupKey): string | undefined {
 export type TestContext = AppContext & {
   db: Db;
   gateway: FakeGateway;
+  /** Routine lines in #game-roles-log. */
   logLines: string[];
-  adminNotices: string[];
+  /** Error reports in #game-roles-log, without their prefix. */
+  errorReports: string[];
 };
 
 export async function makeContext(
@@ -89,10 +91,12 @@ export async function makeContext(
     audit: createAudit(repos, gateway),
     now: () => new Date(now),
     get logLines() {
-      return messagesIn("logChannelId");
+      return messagesIn("logChannelId").filter((m) => !m.startsWith(ERROR_PREFIX));
     },
-    get adminNotices() {
-      return messagesIn("adminChannelId");
+    get errorReports() {
+      return messagesIn("logChannelId")
+        .filter((m) => m.startsWith(ERROR_PREFIX))
+        .map((m) => m.slice(ERROR_PREFIX.length));
     },
   };
 }

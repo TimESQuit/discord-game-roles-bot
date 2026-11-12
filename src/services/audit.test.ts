@@ -22,14 +22,15 @@ test("log posts to #game-roles-log silently with no mentions allowed", async () 
   expect(sentTo(ctx, "logChannelId")).toHaveLength(1);
 });
 
-test("admin notices go to #game-roles-admin silently", async () => {
+test("error reports go to #game-roles-log silently, apart from the routine lines", async () => {
   const ctx = await makeContext();
-  await ctx.audit.notifyAdmins("hello");
+  await ctx.audit.reportError("hello");
   const { channelId, payload } = lastSend(ctx);
-  expect(channelId).toBe(await ctx.repos.setup.get("adminChannelId"));
+  expect(channelId).toBe(await ctx.repos.setup.get("logChannelId"));
   expect(flagBits(payload) & MessageFlags.SuppressNotifications).toBeTruthy();
-  expect(ctx.adminNotices).toEqual(["hello"]);
+  expect(ctx.errorReports).toEqual(["hello"]);
   expect(ctx.logLines).toEqual([]);
+  expect(sentTo(ctx, "adminChannelId")).toEqual([]);
 });
 
 test("log never throws when Discord fails", async () => {
@@ -45,7 +46,7 @@ test("log never throws when Discord fails", async () => {
 test("falls back to console.log when the channel isn't recorded", async () => {
   const ctx = await makeContext({ setup: false });
   const spy = vi.spyOn(console, "log").mockImplementation(() => {});
-  await createAudit(ctx.repos, ctx.gateway).notifyAdmins("careful");
-  expect(spy).toHaveBeenCalledWith("careful");
+  await createAudit(ctx.repos, ctx.gateway).reportError("careful");
+  expect(spy).toHaveBeenCalledWith(expect.stringContaining("careful"));
   expect(ctx.gateway.calls.filter((c) => c.method === "send")).toEqual([]);
 });

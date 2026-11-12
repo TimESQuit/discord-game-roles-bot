@@ -114,7 +114,7 @@ describe("createLfgPost", () => {
     await expect(createLfgPost(ctx, { ...base, gameId: valheim.id })).rejects.toThrow(
       "That game's role is missing; the admins have been told.",
     );
-    expect(ctx.adminNotices.length).toBeGreaterThan(0);
+    expect(ctx.errorReports.length).toBeGreaterThan(0);
   });
 });
 

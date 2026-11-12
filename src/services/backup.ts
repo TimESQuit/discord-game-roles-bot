@@ -65,7 +65,7 @@ export async function runBackup(
       pruned += 1;
     }
   } catch (error) {
-    await ctx.audit.notifyAdmins(
+    await ctx.audit.reportError(
       `Backup saved, but pruning old backups failed: ${messageOf(error)}`,
     );
   }
@@ -86,7 +86,7 @@ export function scheduleNightlyBackups(ctx: AppContext, db: Db): () => void {
           try {
             await runBackup(ctx, db, null);
           } catch (error) {
-            await ctx.audit.notifyAdmins(`Nightly backup failed: ${messageOf(error)}`);
+            await ctx.audit.reportError(`Nightly backup failed: ${messageOf(error)}`);
           } finally {
             if (!cancelled) arm();
           }

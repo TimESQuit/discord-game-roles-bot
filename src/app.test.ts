@@ -66,7 +66,7 @@ describe("onReady", () => {
     const stop = await onReady(ctx, deps(calls));
     expect(calls).toEqual(["fetch", "register"]);
     expect(ctx.logLines).toEqual([started]);
-    expect(ctx.adminNotices).toEqual([]);
+    expect(ctx.errorReports).toEqual([]);
     stop();
   });
 
@@ -82,7 +82,7 @@ describe("onReady", () => {
       }),
     );
     expect(calls).toEqual(["fetch"]);
-    expect(ctx.adminNotices).toEqual([expect.stringContaining("boom")]);
+    expect(ctx.errorReports).toEqual([expect.stringContaining("boom")]);
     expect(ctx.logLines).toEqual([started]);
     expect(vi.getTimerCount()).toBeGreaterThanOrEqual(1);
     stop();
@@ -90,7 +90,7 @@ describe("onReady", () => {
 
   test("stop cancels the nightly backup", async () => {
     const ctx = await makeContext();
-    vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
+    vi.spyOn(ctx.audit, "reportError").mockResolvedValue();
     const stop = await onReady(ctx, deps([]));
     expect(vi.getTimerCount()).toBeGreaterThanOrEqual(1);
     stop();
@@ -101,7 +101,7 @@ describe("onReady", () => {
 describe("onReady and shutdown", () => {
   test("members-ready callback fires after the member fetch, before registering", async () => {
     const ctx = await makeContext();
-    vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
+    vi.spyOn(ctx.audit, "reportError").mockResolvedValue();
     const calls: string[] = [];
     const stop = await onReady(ctx, {
       ...deps(calls),
@@ -114,7 +114,7 @@ describe("onReady and shutdown", () => {
   test("no timers start when shutdown began during startup", async () => {
     vi.useFakeTimers();
     const ctx = await makeContext();
-    vi.spyOn(ctx.audit, "notifyAdmins").mockResolvedValue();
+    vi.spyOn(ctx.audit, "reportError").mockResolvedValue();
     let stopping = false;
     const gate = Promise.withResolvers<void>();
     const pending = onReady(ctx, {

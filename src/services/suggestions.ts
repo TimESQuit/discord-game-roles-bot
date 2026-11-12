@@ -39,7 +39,7 @@ async function refreshCard(ctx: AppContext, id: number): Promise<void> {
     await ctx.gateway.edit(adminChannelId, s.reviewMessageId, reviewCardView(s, category?.name));
   } catch (error) {
     console.error(`Could not update the review card for suggestion ${id}`, error);
-    await ctx.audit.notifyAdmins(`Could not update the review card for suggestion #${id}.`);
+    await ctx.audit.reportError(`Could not update the review card for suggestion #${id}.`);
   }
 }
 
@@ -81,7 +81,7 @@ export async function submitSuggestion(
   } catch (error) {
     console.error(`Could not post the review card for suggestion ${s.id}`, error);
     await ctx.repos.suggestions.remove(s.id);
-    await ctx.audit.notifyAdmins(
+    await ctx.audit.reportError(
       `Could not post a review card for the suggestion **${text(name)}**. Check the bot's permissions in this channel.`,
     );
     throw new UserFacingError("Couldn't post your suggestion for review. Please try again later.");
@@ -112,7 +112,7 @@ export async function approveSuggestion(
     await ctx.repos.suggestions.setGame(id, game.id);
   } catch (error) {
     console.error(`Could not link suggestion ${id} to game ${game.id}`, error);
-    await ctx.audit.notifyAdmins(`Could not link suggestion #${id} to ${game.name}.`);
+    await ctx.audit.reportError(`Could not link suggestion #${id} to ${game.name}.`);
   }
 
   if (ctx.gateway.memberRoleIds(s.suggesterId).size > 0) {
@@ -120,7 +120,7 @@ export async function approveSuggestion(
       await join(ctx, s.suggesterId, game.id, "suggestion");
     } catch (error) {
       console.error(`Could not add ${s.suggesterId} to ${game.name}`, error);
-      await ctx.audit.notifyAdmins(`Could not add the suggester to ${game.name}.`);
+      await ctx.audit.reportError(`Could not add the suggester to ${game.name}.`);
     }
   }
   try {
@@ -129,7 +129,7 @@ export async function approveSuggestion(
     await ctx.gateway.send(newsChannelId, announcementView(game));
   } catch (error) {
     console.error(`Could not announce ${game.name}`, error);
-    await ctx.audit.notifyAdmins(`Could not announce ${game.name} in the news channel.`);
+    await ctx.audit.reportError(`Could not announce ${game.name} in the news channel.`);
   }
   await refreshCard(ctx, id);
   await ctx.audit.log({ kind: "suggestion-approved", userId: adminId, name: game.name });

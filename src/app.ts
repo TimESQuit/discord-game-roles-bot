@@ -40,14 +40,14 @@ export async function onReady(ctx: AppContext, deps: ReadyDeps): Promise<() => v
     await deps.fetchMembers();
   } catch (error) {
     console.error("Fetching members failed", error);
-    await ctx.audit.notifyAdmins(`Fetching guild members failed: ${messageOf(error)}`);
+    await ctx.audit.reportError(`Fetching guild members failed: ${messageOf(error)}`);
   }
   deps.onMembersReady?.();
   try {
     await deps.registerCommands();
   } catch (error) {
     console.error("Registering commands failed", error);
-    await ctx.audit.notifyAdmins(`Registering commands failed: ${messageOf(error)}`);
+    await ctx.audit.reportError(`Registering commands failed: ${messageOf(error)}`);
   }
   await ctx.audit.log({ kind: "started", version: deps.version });
 

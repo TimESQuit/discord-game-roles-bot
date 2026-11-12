@@ -133,7 +133,7 @@ test("send failure throws; pruning failure only notifies admins", async () => {
   ctx.gateway.failNext("deleteMessage", new Error("nope"));
   const result = await runBackup(ctx, fileDb, null);
   expect(result.pruned).toBe(0);
-  expect(ctx.adminNotices.join("\n")).toContain("nope");
+  expect(ctx.errorReports.join("\n")).toContain("nope");
 });
 
 test("scheduleNightlyBackups runs at the configured hour, reports failures, reschedules, cancels", async () => {
@@ -159,7 +159,7 @@ test("scheduleNightlyBackups runs at the configured hour, reports failures, resc
   ctx.gateway.failNext("send", new Error("disk full"));
   await advance(1);
   expect(backups()).toBe(0);
-  expect(ctx.adminNotices).toContain("Nightly backup failed: disk full");
+  expect(ctx.errorReports).toContain("Nightly backup failed: disk full");
   await advance(24 * 3_600_000);
   expect(backups()).toBe(1);
   cancel();

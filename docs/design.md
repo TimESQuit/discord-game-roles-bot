@@ -79,8 +79,8 @@ Slash commands are registered to each server directly, not globally, so command 
 | --- | --- | --- | --- |
 | #manage-game-roles (the panel channel) | Everyone | Bot only | The single panel message with its button |
 | #game-roles | Everyone | Bot | New-game announcements and LFG posts started from the panel. Members can't post here. |
-| #game-roles-admin | Admins | Bot | Suggestions to review and error notices. Notifications on. |
-| #game-roles-log | Admins | Bot | One line per member or admin action, and a line on every start. Muted. |
+| #game-roles-admin | Admins | Bot | Suggestions to review. Notifications on. |
+| #game-roles-log | Admins | Bot | One line per member or admin action, a line on every start, and errors the bot caught. Muted. |
 | #game-roles-backups | Admins | Bot | Nightly database copies, last 30 days. Muted. |
 
 The three admin channels sit in one admin-only "Game Roles Admin" category, so their permissions are set once on the category.
@@ -221,7 +221,7 @@ Members with the admin role get extra buttons in the same private menu, and matc
 
 ## Logging, backups and monitoring
 
-Things that need attention go to #game-roles-admin; routine records go to the muted #game-roles-log and #game-roles-backups.
+Suggestions to review go to #game-roles-admin; everything else, errors included, is recorded in the muted #game-roles-log and #game-roles-backups.
 
 **#game-roles-log: one line per action**
 
@@ -229,13 +229,13 @@ Things that need attention go to #game-roles-admin; routine records go to the mu
 - Suggestions: submitted, approved, edited, rejected, and by whom.
 - Admins: games added, edited or removed; categories changed; template re-applied.
 - A "bot started" line on every start, so repeated restarts are easy to spot.
-- Clicks that expired before the bot could answer (Discord allows 3 seconds), with how late each one arrived. They aren't errors to act on, so they don't go to #game-roles-admin.
+- Clicks that expired before the bot could answer (Discord allows 3 seconds), with how late each one arrived.
+- Errors the bot caught, marked with ⚠️ so they stand out.
 - Per-action lines let an admin trace what happened when a member says "my role disappeared".
 
 **#game-roles-admin: needs attention**
 
 - Suggestion review cards.
-- Errors the bot caught.
 
 **Backups**
 

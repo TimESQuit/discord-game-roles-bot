@@ -317,7 +317,7 @@ export async function handleInteraction(
         } catch (replyError) {
           console.error("Could not send the error reply", replyError);
         }
-        await ctx.audit.notifyAdmins(
+        await ctx.audit.reportError(
           `Error in ${result.handler}: ${messageOf(error)}`.slice(0, 1500),
         );
       }

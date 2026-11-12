@@ -350,7 +350,7 @@ describe("handleInteraction", () => {
     const b = fake({ type: "button", customId: encodeId({ kind: "cancel" }), deferred: true });
     await handleInteraction(ctx, handlers, b.i);
     expect(b.calls).toEqual([{ method: "followUp", arg: reply("Nope, that is full.") }]);
-    expect(ctx.adminNotices).toEqual([]);
+    expect(ctx.errorReports).toEqual([]);
   });
 
   test("unexpected error gives a generic reply and an admin notice", async () => {
@@ -369,10 +369,10 @@ describe("handleInteraction", () => {
     expect(calls).toEqual([
       { method: "reply", arg: reply("Something went wrong. The admins have been told.") },
     ]);
-    expect(ctx.adminNotices).toHaveLength(1);
-    expect(ctx.adminNotices[0]).toContain("cancel");
-    expect(ctx.adminNotices[0]).toContain("boom secret detail");
-    expect(ctx.adminNotices[0]).not.toContain("router.test.ts");
+    expect(ctx.errorReports).toHaveLength(1);
+    expect(ctx.errorReports[0]).toContain("cancel");
+    expect(ctx.errorReports[0]).toContain("boom secret detail");
+    expect(ctx.errorReports[0]).not.toContain("router.test.ts");
   });
 
   test("autocomplete errors respond with no choices and notify no one", async () => {
@@ -389,7 +389,7 @@ describe("handleInteraction", () => {
       i,
     );
     expect(calls).toEqual([{ method: "respond", arg: [] }]);
-    expect(ctx.adminNotices).toEqual([]);
+    expect(ctx.errorReports).toEqual([]);
   });
 
   test("select and modal paths reach their handlers", async () => {
@@ -411,7 +411,7 @@ describe("handleInteraction", () => {
     const ctx = await makeContext({ setup: true });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const log: string[] = [];
-    vi.spyOn(ctx.audit, "notifyAdmins").mockImplementation(async (text) => {
+    vi.spyOn(ctx.audit, "reportError").mockImplementation(async (text) => {
       log.push(`notify:${text.length}`);
     });
     const { i } = fake({ type: "button", customId: encodeId({ kind: "cancel" }), log });
@@ -431,7 +431,7 @@ describe("handleInteraction", () => {
   test("an expired interaction is logged with its timing, not sent to the admins", async () => {
     const ctx = await makeContext({ setup: true });
     const log = vi.spyOn(ctx.audit, "log");
-    const notify = vi.spyOn(ctx.audit, "notifyAdmins");
+    const notify = vi.spyOn(ctx.audit, "reportError");
     const { i, calls } = fake({
       type: "button",
       customId: encodeId({ kind: "cancel" }),
@@ -501,8 +501,8 @@ describe("handleInteraction", () => {
       },
       i,
     );
-    expect(ctx.adminNotices).toHaveLength(1);
-    expect(ctx.adminNotices[0]).toContain("boom");
+    expect(ctx.errorReports).toHaveLength(1);
+    expect(ctx.errorReports[0]).toContain("boom");
   });
 
   test("a failing error reply does not throw", async () => {

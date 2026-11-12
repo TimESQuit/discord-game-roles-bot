@@ -76,7 +76,7 @@ describe("submit failures", () => {
     );
     expect(await ctx.repos.suggestions.countPending(U1)).toBe(0);
     expect(await ctx.repos.suggestions.listPending()).toEqual([]);
-    expect(ctx.adminNotices.length).toBeGreaterThan(0);
+    expect(ctx.errorReports.length).toBeGreaterThan(0);
   });
 });
 
@@ -200,7 +200,7 @@ describe("approve", () => {
     await approveSuggestion(ctx, s.id, A1);
     expect((await ctx.repos.suggestions.get(s.id))?.status).toBe("approved");
     expect(await ctx.repos.games.list()).toHaveLength(1);
-    expect(ctx.adminNotices.some((n) => n.includes("Could not announce Valheim"))).toBe(true);
+    expect(ctx.errorReports.some((n) => n.includes("Could not announce Valheim"))).toBe(true);
   });
 });
 

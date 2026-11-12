@@ -10,7 +10,7 @@ import type { AppContext } from "./context.ts";
 /** Tells the admins a game's role is gone and stops the member's request. */
 export async function assertRoleExists(ctx: AppContext, game: Game): Promise<void> {
   if (ctx.gateway.role(game.roleId)) return;
-  await ctx.audit.notifyAdmins(
+  await ctx.audit.reportError(
     `The role for ${game.name} is missing in Discord. Remove the game or recreate it.`,
   );
   throw new UserFacingError(MESSAGES.gameRoleMissing);
@@ -55,7 +55,7 @@ export async function applySelection(
     await ctx.audit.log({ kind: "left", userId, game: game.name, source });
   }
   if (missing.length > 0) {
-    await ctx.audit.notifyAdmins(
+    await ctx.audit.reportError(
       `These games' roles are missing in Discord: ${missing.map((g) => g.name).join(", ")}. Remove the games or recreate them.`,
     );
   }

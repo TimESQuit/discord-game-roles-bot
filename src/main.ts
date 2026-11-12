@@ -46,7 +46,7 @@ let membersReady = false;
 
 const report = createErrorReporter(() => {
   const audit = ctx?.audit;
-  return audit ? (text) => audit.notifyAdmins(text) : undefined;
+  return audit ? (text) => audit.reportError(text) : undefined;
 });
 const shutdown = createShutdown({
   stopTimers: () => stopTimers,

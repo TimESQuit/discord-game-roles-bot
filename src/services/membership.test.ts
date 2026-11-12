@@ -92,7 +92,7 @@ describe("applySelection", () => {
     );
     expect(names(r.missing)).toEqual(["Valheim"]);
     expect(names(r.added)).toEqual(["Minecraft"]);
-    expect(ctx.adminNotices).toEqual([
+    expect(ctx.errorReports).toEqual([
       "These games' roles are missing in Discord: Valheim. Remove the games or recreate them.",
     ]);
   });
@@ -131,7 +131,7 @@ describe("join and leave", () => {
     await expect(join(ctx, U1, valheim.id, "panel")).rejects.toThrow(
       "That game's role is missing; the admins have been told.",
     );
-    expect(ctx.adminNotices.some((n) => n.includes("Valheim"))).toBe(true);
+    expect(ctx.errorReports.some((n) => n.includes("Valheim"))).toBe(true);
     expect(ctx.logLines).toEqual([]);
   });
 });
