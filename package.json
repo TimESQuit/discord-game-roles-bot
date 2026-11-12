@@ -16,22 +16,22 @@
     "start": "node src/main.ts"
   },
   "dependencies": {
-    "better-sqlite3": "13.0.3",
-    "discord.js": "14.28.1",
-    "drizzle-orm": "0.45.4",
-    "fuse.js": "7.5.0",
-    "kysely": "0.29.8",
+    "better-sqlite3": "^13.0.3",
+    "discord.js": "^14.28.1",
+    "drizzle-orm": "~0.45.4",
+    "fuse.js": "^7.5.0",
+    "kysely": "~0.29.8",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "9.6.0",
-    "@types/node": "26.6.6",
-    "drizzle-kit": "0.31.11",
-    "oxfmt": "0.77.0",
-    "oxlint": "1.92.0",
-    "oxlint-tsgolint": "7.0.2006",
-    "typescript": "7.0.2",
-    "vitest": "5.1.0"
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "drizzle-kit": "~0.31.11",
+    "oxfmt": "~0.77.0",
+    "oxlint": "^1.92.0",
+    "oxlint-tsgolint": "^7.0.2006",
+    "typescript": "~7.0.2",
+    "vitest": "^5.1.0"
   },
   "engines": {
     "node": ">=26"
