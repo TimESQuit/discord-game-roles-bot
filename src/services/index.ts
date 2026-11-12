@@ -8,7 +8,7 @@ export {
   requirePendingSuggestion,
   requireSuggestion,
 } from "./lookups.ts";
-export { createLfgPost, joinFromLfg, respondToLfg } from "./lfg.ts";
+export { createLfgPost, joinFromLfg, lfgChannel, respondToLfg } from "./lfg.ts";
 export {
   applySelection,
   autocompleteGames,

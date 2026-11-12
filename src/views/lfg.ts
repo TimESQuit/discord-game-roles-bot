@@ -7,7 +7,6 @@ import { inputLabel, textInput } from "./modals.ts";
 
 import type { Game, LfgPost } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
-import type { LfgTarget } from "../domain/index.ts";
 
 /** Field IDs inside the LFG modal (read back with `interaction.fields`). */
 export const LFG_FIELD = { when: "when", note: "note" } as const;
@@ -48,9 +47,9 @@ export function lfgPostView(post: LfgPost, game: Game | null): Payload {
   };
 }
 
-export function lfgModal(gameId: number, target: LfgTarget): ModalBuilder {
+export function lfgModal(gameId: number): ModalBuilder {
   return new ModalBuilder()
-    .setCustomId(encodeId({ kind: "lfg-modal", gameId, target }))
+    .setCustomId(encodeId({ kind: "lfg-modal", gameId }))
     .setTitle("Looking for group")
     .addLabelComponents(
       inputLabel(

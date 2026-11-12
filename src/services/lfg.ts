@@ -1,4 +1,4 @@
-import { LFG_WHEN_MAX, NOTE_MAX } from "../constants.ts";
+import { LFG_WHEN_MAX, MESSAGES, NEWS_CHANNEL_NAME, NOTE_MAX } from "../constants.ts";
 import { toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { lfgPostView } from "../views/index.ts";
@@ -33,6 +33,32 @@ function serialised<T>(key: string, task: () => Promise<T>): Promise<T> {
     if (chains.get(key) === tail) chains.delete(key);
   });
   return run;
+}
+
+/**
+ * Where an LFG post goes. Started from the panel or #game-roles (where members can't post), it
+ * goes to #game-roles; anywhere else, it goes where it was started, but only if the member could
+ * post there themselves, so the bot never posts for them in a channel they can't write in.
+ */
+export async function lfgChannel(
+  ctx: AppContext,
+  from: { channelId: string | null; memberCanSend: boolean },
+): Promise<string> {
+  const { panelChannelId, newsChannelId } = await ctx.repos.setup.all();
+  if (
+    from.channelId === null ||
+    from.channelId === panelChannelId ||
+    from.channelId === newsChannelId
+  ) {
+    if (newsChannelId === undefined) throw new UserFacingError(MESSAGES.setupFirst);
+    return newsChannelId;
+  }
+  if (!from.memberCanSend) {
+    throw new UserFacingError(
+      `You can't post in this channel, so I won't post there for you. Run /lfg in a channel you can post in, or use the panel to post in #${NEWS_CHANNEL_NAME}.`,
+    );
+  }
+  return from.channelId;
 }
 
 export async function createLfgPost(

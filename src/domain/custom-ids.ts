@@ -25,12 +25,10 @@ export const ADMIN_ACTIONS = [
 /** Purposes whose pickers are for admins only. */
 export const ADMIN_PURPOSES = ["edit", "remove"] as const;
 export const PURPOSES = ["who", "lfg", ...ADMIN_PURPOSES] as const;
-export const LFG_TARGETS = ["news", "here"] as const;
 
 export type MenuAction = (typeof MENU_ACTIONS)[number];
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
 export type PickPurpose = (typeof PURPOSES)[number];
-export type LfgTarget = (typeof LFG_TARGETS)[number];
 
 /** A numeric segment of the string: digits only, at most 15 so it stays an exact integer. */
 const int = z
@@ -55,7 +53,7 @@ const CustomIdSchema = z.discriminatedUnion("kind", [
   id("dup-submit", {}),
   id("dup-join", { gameId: int }),
   id("withdraw", { suggestionId: int }),
-  id("lfg-modal", { gameId: int, target: z.enum(LFG_TARGETS) }),
+  id("lfg-modal", { gameId: int }),
   id("lfg-in", {}),
   id("lfg-maybe", {}),
   id("lfg-join", {}),

@@ -49,8 +49,8 @@ Everything below has been agreed; open questions are collected in the last secti
 | Admin tools | Extra buttons in the same menu, plus `/gameadmin` commands |
 | Slash commands | Every member and admin action also exists as a command |
 | Right-click options | "See their games" and "Games in common" |
-| LFG | Included in v1, with no cooldowns; channel limits decided later |
-| Public posts | New-game announcements and panel LFG posts go to #game-roles |
+| LFG | Included in v1, with no cooldowns; posts only where the member could post themselves |
+| Public posts | New-game announcements, and LFG posts started from the panel, go to #game-roles |
 | Admin channels | #game-roles-admin, #game-roles-log and #game-roles-backups in an admin-only category |
 | Member log | One line per action, so admins can help members who get stuck |
 | Backups | Nightly database copy to #game-roles-backups, last 30 days kept |
@@ -116,7 +116,7 @@ Manage Channels is only needed for setup, repair and uninstalling.
 - If a deletion fails, it stops and says why, without touching the bot's data; running it again finishes the job.
 - Once everything is deleted, it attaches a backup of the database to the private report, then wipes the data. Kept roles and channels become ordinary ones the bot no longer manages; setup afterwards starts fresh and creates new ones.
 - If chosen, the bot then removes its slash commands and leaves the server, which also deletes its own role. Its container should then be stopped.
-- LFG posts made with `/lfg` in other channels stay behind, with buttons that no longer work.
+- LFG posts made outside #game-roles stay behind, with buttons that no longer work.
 
 ## Roles
 
@@ -147,14 +147,14 @@ The admin band appears only for members with the admin role; everyone else sees 
 - **My games.** The person's current games, with a shortcut to change them.
 - **Who plays…?** Pick a game, see who has it. The answer is private.
 - **My suggestions.** Each suggestion's status: pending, approved or rejected (with the reason). Pending ones have a Withdraw button. This replaces notifications, since the bot never DMs.
-- **Looking for group.** Opens the LFG form; the post goes to #game-roles.
+- **Looking for group.** Opens the LFG form. The post goes in the channel the menu was opened from, or #game-roles when opened from the panel.
 - **Admin buttons** appear only for the admin role. Covered under Admin tools.
 
 **Slash commands**
 
 - `/games` opens the same menu.
 - `/games add`, `/games remove`, `/games suggest`, `/games mine`, `/games who`, `/games suggestions`
-- `/lfg` posts in the channel it's typed in.
+- `/lfg` posts in the channel it's typed in (#game-roles when typed in the panel channel).
 - `/gameadmin …` for admins only (see Admin tools).
 
 **Finding a game by typing (autocomplete)**
@@ -195,12 +195,12 @@ A close match only prompts the member; it never blocks a suggestion.
 
 LFG is an optional, structured way to ask "anyone up for this?": one post pings the game's role, then members respond with a click and the post keeps a live headcount. Plain `@game` posts still work for everything else.
 
-- **Starting one.** `/lfg` posts in the channel it's typed in. The panel's "Looking for group" button posts in #game-roles.
+- **Starting one.** `/lfg`, or "Looking for group" in the menu, posts in the channel it was started from. Started from the panel or #game-roles, it posts in #game-roles. Anywhere else, the member must be able to post in that channel themselves; otherwise the bot refuses, so it never posts for someone in a channel they can't write in (such as #rules or #announcements).
 - **The form.** Game (with autocomplete), an optional "when" (free text such as "tonight 9pm"), an optional note. "When" is shown exactly as typed; the bot doesn't interpret it.
 - **The post** shows who started it, the game, when, the note and the role ping. Below that, two lists: **In** and **Maybe**. Whoever started the post is already in **In**.
 - **Buttons on the post:** I'm in, Maybe, and Join this game's role. Clicking I'm in or Maybe again removes you, and a line under the lists says so. There's no "No" button: not answering means no.
 - **Join this game's role** lets someone who doesn't follow the game sign up from the post itself. It's logged like any other join.
-- **No cooldowns to start. Deferred to later:** which channels allow `/lfg`, whether posts close or expire, and whether a post opens a thread.
+- **No cooldowns to start. Deferred to later:** whether posts close or expire, and whether a post opens a thread.
 - **Old posts keep working.** If a post's game has since been removed, its buttons say so instead of failing.
 
 ## Admin tools
@@ -432,7 +432,7 @@ These are the decisions still to make before or during the build.
 **Open questions**
 
 - [x] Name of the panel channel: #manage-game-roles.
-- [ ] LFG: which channels allow `/lfg`, whether posts close or expire, threads, whether the author can edit.
+- [ ] LFG: whether posts close or expire, threads, whether the author can edit.
 - [x] SQLite driver: better-sqlite3, with Drizzle for the schema and migrations and Kysely for queries.
 - [x] Fuzzy matching library: fuse.js.
 - [ ] Time of day for the nightly backup.

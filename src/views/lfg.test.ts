@@ -101,8 +101,7 @@ test("post for a removed game still renders, labelled removed", () => {
 });
 
 test("lfgModal has optional when (max 100) and note (max 300)", () => {
-  const json = lfgModal(7, "news").toJSON();
-  expect(json.custom_id).toBe("gr:lfg-modal:7:news");
+  const json = lfgModal(7).toJSON();
   expect(JSON.stringify(json)).toContain("tonight 9pm");
   const inputs = findComponents(json.components, ComponentType.TextInput);
   expect(inputs.map((i) => [i.required, i.max_length])).toEqual([
@@ -111,7 +110,6 @@ test("lfgModal has optional when (max 100) and note (max 300)", () => {
   ]);
   expect(inputs[0]?.style).toBe(TextInputStyle.Short);
   expect(inputs[1]?.style).toBe(TextInputStyle.Paragraph);
-  expect(lfgModal(7, "here").toJSON().custom_id).toBe("gr:lfg-modal:7:here");
 });
 
 test("300 responders show exactly 50 mentions, an overflow line and the full count", () => {

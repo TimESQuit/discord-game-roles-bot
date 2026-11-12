@@ -28,6 +28,8 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 ## LFG
 
 - [ ] Both: start an LFG post from the panel; it appears in `#game-roles` with you already under In.
+- [ ] Member: `/games menu` in a normal channel, then Looking for group: the post appears in that channel.
+- [ ] Member: `/lfg` (or `/games menu` → Looking for group) in a channel members can't post in, such as #rules: the bot refuses privately and posts nothing.
 - [ ] The "Click your answer again to remove it." line shows as small grey text under the lists.
 - [ ] The LFG role mention inside the newer layout actually pings the role, and editing the post does not ping again.
 
@@ -53,6 +55,7 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 - [ ] A game's role deleted by hand: menus still render; joining replies "That game's role is missing; the admins have been told."; `#game-roles-admin` gets a notice; Remove game still deletes the row.
 - [ ] A category with 0 games, one with more than 25, a menu over 40 components, and a stale dropdown submitted after a game was removed: no select is sent with 0 options, categories chunk and page, unknown selections are ignored.
 - [ ] User text with mentions (`@everyone`, `<@&id>`) in game names, notes, LFG "when" and rejection reasons never pings anyone.
+- [ ] A masked link (`[Claim](https://example.com)`) or a `# heading` in an LFG note or a suggestion shows as plain text, not a link or a heading.
 - [ ] Bot loses Manage Roles, or its role is dragged below the template: role actions reply with the exact fix ("Move the bot's role above Game role template in Server Settings → Roles") instead of "This interaction failed".
 - [ ] Quickly ticking then unticking the same game in one dropdown within a moment may be a no-op (member cache lag); re-open the menu to confirm.
 

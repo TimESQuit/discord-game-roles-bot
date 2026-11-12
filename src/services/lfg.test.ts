@@ -13,7 +13,7 @@ import {
   U3,
 } from "../testing/index.ts";
 import { addGame, removeGame } from "./games.ts";
-import { createLfgPost, joinFromLfg, respondToLfg } from "./lfg.ts";
+import { createLfgPost, joinFromLfg, lfgChannel, respondToLfg } from "./lfg.ts";
 
 import type { Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
@@ -45,6 +45,8 @@ beforeEach(async () => {
 });
 
 const content = textOf;
+const news = async () => defined(await ctx.repos.setup.get("newsChannelId"));
+const panel = async () => defined(await ctx.repos.setup.get("panelChannelId"));
 
 describe("createLfgPost", () => {
   test("pings only the game role and stores the post", async () => {
@@ -113,6 +115,28 @@ describe("createLfgPost", () => {
       "That game's role is missing; the admins have been told.",
     );
     expect(ctx.adminNotices.length).toBeGreaterThan(0);
+  });
+});
+
+describe("lfgChannel", () => {
+  test("started from the panel or #game-roles, the post goes to #game-roles", async () => {
+    // Members can't send in either channel; that doesn't matter here.
+    expect(await lfgChannel(ctx, { channelId: await panel(), memberCanSend: false })).toBe(
+      await news(),
+    );
+    expect(await lfgChannel(ctx, { channelId: await news(), memberCanSend: false })).toBe(
+      await news(),
+    );
+  });
+
+  test("started anywhere else, the post goes where it was started", async () => {
+    expect(await lfgChannel(ctx, { channelId: CH, memberCanSend: true })).toBe(CH);
+  });
+
+  test("refuses a channel the member can't post in", async () => {
+    await expect(lfgChannel(ctx, { channelId: CH, memberCanSend: false })).rejects.toBeInstanceOf(
+      UserFacingError,
+    );
   });
 });
 
