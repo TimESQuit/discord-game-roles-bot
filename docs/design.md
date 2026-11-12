@@ -55,7 +55,7 @@ Everything below has been agreed; open questions are collected in the last secti
 | Member log | One line per action, so admins can help members who get stuck |
 | Backups | Nightly database copy to #game-roles-backups, last 30 days kept |
 | Monitoring | No external uptime service; Docker restarts the bot and a "bot started" notice shows each restart |
-| Migration | One-off script kept out of the repo; new roles replace the old ones; Reaction Roles removed |
+| Switching over | No migration: the few old roles still in use are deleted by hand and members pick their games again; Reaction Roles removed |
 | Repository | Public on GitHub, with secret scanning and push protection on |
 | Setup | /gameadmin setup creates the template role, channels and panel, and records their IDs in the database |
 
@@ -93,7 +93,7 @@ Each bot needs three steps by hand; after that, `/gameadmin setup` builds the re
 
 1. In the Discord Developer Portal, create the application. Turn off "Public Bot" and turn on "Server Members". Put the token, application ID, server ID and admin role ID in that environment's env file.
 2. Invite the bot with a link that grants: Manage Roles, Manage Channels, View Channels, Send Messages, Embed Links, Attach Files, Read Message History, Create Public Threads, Add Reactions.
-3. In Server Settings → Roles, drag the bot's role high enough for the game roles to go below it. On production it must also be above every old game role, for the migration.
+3. In Server Settings → Roles, drag the bot's role high enough for the game roles to go below it.
 
 **`/gameadmin setup`** (admin role only)
 
@@ -127,7 +127,8 @@ The bot creates every game role by copying one template role, and it only ever c
 - **One color for all game roles.** If members' main role has a color, that color still shows on names. The game color shows on role tags and @mentions.
 - **Mentionable.** On by default (from the template), so direct `@Valheim` posts keep working.
 - **Order.** Admins place the template below the members' main role and below the bot's own role. The bot keeps game roles directly below the template, sorted alphabetically, and re-sorts after each add or rename.
-- **Safety rule.** The bot adds, removes and deletes only roles in its games table. The separate migration script is the only thing that deletes other roles.
+- **Safety rule.** The bot adds, removes and deletes only roles in its games table.
+- **Names.** A game can't share its name (ignoring case and punctuation) with another game, an alias, or any other role in the server. Members give themselves game roles, so one mustn't pass for a staff role like Moderator.
 - **Removing a game** deletes its Discord role, after an admin confirms. Everyone who had it loses it.
 - **Bot permission.** The bot needs "Manage Roles", and its own role must sit above the template.
 
@@ -249,21 +250,15 @@ Things that need attention go to #game-roles-admin; routine records go to the mu
 - **Lost connection to Discord:** discord.js reconnects on its own.
 - **Stuck or droplet down:** nothing alerts. The bot shows as offline in the member list, and an admin restarts it when they notice. For a single server, live down alerts aren't worth the setup of an external service.
 
-## Migration from Reaction Roles
+## Switching from Reaction Roles
 
-A one-off script, kept out of the repo, moves members from the old roles to new bot-owned roles, with two confirmations before anything is deleted. Rehearse it on the test server first, with copies of the old roles.
+There's no migration script. Few of the old Reaction Roles roles are still in use, so they're deleted and members pick their games again from the panel.
 
-1. **Prepare.** Run the bot's setup on production (see Bot setup). The bot's role must sit above every old role, or the old roles can't be deleted.
-2. **Create the new games** through the bot with Add game, so the bot creates their roles from the template and tracks them.
-3. **Map.** In a mapping file kept only where the script runs, list each old role and the new game role it becomes, or "drop". It is never committed.
-4. **Dry run.** The script prints the plan: members to copy into each new role, old roles to delete, and anyone who will lose a dropped role. It warns if any old role still has channel permissions attached.
-5. **First confirmation.** The script copies members from each mapped old role into its new role. Discord rate-limits role changes, so this can take a little while.
-6. **Verify.** The script prints old and new member counts side by side; spot-check in Discord.
-7. **Second confirmation.** The script deletes the old roles, mapped and dropped.
-8. **Clean up.** Remove the Reaction Roles bot and its reaction message. Delete the script and mapping file from wherever they ran.
-9. **Go live.** Post the panel message and announce the new setup.
-
-**Where the script runs.** Rehearse it from your computer against the test server, using the dev bot's token. For production, copy the script and mapping onto the droplet and run it once in a throwaway container with the prod env file, so the prod token never leaves the droplet. The script calls Discord's API directly instead of connecting as a live bot, so it doesn't interfere with the running bot. Its actions don't appear in #game-roles-log; its terminal output is the record.
+1. **Prepare.** Run the bot's setup on production (see Bot setup).
+2. **Delete the old game roles** by hand in Server Settings → Roles. Do this before adding games: a game can't share its name with another role.
+3. **Create the games** through the bot with Add game, so the bot creates their roles from the template and tracks them.
+4. **Clean up.** Remove the Reaction Roles bot and its reaction message.
+5. **Go live.** Post the panel message and announce the new setup, asking members to pick their games again.
 
 While it runs, members shouldn't use the old reaction message, so announce a short pause beforehand.
 
@@ -351,7 +346,7 @@ The repo is public, but no secret ever enters it or GitHub. GitHub stores only w
 
 **In the repo:** the code, tests, Dockerfile, compose file, deploy workflow, an example env file with placeholder values, a license, and a README. The README says the bot is built for one server and explains how to run your own copy.
 
-**Never in the repo:** the env file, the migration script and its mapping file, bot tokens, the database and backups, the droplet's address, and server, channel or role IDs. Member names and the server's name also stay out; they live in config or the database.
+**Never in the repo:** the env file, bot tokens, the database and backups, the droplet's address, and server, channel or role IDs. Member names and the server's name also stay out; they live in config or the database.
 
 **Stored in GitHub** (repository secrets; no per-environment secrets needed, since only production deploys):
 
@@ -405,7 +400,7 @@ None of these limits block the design at this size; each is handled as follows.
 | Private (ephemeral) replies | Only in reply to an action | No DMs; "My suggestions" replaces notifications |
 | Right-click commands | 5 per type | Uses 2 of the 5 member commands |
 | Bot role position | Must be above roles it manages | The template sits below the bot's role |
-| Rate limits | Role changes are throttled | discord.js queues requests; mostly matters during migration |
+| Rate limits | Role changes are throttled | discord.js queues requests |
 
 ## Testing
 

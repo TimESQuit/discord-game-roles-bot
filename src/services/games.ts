@@ -38,7 +38,8 @@ async function checkCollisions(
   selfId?: number,
 ): Promise<void> {
   const normalizedName = normalize(name);
-  const others = (await ctx.repos.games.list()).filter((g) => g.id !== selfId);
+  const games = await ctx.repos.games.list();
+  const others = games.filter((g) => g.id !== selfId);
   for (const g of others) {
     if (normalize(g.name) === normalizedName) {
       throw new UserFacingError(`There's already a game called ${text(g.name)}.`);
@@ -48,6 +49,15 @@ async function checkCollisions(
         `The alias ${text(normalizedName)} is already used by ${text(g.name)}.`,
       );
     }
+  }
+  // A game's name becomes a role members give themselves, so it mustn't pass for another role,
+  // such as a staff one. Game roles (this game's own included) are covered above.
+  const gameRoleIds = new Set(games.map((g) => g.roleId));
+  const clash = ctx.gateway
+    .roles()
+    .find((r) => !gameRoleIds.has(r.id) && normalize(r.name) === normalizedName);
+  if (clash) {
+    throw new UserFacingError(`There's already a role called ${text(clash.name)} in this server.`);
   }
   for (const alias of aliases) {
     for (const g of others) {

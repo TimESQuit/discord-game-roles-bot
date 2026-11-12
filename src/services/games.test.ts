@@ -21,6 +21,14 @@ beforeEach(async () => {
 const add = (name: string, aliases = ""): Promise<Game> =>
   addGame(ctx, { name, categoryId: chill.id, aliases, actorId: A1 });
 const calls = (method: string) => ctx.gateway.calls.filter((c) => c.method === method);
+const addServerRole = (name: string): void =>
+  ctx.gateway.addRole({
+    id: "100000000000000998",
+    name,
+    position: templatePosition + 50,
+    color: 0,
+    mentionable: false,
+  });
 
 describe("stale IDs", () => {
   test("removing a removed game's ID again never touches a newer game", async () => {
@@ -62,6 +70,14 @@ describe("addGame", () => {
     await expect(add("Other", "valheim")).rejects.toThrow(UserFacingError);
     await expect(add("vh")).rejects.toThrow(UserFacingError);
     expect(calls("createRole")).toHaveLength(1);
+  });
+
+  test("refuses a name matching a server role that isn't a game's, before creating anything", async () => {
+    addServerRole("Moderators!");
+    await expect(add("moderators")).rejects.toThrow(
+      "There's already a role called Moderators! in this server.",
+    );
+    expect(calls("createRole")).toHaveLength(0);
   });
 
   test("unknown category", async () => {
@@ -165,6 +181,15 @@ describe("editGame", () => {
     ctx.gateway.setMissingPermissions(["ManageRoles"]);
     const edited = await editGame(ctx, g.id, { categoryId: comp.id }, A1);
     expect(edited.categoryId).toBe(comp.id);
+  });
+
+  test("refuses a rename to a server role's name, but not a recapitalised own name", async () => {
+    const g = await add("Valheim");
+    addServerRole("Server Staff");
+    await expect(editGame(ctx, g.id, { name: "server staff" }, A1)).rejects.toThrow(
+      "There's already a role called Server Staff in this server.",
+    );
+    expect((await editGame(ctx, g.id, { name: "VALHEIM" }, A1)).name).toBe("VALHEIM");
   });
 
   test("unknown game / category, and rename collision", async () => {
