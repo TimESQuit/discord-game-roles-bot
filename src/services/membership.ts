@@ -30,11 +30,11 @@ export async function applySelection(
     if (Number.isInteger(id) && shown.has(id)) selected.add(id);
   }
 
-  const shownGames: Game[] = [];
-  for (const id of new Set(shownGameIds)) {
-    const game = await ctx.repos.games.get(id);
-    if (game) shownGames.push(game);
-  }
+  const byId = new Map((await ctx.repos.games.list()).map((g) => [g.id, g]));
+  const shownGames = [...shown].flatMap((id) => {
+    const game = byId.get(id);
+    return game ? [game] : [];
+  });
   const present = shownGames.filter((g) => ctx.gateway.role(g.roleId) !== undefined);
   const missing = shownGames.filter((g) => ctx.gateway.role(g.roleId) === undefined);
 
