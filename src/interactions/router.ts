@@ -9,9 +9,9 @@ import {
   parseId,
 } from "../domain/index.ts";
 import { messageOf, UserFacingError } from "../errors.ts";
-import { noticeView } from "../views/index.ts";
+import { messageView } from "../views/index.ts";
 import { SUBCOMMANDS, SUBCOMMAND_GROUPS, USER_MENUS, hasKey, keysOf } from "./commands.ts";
-import { forReply } from "./replies.ts";
+import { sayPrivately } from "./replies.ts";
 
 import type {
   AutocompleteInteraction,
@@ -253,11 +253,9 @@ export function memberRoleIds(interaction: BaseInteraction): ReadonlySet<string>
   return new Set(Array.isArray(roles) ? roles : roles.cache.keys());
 }
 
-async function sayPrivately(interaction: BaseInteraction, content: string): Promise<void> {
-  if (!interaction.isRepliable()) return;
-  const payload = forReply(noticeView(content));
-  if (interaction.deferred || interaction.replied) await interaction.followUp(payload);
-  else await interaction.reply(payload);
+/** Tells the person privately why their click failed. The message stays until they dismiss it. */
+async function answerWith(interaction: BaseInteraction, content: string): Promise<void> {
+  if (interaction.isRepliable()) await sayPrivately(interaction, messageView(content));
 }
 
 async function respondEmpty(interaction: BaseInteraction): Promise<void> {
@@ -283,14 +281,13 @@ export async function handleInteraction(
   try {
     if ("denied" in result || "unknown" in result) {
       if (isAutocompleteInput) await respondEmpty(interaction);
-      else
-        await sayPrivately(interaction, "denied" in result ? "Only admins can do that." : EXPIRED);
+      else await answerWith(interaction, "denied" in result ? "Only admins can do that." : EXPIRED);
       return;
     }
     const handler = handlers[result.handler];
     if (handler === undefined) {
       if (isAutocompleteInput) await respondEmpty(interaction);
-      else await sayPrivately(interaction, EXPIRED);
+      else await answerWith(interaction, EXPIRED);
       return;
     }
     try {
@@ -301,14 +298,14 @@ export async function handleInteraction(
         console.error(`Autocomplete ${result.handler} failed`, error);
         await respondEmpty(interaction);
       } else if (error instanceof UserFacingError) {
-        await sayPrivately(interaction, error.message);
+        await answerWith(interaction, error.message);
       } else if (isDiscordError(error, DISCORD_ERROR.unknownInteraction)) {
         // Rethrown so the outer catch records it, like an expiry in any other reply.
         throw error;
       } else {
         console.error(`Handler ${result.handler} failed`, error);
         try {
-          await sayPrivately(interaction, GENERIC_ERROR);
+          await answerWith(interaction, GENERIC_ERROR);
         } catch (replyError) {
           console.error("Could not send the error reply", replyError);
         }

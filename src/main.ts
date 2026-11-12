@@ -7,7 +7,7 @@ import { loadConfig } from "./config.ts";
 import { closeDatabase, openDatabase, createRepos } from "./db/index.ts";
 import { createDiscordGateway } from "./discord/index.ts";
 import { messageOf } from "./errors.ts";
-import { registerCommands, handleInteraction } from "./interactions/index.ts";
+import { closeNoticesNow, registerCommands, handleInteraction } from "./interactions/index.ts";
 import { createAudit } from "./services/index.ts";
 
 import type { Interaction } from "discord.js";
@@ -50,6 +50,7 @@ const report = createErrorReporter(() => {
 });
 const shutdown = createShutdown({
   stopTimers: () => stopTimers,
+  closeNotices: closeNoticesNow,
   destroyClient: () => client.destroy(),
   closeDb: () => closeDatabase(db),
   exit: (code) => process.exit(code),

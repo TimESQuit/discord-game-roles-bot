@@ -27,6 +27,9 @@ const makeShutdown = (over: Partial<Parameters<typeof createShutdown>[0]> = {}) 
   const exit = vi.fn<(code: number) => void>();
   const shutdown = createShutdown({
     stopTimers: () => () => calls.push("timers"),
+    closeNotices: async () => {
+      calls.push("notices");
+    },
     destroyClient: async () => {
       calls.push("destroy");
     },
@@ -133,7 +136,7 @@ describe("onReady and shutdown", () => {
   test("shutdown stops timers, destroys, closes, exits 0", async () => {
     const { calls, exit, shutdown } = makeShutdown();
     await shutdown.run();
-    expect(calls).toEqual(["timers", "destroy", "db"]);
+    expect(calls).toEqual(["timers", "notices", "destroy", "db"]);
     expect(exit).toHaveBeenCalledExactlyOnceWith(0);
     expect(shutdown.isStopping()).toBe(true);
   });

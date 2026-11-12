@@ -69,6 +69,11 @@ describe("custom IDs", () => {
     }
   });
 
+  test("a Cancel button from before the rename to close still closes", () => {
+    expect(parseId("gr:cancel")).toEqual({ kind: "close" });
+    expect(parseId("gr:cancel:extra")).toBeNull();
+  });
+
   test("foreign or malformed IDs parse to null", () => {
     for (const raw of [
       "other:1",

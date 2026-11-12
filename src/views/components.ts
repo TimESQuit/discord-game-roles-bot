@@ -69,6 +69,12 @@ export const silent = (view: Payload): Payload => ({
 });
 
 /** A components-v2 message holding one container; mentions never ping. */
+/**
+ * A view to show privately in answer to an interaction. `notice` marks a one-line result that
+ * closes itself soon after it is shown; how a view is shown is up to the interaction helpers.
+ */
+export type PrivateView = Payload & { notice?: true };
+
 export const payload = (parts: Part[], privateMessage: boolean): Payload => ({
   flags: privateMessage ? PRIVATE : PUBLIC,
   components: [container(...parts)],

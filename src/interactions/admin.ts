@@ -43,9 +43,15 @@ import {
   uninstallReportView,
   FIELD,
 } from "../views/index.ts";
-import { openMenus } from "./menus.ts";
 import { parseCategoryId } from "./parse.ts";
-import { forEdit, noticePrivately, replyPrivately, showPrivately, updateWith } from "./replies.ts";
+import {
+  deferAndKeep,
+  forEdit,
+  noticePrivately,
+  replyPrivately,
+  showPrivately,
+  updateWith,
+} from "./replies.ts";
 import { buttonOrChatInput, autocomplete, button, chatInput, modal, select } from "./router.ts";
 import {
   categoriesById,
@@ -297,7 +303,8 @@ export const adminHandlers: Handlers = {
     const id = parseId(interaction.customId);
     if (id?.kind !== "uninstall-confirm") throw new UserFacingError(MESSAGES.menuExpired);
     const picked = choicesFromBits(id.choices);
-    await interaction.deferUpdate();
+    // The report will carry the only copy of the backup: from now on nothing may delete it.
+    await deferAndKeep(interaction);
     await applyUninstall(
       ctx,
       interaction.user.id,
@@ -305,8 +312,6 @@ export const adminHandlers: Handlers = {
       enclosingChannelId(interaction),
       async (result) => {
         await interaction.editReply(forEdit(uninstallReportView(result, picked)));
-        // The report carries the backup, so opening another menu must not delete it.
-        openMenus.forget(interaction.user.id, interaction.message.id);
       },
     );
     // Last, once the report and backup have reached the admin.

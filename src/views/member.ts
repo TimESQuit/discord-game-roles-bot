@@ -27,11 +27,16 @@ import type {
 import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 import type { PickPurpose, AdminAction, CustomId, MenuAction } from "../domain/index.ts";
-import type { Part } from "./components.ts";
+import type { Part, PrivateView } from "./components.ts";
 
-/** A one-line private message in the new layout (e.g. "Cancelled."). */
-export function noticeView(message: string): Payload {
-  return { ...payload([display(message)], true), notice: true };
+/** A one-line private message in the new layout that stays up, such as an error. */
+export function messageView(message: string): Payload {
+  return payload([display(message)], true);
+}
+
+/** A one-line private result (e.g. "Removed X.") that closes itself soon after it is shown. */
+export function noticeView(message: string): PrivateView {
+  return { ...messageView(message), notice: true };
 }
 
 export function panelView(): Payload {

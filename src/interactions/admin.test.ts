@@ -8,6 +8,7 @@ import { adminHandlers } from "./admin.ts";
 import { openMenus } from "./menus.ts";
 import { updateWith } from "./replies.ts";
 
+import type { Call } from "../testing/index.ts";
 import type { Handler } from "./router.ts";
 
 const handler = (name: keyof typeof adminHandlers): Handler => {
@@ -20,7 +21,7 @@ beforeEach(() => openMenus.entries.clear());
 
 test("the uninstall report, which carries the backup, stays when another menu opens", async () => {
   const ctx = await makeContext();
-  const log: string[] = [];
+  const log: Call[] = [];
   const preview = fakeButton(log, { onMessage: "uninstall", roles: [ADMIN_ROLE_ID] });
   await updateWith(preview, async () =>
     uninstallPreviewView(await previewUninstall(ctx, null), new Set()),
@@ -31,7 +32,7 @@ test("the uninstall report, which carries the backup, stays when another menu op
     roles: [ADMIN_ROLE_ID],
   });
   await handler("uninstall-confirm")(ctx, confirm);
-  await openMenus.open(confirm.user.id, {
+  openMenus.open(confirm.user.id, {
     messageId: "next-menu",
     expiresAt: Date.now() + 60_000,
     close: async () => {},

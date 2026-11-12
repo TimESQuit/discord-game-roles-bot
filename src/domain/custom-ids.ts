@@ -113,10 +113,17 @@ export const ADMIN_KINDS: ReadonlySet<CustomIdKind> = new Set<CustomIdKind>([
   "category-rename",
 ]);
 
+/**
+ * Kinds that were renamed, so buttons still on screen from an older build keep working after a
+ * deploy. Private messages, where these buttons live, last until the person's client reloads.
+ */
+const RENAMED_KINDS: ReadonlyMap<string, CustomIdKind> = new Map([["cancel", "close"]]);
+
 /** "gr:pick:who:3:0" → { kind: "pick", purpose: "who", categoryId: 3, chunk: 0 }, or null if it isn't one of ours. */
 export function parseId(raw: string): CustomId | null {
-  const [prefix, kind, ...args] = raw.split(":");
-  if (prefix !== PREFIX || kind === undefined) return null;
+  const [prefix, rawKind, ...args] = raw.split(":");
+  if (prefix !== PREFIX || rawKind === undefined) return null;
+  const kind = RENAMED_KINDS.get(rawKind) ?? rawKind;
 
   const argNames = ARG_NAMES.get(kind);
   if (argNames === undefined || args.length !== argNames.length) return null;

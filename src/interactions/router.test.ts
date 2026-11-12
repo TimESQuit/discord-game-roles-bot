@@ -1,19 +1,16 @@
-import {
-  ApplicationCommandOptionType,
-  ApplicationCommandType,
-  BaseInteraction,
-  ComponentType,
-  DiscordAPIError,
-  InteractionType,
-  MessageFlags,
-  SnowflakeUtil,
-} from "discord.js";
+import { ApplicationCommandOptionType, DiscordAPIError, MessageFlags } from "discord.js";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
 import { encodeId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../testing/index.ts";
-import { noticeView } from "../views/index.ts";
+import {
+  ADMIN_ROLE_ID as ADMIN,
+  FAKE_USER_ID,
+  fakeInteraction,
+  makeContext,
+  methods,
+} from "../testing/index.ts";
+import { messageView } from "../views/index.ts";
 import { commandDefinitions } from "./commands.ts";
 import { forReply } from "./replies.ts";
 import {
@@ -26,6 +23,9 @@ import {
   select,
   userContext,
 } from "./router.ts";
+
+import type { BaseInteraction } from "discord.js";
+import type { Call, FakeKind } from "../testing/index.ts";
 
 type RouteInputType = Parameters<typeof route>[0]["type"];
 const none = new Set<string>();
@@ -208,74 +208,15 @@ describe("route", () => {
   });
 });
 
-type FakeOpts = {
-  type: "button" | "select" | "modal" | "command" | "autocomplete" | "user-context" | "other";
-  subcommand?: string;
-  subcommandGroup?: string;
-  log?: string[];
-  customId?: string;
-  commandName?: string;
-  roles?: string[];
-  deferred?: boolean;
-  failReplies?: boolean;
-  /** When the interaction was created; sets its snowflake ID. */
-  createdAt?: number;
-};
-
-/** The fields discord.js's own type checks (isButton() and friends) read. */
-const KINDS: Record<FakeOpts["type"], object> = {
-  button: { type: InteractionType.MessageComponent, componentType: ComponentType.Button },
-  select: { type: InteractionType.MessageComponent, componentType: ComponentType.StringSelect },
-  modal: { type: InteractionType.ModalSubmit },
-  command: {
-    type: InteractionType.ApplicationCommand,
-    commandType: ApplicationCommandType.ChatInput,
-  },
-  autocomplete: { type: InteractionType.ApplicationCommandAutocomplete },
-  "user-context": {
-    type: InteractionType.ApplicationCommand,
-    commandType: ApplicationCommandType.User,
-  },
-  other: { type: InteractionType.Ping },
-};
-
-const USER = "100000000000000001";
-
-/** A real interaction prototype with just the data the router reads, so type checks such as
- * isButton() run discord.js's own code. Replies are recorded instead of sent.
- */
-function fake(o: FakeOpts): { i: BaseInteraction; calls: { method: string; arg: unknown }[] } {
-  const calls: { method: string; arg: unknown }[] = [];
-  const record = (method: string) => async (arg?: unknown) => {
-    calls.push({ method, arg });
-    o.log?.push(method);
-    if (o.failReplies && method !== "respond") throw new Error("discord down");
-  };
-  const made: unknown = Object.create(BaseInteraction.prototype);
-  if (!(made instanceof BaseInteraction)) throw new Error("Could not build a fake interaction");
-  const i = Object.assign(made, {
-    ...KINDS[o.type],
-    ...(o.createdAt === undefined
-      ? {}
-      : { id: SnowflakeUtil.generate({ timestamp: o.createdAt }).toString() }),
-    deferred: o.deferred ?? false,
-    replied: false,
-    customId: o.customId,
-    commandName: o.commandName,
-    user: { id: USER },
-    member: { roles: o.roles ?? [] },
-    options: {
-      getSubcommand: () => o.subcommand ?? null,
-      getSubcommandGroup: () => o.subcommandGroup ?? null,
-    },
-    reply: record("reply"),
-    followUp: record("followUp"),
-    respond: record("respond"),
-  });
-  return { i, calls };
+/** A fake interaction of `o.type` and the calls it received. */
+function fake(o: Parameters<typeof fakeInteraction>[1]): { i: BaseInteraction; calls: Call[] } {
+  const calls: Call[] = [];
+  return { i: fakeInteraction(calls, o), calls };
 }
 
-const reply = (content: string) => forReply(noticeView(content));
+const USER = FAKE_USER_ID;
+
+const reply = (content: string) => forReply(messageView(content));
 
 const expiredError = () =>
   new DiscordAPIError({ code: 10062, message: "Unknown interaction" }, 10062, 404, "POST", "/", {});
@@ -370,7 +311,7 @@ describe("handleInteraction", () => {
       },
       i,
     );
-    expect(calls.map((c) => c.method)).toEqual(["reply"]);
+    expect(methods(calls)).toEqual(["reply"]);
     expect(JSON.stringify(calls[0]?.arg)).not.toContain("boom secret detail");
     expect(ctx.errorReports).toHaveLength(1);
     expect(ctx.errorReports[0]).toContain("close");
@@ -413,11 +354,10 @@ describe("handleInteraction", () => {
   test("the generic reply is sent before the error is reported", async () => {
     const ctx = await makeContext({ setup: true });
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const log: string[] = [];
+    const { i, calls } = fake({ type: "button", customId: encodeId({ kind: "close" }) });
     vi.spyOn(ctx.audit, "reportError").mockImplementation(async () => {
-      log.push("report");
+      calls.push({ method: "report" });
     });
-    const { i } = fake({ type: "button", customId: encodeId({ kind: "close" }), log });
     await handleInteraction(
       ctx,
       {
@@ -427,7 +367,7 @@ describe("handleInteraction", () => {
       },
       i,
     );
-    expect(log).toEqual(["reply", "report"]);
+    expect(methods(calls)).toEqual(["reply", "report"]);
   });
 
   test("an expired interaction is logged with its timing, not reported as an error", async () => {
@@ -563,7 +503,7 @@ describe("handleInteraction", () => {
 
 describe("handler kind guards", () => {
   const kinds = { button, select, modal, chatInput, autocomplete, userContext };
-  const matching: Record<keyof typeof kinds, FakeOpts["type"]> = {
+  const matching: Record<keyof typeof kinds, FakeKind> = {
     button: "button",
     select: "select",
     modal: "modal",

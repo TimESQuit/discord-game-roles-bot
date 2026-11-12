@@ -22,9 +22,9 @@ import {
   suggestModal,
 } from "../views/index.ts";
 import {
-  followUpNotice,
   noticePrivately,
   replyPrivately,
+  sayPrivately,
   showPrivately,
   updateWith,
 } from "./replies.ts";
@@ -175,7 +175,7 @@ export const suggestHandlers: Handlers = {
     const id = suggestionId(interaction.customId, "review-approve");
     await interaction.deferUpdate();
     const game = await approveSuggestion(ctx, id, interaction.user.id);
-    await followUpNotice(interaction, `Approved ${text(game.name)}.`);
+    await sayPrivately(interaction, noticeView(`Approved ${text(game.name)}.`));
   }),
   "review-edit": button(async (ctx, interaction) => {
     const s = await requirePendingSuggestion(

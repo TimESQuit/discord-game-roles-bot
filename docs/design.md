@@ -155,7 +155,7 @@ The admin band appears only for members with the admin role; everyone else sees 
 
 - **One menu at a time.** Opening a menu or list (the panel button, `/games`, `/games mine`, Who plays, a game picker and so on) deletes the person's previous one.
 - **Close and Cancel.** Every menu and list has a Close button; confirmations and pickers have Cancel. Both delete the message.
-- **Notices close themselves.** A one-line result ("You've joined X.", "Removed X.", "Posted in #…") disappears after 20 seconds and leaves any open menu alone.
+- **Notices close themselves.** A one-line result ("You've joined X.", "Removed X.", "Posted in #…") disappears after 20 seconds and leaves any open menu alone. When the bot shuts down, notices still showing close at once, since their timers would not survive the restart.
 - **What stays.** Error messages, and the uninstall report, which carries the backup file.
 - **The 15-minute limit.** The bot can only delete a private message within 15 minutes of the person's last click on it (Discord's interaction token). After that it stays until the person dismisses it.
 

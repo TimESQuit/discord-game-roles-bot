@@ -77,6 +77,8 @@ export function createErrorReporter(
 
 export interface ShutdownDeps {
   stopTimers: () => (() => void) | undefined;
+  /** Closes notices still waiting for their timer, which won't survive the restart. */
+  closeNotices: () => Promise<void>;
   destroyClient: () => Promise<void>;
   closeDb: () => Promise<void>;
   exit: (code: number) => void;
@@ -104,6 +106,8 @@ export function createShutdown(deps: ShutdownDeps): {
       };
       try {
         await step("timers", () => deps.stopTimers()?.());
+        // Before the client goes: deleting a notice needs its REST connection.
+        await step("notices", deps.closeNotices);
         await step("client", deps.destroyClient);
         await step("database", deps.closeDb);
       } finally {
