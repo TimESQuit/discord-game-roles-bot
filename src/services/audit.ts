@@ -28,9 +28,12 @@ export type AuditEvent =
       kind: "interaction-expired";
       userId: string;
       handler: string;
-      /** How long after the click the bot received it, and when its reply failed. */
-      receivedMs: number;
-      failedMs: number;
+      /** Whether a handler started, so it may have changed things before its reply failed. */
+      handlerRan: boolean;
+      /** Click to arrival, from Discord's timestamp and the bot's clock, so skew can distort it. */
+      clickToReceiveMs: number;
+      /** Arrival to the failed reply, measured on the bot's clock alone. */
+      receiveToFailMs: number;
     }
   | { kind: "uninstalled"; userId: string; detail: string };
 
@@ -80,8 +83,12 @@ export function formatAuditLine(e: AuditEvent): string {
       return `${user(e.userId)} ran setup: ${text(e.detail)}`;
     case "started":
       return `Bot started (version ${text(e.version)}).`;
-    case "interaction-expired":
-      return `${user(e.userId)}'s \`${e.handler}\` interaction expired before the bot answered (received ${e.receivedMs}ms after the click, failed at ${e.failedMs}ms)`;
+    case "interaction-expired": {
+      const applied = e.handlerRan
+        ? " The handler had started, so its changes may have gone through."
+        : "";
+      return `${user(e.userId)}'s \`${e.handler}\` interaction expired before the bot replied (failed ${e.receiveToFailMs}ms after arriving; arrived about ${e.clickToReceiveMs}ms after the click, by the bot's clock).${applied}`;
+    }
     case "uninstalled":
       return `${user(e.userId)} uninstalled the bot: ${text(e.detail)}`;
     default: {
@@ -92,7 +99,16 @@ export function formatAuditLine(e: AuditEvent): string {
 }
 
 /** Marks an error report among the routine lines of #game-roles-log. */
-export const ERROR_PREFIX = "⚠️ ";
+const ERROR_PREFIX = "⚠️ ";
+
+/** Discord rejects messages longer than this. */
+const MAX_MESSAGE_LENGTH = 2000;
+
+function fitMessage(content: string): string {
+  return content.length <= MAX_MESSAGE_LENGTH
+    ? content
+    : `${content.slice(0, MAX_MESSAGE_LENGTH - 1)}…`;
+}
 
 export interface Audit {
   log(e: AuditEvent): Promise<void>;
@@ -108,9 +124,12 @@ export function createAudit(repos: Repos, gateway: Gateway): Audit {
         console.log(content);
         return;
       }
-      await gateway.send(channelId, silent({ content, allowedMentions: { parse: [] } }));
+      await gateway.send(
+        channelId,
+        silent({ content: fitMessage(content), allowedMentions: { parse: [] } }),
+      );
     } catch (error) {
-      console.error("Could not post to logChannelId", error);
+      console.error("Could not post to logChannelId:", content, error);
     }
   }
   return {

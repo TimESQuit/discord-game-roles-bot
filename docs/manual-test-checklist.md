@@ -53,7 +53,7 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 ## Review Focus
 
 - [ ] Two admins act on one suggestion card (or approve after the member withdrew): exactly one decision lands; the second admin gets "This suggestion was already approved."
-- [ ] A game's role deleted by hand: menus still render; joining replies "That game's role is missing; the admins have been told."; `#game-roles-log` gets a ⚠️ error line; Remove game still deletes the row.
+- [ ] A game's role deleted by hand: menus still render; joining replies "That game's role is missing. This error has been logged."; `#game-roles-log` gets a ⚠️ error line; Remove game still deletes the row.
 - [ ] A category with 0 games, one with more than 25, a menu over 40 components, and a stale dropdown submitted after a game was removed: no select is sent with 0 options, categories chunk and page, unknown selections are ignored.
 - [ ] User text with mentions (`@everyone`, `<@&id>`) in game names, notes, LFG "when" and rejection reasons never pings anyone.
 - [ ] A masked link (`[Claim](https://example.com)`) or a `# heading` in an LFG note or a suggestion shows as plain text, not a link or a heading.

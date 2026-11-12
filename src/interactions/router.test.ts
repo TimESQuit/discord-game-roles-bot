@@ -276,6 +276,9 @@ function fake(o: FakeOpts): { i: BaseInteraction; calls: { method: string; arg: 
 
 const reply = (content: string) => noticeView(content);
 
+const expiredError = () =>
+  new DiscordAPIError({ code: 10062, message: "Unknown interaction" }, 10062, 404, "POST", "/", {});
+
 describe("handleInteraction", () => {
   afterEach(() => vi.restoreAllMocks());
 
@@ -366,9 +369,8 @@ describe("handleInteraction", () => {
       },
       i,
     );
-    expect(calls).toEqual([
-      { method: "reply", arg: reply("Something went wrong. The admins have been told.") },
-    ]);
+    expect(calls.map((c) => c.method)).toEqual(["reply"]);
+    expect(JSON.stringify(calls[0]?.arg)).not.toContain("boom secret detail");
     expect(ctx.errorReports).toHaveLength(1);
     expect(ctx.errorReports[0]).toContain("cancel");
     expect(ctx.errorReports[0]).toContain("boom secret detail");
@@ -407,44 +409,36 @@ describe("handleInteraction", () => {
     expect(mod).toHaveBeenCalledTimes(1);
   });
 
-  test("the generic reply is sent before the admins are notified, and the notice is truncated", async () => {
+  test("the generic reply is sent before the error is reported", async () => {
     const ctx = await makeContext({ setup: true });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const log: string[] = [];
-    vi.spyOn(ctx.audit, "reportError").mockImplementation(async (text) => {
-      log.push(`notify:${text.length}`);
+    vi.spyOn(ctx.audit, "reportError").mockImplementation(async () => {
+      log.push("report");
     });
     const { i } = fake({ type: "button", customId: encodeId({ kind: "cancel" }), log });
     await handleInteraction(
       ctx,
       {
         cancel: async () => {
-          throw new Error("x".repeat(5000));
+          throw new Error("boom");
         },
       },
       i,
     );
-    expect(log[0]).toBe("reply");
-    expect(log[1]).toBe("notify:1500");
+    expect(log).toEqual(["reply", "report"]);
   });
 
-  test("an expired interaction is logged with its timing, not sent to the admins", async () => {
+  test("an expired interaction is logged with its timing, not reported as an error", async () => {
     const ctx = await makeContext({ setup: true });
+    const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(ctx.audit, "log");
-    const notify = vi.spyOn(ctx.audit, "reportError");
     const { i, calls } = fake({
       type: "button",
       customId: encodeId({ kind: "cancel" }),
       createdAt: Date.now() - 5000,
     });
-    const expired = new DiscordAPIError(
-      { code: 10062, message: "Unknown interaction" },
-      10062,
-      404,
-      "POST",
-      "/",
-      {},
-    );
+    const expired = expiredError();
     await handleInteraction(
       ctx,
       {
@@ -454,12 +448,50 @@ describe("handleInteraction", () => {
       },
       i,
     );
-    expect(notify).not.toHaveBeenCalled();
+    expect(ctx.errorReports).toEqual([]);
     expect(calls).toEqual([]);
+    expect(err).toHaveBeenCalledWith(expect.any(String), expired);
     const event = log.mock.calls[0]?.[0];
-    expect(event).toMatchObject({ kind: "interaction-expired", userId: USER, handler: "cancel" });
+    expect(event).toMatchObject({
+      kind: "interaction-expired",
+      userId: USER,
+      handler: "cancel",
+      handlerRan: true,
+    });
     if (event?.kind !== "interaction-expired") throw new Error("Expected an expiry event");
-    expect(event.receivedMs).toBeGreaterThanOrEqual(5000);
+    expect(event.clickToReceiveMs).toBeGreaterThanOrEqual(5000);
+    expect(event.receiveToFailMs).toBeGreaterThanOrEqual(0);
+  });
+
+  test("an expiry in the router's own reply is logged too", async () => {
+    const ctx = await makeContext({ setup: true });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const log = vi.spyOn(ctx.audit, "log");
+    const { i } = fake({ type: "button", customId: encodeId({ kind: "cancel" }) });
+    Object.assign(i, {
+      reply: async () => {
+        throw expiredError();
+      },
+    });
+    await handleInteraction(
+      ctx,
+      {
+        cancel: async () => {
+          throw new UserFacingError("Too slow.");
+        },
+      },
+      i,
+    );
+    await handleInteraction(ctx, {}, i);
+    expect(log.mock.calls.map(([e]) => e)).toEqual([
+      expect.objectContaining({ kind: "interaction-expired", handler: "cancel", handlerRan: true }),
+      expect.objectContaining({
+        kind: "interaction-expired",
+        handler: "cancel",
+        handlerRan: false,
+      }),
+    ]);
+    expect(ctx.errorReports).toEqual([]);
   });
 
   test("an unhandled interaction kind is warned about", async () => {

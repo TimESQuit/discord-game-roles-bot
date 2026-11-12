@@ -219,7 +219,7 @@ export function route(input: RouteInput, adminRoleId: string): RouteResult {
   return name === null ? { unknown: true } : { handler: name };
 }
 
-const GENERIC_ERROR = "Something went wrong. The admins have been told.";
+const GENERIC_ERROR = "Something went wrong. This error has been logged.";
 const EXPIRED = "That button has expired. Open the menu again.";
 
 function routeInput(interaction: BaseInteraction, roleIds: ReadonlySet<string>): RouteInput | null {
@@ -277,6 +277,8 @@ export async function handleInteraction(
   }
   const result = route(input, ctx.config.adminRoleId);
   const isAutocompleteInput = input.type === "autocomplete";
+  const label = "handler" in result ? result.handler : "denied" in result ? "denied" : "unknown";
+  let handlerRan = false;
 
   try {
     if ("denied" in result || "unknown" in result) {
@@ -292,6 +294,7 @@ export async function handleInteraction(
       return;
     }
     try {
+      handlerRan = true;
       await handler(ctx, interaction);
     } catch (error) {
       if (isAutocompleteInput) {
@@ -300,16 +303,8 @@ export async function handleInteraction(
       } else if (error instanceof UserFacingError) {
         await sayPrivately(interaction, error.message);
       } else if (isDiscordError(error, DISCORD_ERROR.unknownInteraction)) {
-        // Discord's 3-second window closed before the reply, so no reply can reach the member.
-        // Nothing for the admins to act on: record it, with how late the click arrived.
-        const created = interaction.createdTimestamp;
-        await ctx.audit.log({
-          kind: "interaction-expired",
-          userId: interaction.user.id,
-          handler: result.handler,
-          receivedMs: receivedAt - created,
-          failedMs: Date.now() - created,
-        });
+        // Rethrown so the outer catch records it, like an expiry in any other reply.
+        throw error;
       } else {
         console.error(`Handler ${result.handler} failed`, error);
         try {
@@ -317,12 +312,24 @@ export async function handleInteraction(
         } catch (replyError) {
           console.error("Could not send the error reply", replyError);
         }
-        await ctx.audit.reportError(
-          `Error in ${result.handler}: ${messageOf(error)}`.slice(0, 1500),
-        );
+        await ctx.audit.reportError(`Error in ${result.handler}: ${messageOf(error)}`);
       }
     }
   } catch (error) {
-    console.error("Could not answer an interaction", error);
+    if (isDiscordError(error, DISCORD_ERROR.unknownInteraction)) {
+      // Discord's 3-second window closed before a reply, so no reply can reach the member.
+      // Nothing for the admins to act on: record it, with how late the click arrived.
+      console.error(`Interaction ${label} expired`, error);
+      await ctx.audit.log({
+        kind: "interaction-expired",
+        userId: interaction.user.id,
+        handler: label,
+        handlerRan,
+        clickToReceiveMs: receivedAt - interaction.createdTimestamp,
+        receiveToFailMs: Date.now() - receivedAt,
+      });
+    } else {
+      console.error("Could not answer an interaction", error);
+    }
   }
 }

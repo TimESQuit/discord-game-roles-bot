@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test, vi } from "vitest";
 
+import { MESSAGES } from "../constants.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   A1,
@@ -112,7 +113,7 @@ describe("createLfgPost", () => {
     );
     await ctx.gateway.deleteRole(valheim.roleId, "test");
     await expect(createLfgPost(ctx, { ...base, gameId: valheim.id })).rejects.toThrow(
-      "That game's role is missing; the admins have been told.",
+      MESSAGES.gameRoleMissing,
     );
     expect(ctx.errorReports.length).toBeGreaterThan(0);
   });

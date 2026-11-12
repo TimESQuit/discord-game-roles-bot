@@ -33,6 +33,14 @@ test("error reports go to #game-roles-log silently, apart from the routine lines
   expect(sentTo(ctx, "adminChannelId")).toEqual([]);
 });
 
+test("an over-long error report is cut to fit a Discord message", async () => {
+  const ctx = await makeContext();
+  await ctx.audit.reportError("x".repeat(5000));
+  const content = lastSend(ctx).payload.content ?? "";
+  expect(content.length).toBeLessThanOrEqual(2000);
+  expect(content).toContain("xxx");
+});
+
 test("log never throws when Discord fails", async () => {
   const ctx = await makeContext();
   const spy = vi.spyOn(console, "error").mockImplementation(() => {});

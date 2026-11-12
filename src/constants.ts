@@ -40,7 +40,7 @@ export const MESSAGES = {
   pickCategory: "Pick a category from the list.",
   nothingChanged: "Nothing changed.",
   noGamesPicked: "You haven't picked any games yet.",
-  gameRoleMissing: "That game's role is missing; the admins have been told.",
+  gameRoleMissing: "That game's role is missing. This error has been logged.",
   botRoleTooLow: `Move the bot's role above ${TEMPLATE_ROLE_NAME} in Server Settings → Roles.`,
   rolePositionsTied:
     "Some roles share a position, so the bot can't sort game roles. In Server Settings → Roles, drag any role down one place and back up, then try again.",

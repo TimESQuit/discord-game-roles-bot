@@ -8,7 +8,6 @@ import { afterEach, beforeEach, expect, test, vi } from "vitest";
 import { closeDatabase, openDatabase, createRepos } from "../db/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { A1, defined, flagBits, makeContext, sentTo } from "../testing/index.ts";
-import { createAudit } from "./audit.ts";
 import { runBackup, scheduleNightlyBackups } from "./backup.ts";
 
 import type { Db } from "../db/index.ts";
@@ -25,7 +24,6 @@ beforeEach(async () => {
   fileDb = openDatabase(join(dir, "live.sqlite"));
   // Use a file-backed DB for the services under test, with matching repos.
   ctx.repos = createRepos(fileDb.kysely);
-  ctx.audit = createAudit(ctx.repos, ctx.gateway);
   for (const key of ["backupsChannelId", "logChannelId", "adminChannelId"] as const) {
     const id = (
       await ctx.db.kysely

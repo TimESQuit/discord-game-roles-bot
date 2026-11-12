@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, test } from "vitest";
 
+import { MESSAGES } from "../constants.ts";
 import { UserFacingError } from "../errors.ts";
 import { A1, defined, makeContext, U1, U2, U3 } from "../testing/index.ts";
 import { addGame, removeGame } from "./games.ts";
@@ -30,6 +31,7 @@ beforeEach(async () => {
   minecraft = await mk("Minecraft", 1);
   chess = await mk("Chess", 0);
   ctx.gateway.messages.clear();
+  ctx.logLines.splice(0);
 });
 
 const names = (games: Game[]) => games.map((g) => g.name);
@@ -128,9 +130,7 @@ describe("join and leave", () => {
 
   test("join on a missing role notifies admins and throws", async () => {
     ctx.gateway.removeRoleBehindBotsBack(valheim.roleId);
-    await expect(join(ctx, U1, valheim.id, "panel")).rejects.toThrow(
-      "That game's role is missing; the admins have been told.",
-    );
+    await expect(join(ctx, U1, valheim.id, "panel")).rejects.toThrow(MESSAGES.gameRoleMissing);
     expect(ctx.errorReports.some((n) => n.includes("Valheim"))).toBe(true);
     expect(ctx.logLines).toEqual([]);
   });
