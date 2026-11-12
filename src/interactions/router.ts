@@ -13,15 +13,7 @@ import { messageView } from "../views/index.ts";
 import { SUBCOMMANDS, SUBCOMMAND_GROUPS, USER_MENUS, hasKey, keysOf } from "./commands.ts";
 import { sayPrivately } from "./replies.ts";
 
-import type {
-  AutocompleteInteraction,
-  ButtonInteraction,
-  ChatInputCommandInteraction,
-  BaseInteraction,
-  ModalSubmitInteraction,
-  StringSelectMenuInteraction,
-  UserContextMenuCommandInteraction,
-} from "discord.js";
+import type { BaseInteraction } from "discord.js";
 import type {
   AdminAction,
   CustomId,
@@ -59,10 +51,9 @@ type CommandHandlerName =
 
 export type HandlerName = IdHandlerName | CommandHandlerName;
 
-const isCompound = (kind: CustomIdKind): kind is CompoundKind =>
+const isCompound = (kind: CustomIdKind) =>
   kind === "menu" || kind === "admin" || kind === "pick" || kind === "pick-page";
-const isSimple = (kind: CustomIdKind): kind is Exclude<CustomIdKind, CompoundKind> =>
-  !isCompound(kind);
+const isSimple = (kind: CustomIdKind) => !isCompound(kind);
 
 /** Every name the router can return, derived from the ID schema and the command tables. */
 export const HANDLER_NAMES: readonly HandlerName[] = [
@@ -99,27 +90,17 @@ const guarded =
     await fn(ctx, interaction);
   };
 
-export const button = guarded((i): i is ButtonInteraction => i.isButton(), "button");
-export const select = guarded(
-  (i): i is StringSelectMenuInteraction => i.isStringSelectMenu(),
-  "string select menu",
-);
-export const modal = guarded((i): i is ModalSubmitInteraction => i.isModalSubmit(), "modal submit");
-export const chatInput = guarded(
-  (i): i is ChatInputCommandInteraction => i.isChatInputCommand(),
-  "chat input command",
-);
-export const autocomplete = guarded(
-  (i): i is AutocompleteInteraction => i.isAutocomplete(),
-  "autocomplete",
-);
+export const button = guarded((i) => i.isButton(), "button");
+export const select = guarded((i) => i.isStringSelectMenu(), "string select menu");
+export const modal = guarded((i) => i.isModalSubmit(), "modal submit");
+export const chatInput = guarded((i) => i.isChatInputCommand(), "chat input command");
+export const autocomplete = guarded((i) => i.isAutocomplete(), "autocomplete");
 export const userContext = guarded(
-  (i): i is UserContextMenuCommandInteraction => i.isUserContextMenuCommand(),
+  (i) => i.isUserContextMenuCommand(),
   "user context menu command",
 );
 export const buttonOrChatInput = guarded(
-  (i): i is ButtonInteraction | ChatInputCommandInteraction =>
-    i.isButton() || i.isChatInputCommand(),
+  (i) => i.isButton() || i.isChatInputCommand(),
   "button or chat input command",
 );
 

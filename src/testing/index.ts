@@ -27,3 +27,4 @@ export {
   textOf,
 } from "./payloads.ts";
 export type { AnyComponent, ComponentSource } from "./payloads.ts";
+export { column, countRows } from "./sqlite.ts";

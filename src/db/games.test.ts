@@ -1,5 +1,6 @@
 import { expect, test } from "vitest";
 
+import { countRows } from "../testing/index.ts";
 import { openDatabase } from "./database.ts";
 import { createRepos } from "./repos/index.ts";
 
@@ -68,6 +69,5 @@ test("removing a game removes its aliases", async () => {
   await repos.games.remove(game.id);
   expect(await repos.games.get(game.id)).toBeUndefined();
   expect(await repos.games.list()).toEqual([]);
-  const row = db.sqlite.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM game_aliases").get();
-  expect(row?.n).toBe(0);
+  expect(countRows(db.sqlite, "game_aliases")).toBe(0);
 });

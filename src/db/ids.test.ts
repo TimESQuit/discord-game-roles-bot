@@ -6,6 +6,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { expect, test } from "vitest";
 
+import { countRows } from "../testing/index.ts";
 import { MIGRATIONS_DIR, closeDatabase, openDatabase } from "./database.ts";
 import { createRepos } from "./repos/index.ts";
 
@@ -96,8 +97,7 @@ test("upgrading from the previous migration keeps every row and foreign key", as
   raw.close();
 
   const db = openDatabase(path);
-  const count = (table: string) =>
-    db.sqlite.prepare<[], { n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).get()?.n;
+  const count = (table: string) => countRows(db.sqlite, table);
   expect(count("categories")).toBe(2);
   expect(count("games")).toBe(2);
   expect(count("game_aliases")).toBe(2);

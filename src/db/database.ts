@@ -3,6 +3,7 @@ import BetterSqlite3 from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
 import { CamelCasePlugin, Kysely, SqliteDialect } from "kysely";
+import { z } from "zod";
 
 import type { Database } from "better-sqlite3";
 import type { DB } from "./kysely-types.ts";
@@ -48,12 +49,16 @@ export async function closeDatabase(db: Db): Promise<void> {
  * history. Tables are listed from the database itself, so a new table is covered without a change.
  */
 export function clearData(db: Db): void {
-  const tables = db.sqlite
-    .prepare<[], { name: string }>(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '__drizzle_migrations'",
-    )
-    .all()
-    .map((t) => t.name);
+  const tables = z
+    .array(z.string())
+    .parse(
+      db.sqlite
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' AND name != '__drizzle_migrations'",
+        )
+        .pluck()
+        .all(),
+    );
   db.sqlite.transaction(() => {
     // Foreign keys are checked at commit, when every table is empty, so the order doesn't matter.
     db.sqlite.pragma("defer_foreign_keys = ON");

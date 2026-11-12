@@ -1,7 +1,10 @@
+import { z } from "zod";
+
 import { STARTING_CATEGORIES, TEMPLATE_ROLE_NAME } from "../constants.ts";
 import { openDatabase, createRepos, SETUP_KEYS } from "../db/index.ts";
 import { createAudit, formatAuditLine } from "../services/index.ts";
 import { FakeGateway } from "./fake-gateway.ts";
+import { scalar } from "./sqlite.ts";
 
 import type { Config } from "../config.ts";
 import type { Db, SetupKey } from "../db/index.ts";
@@ -18,17 +21,12 @@ export const U3 = "100000000000000003";
 export const A1 = "100000000000000011";
 export const A2 = "100000000000000012";
 
-type ChannelKey = Exclude<SetupKey, "templateRoleId" | "panelMessageId">;
-const isChannelKey = (key: SetupKey): key is ChannelKey =>
-  key !== "templateRoleId" && key !== "panelMessageId";
+const isChannelKey = (key: SetupKey) => key !== "templateRoleId" && key !== "panelMessageId";
 const CHANNEL_KEYS = SETUP_KEYS.filter(isChannelKey);
 
 /** Reads the setup table directly, so it must track src/db/schema.ts. */
 function setupValue(db: Db, key: SetupKey): string | undefined {
-  const row = db.sqlite
-    .prepare<[string], { value: string }>("SELECT value FROM setup WHERE key = ?")
-    .get(key);
-  return row?.value;
+  return scalar(db.sqlite, "SELECT value FROM setup WHERE key = ?", z.string().optional(), key);
 }
 
 export type TestContext = AppContext & {

@@ -1,5 +1,3 @@
-import { sql } from "kysely";
-
 import type { Kysely } from "kysely";
 import type { MoveDirection } from "../../constants.ts";
 import type { DB } from "../kysely-types.ts";
@@ -33,11 +31,13 @@ export function createCategories(kysely: Kysely<DB>): CategoriesRepo {
     get,
     async add(name) {
       return kysely.transaction().execute(async (trx) => {
-        const max = await trx
+        const last = await trx
           .selectFrom("categories")
-          .select(sql<number>`COALESCE(MAX(position), -1)`.as("m"))
-          .executeTakeFirstOrThrow();
-        const position = max.m + 1;
+          .select("position")
+          .orderBy("position", "desc")
+          .limit(1)
+          .executeTakeFirst();
+        const position = (last?.position ?? -1) + 1;
         const result = await trx
           .insertInto("categories")
           .values({ name, position })

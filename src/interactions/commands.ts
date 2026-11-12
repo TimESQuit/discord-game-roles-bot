@@ -110,11 +110,14 @@ export type GamesSubcommand = keyof typeof GAMES;
 export type GameadminSubcommand = keyof typeof GAMEADMIN;
 export type GameadminCategorySubcommand = keyof typeof GAMEADMIN_CATEGORY;
 
-/** The keys of a table, typed as its own keys. */
+/**
+ * The keys of a table, typed as its own keys. Only for literal tables like the ones above: a value
+ * merely typed `T` may carry extra keys at runtime, and these helpers would let them through.
+ */
 export const keysOf = <T extends object>(table: T): (keyof T & string)[] =>
   Object.keys(table).filter((key): key is keyof T & string => Object.hasOwn(table, key));
 
-/** True when `key` names an entry of `table`. */
+/** True when `key` names an entry of `table` (a literal table; see `keysOf`). */
 export const hasKey = <T extends object>(table: T, key: string): key is keyof T & string =>
   Object.hasOwn(table, key);
 

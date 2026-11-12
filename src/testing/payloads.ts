@@ -49,6 +49,7 @@ function flatten(items: readonly unknown[]): AnyComponent[] {
   });
 }
 
+// Written out because Array.isArray doesn't narrow a readonly array out of a union.
 const isList = (source: ComponentSource): source is readonly unknown[] => Array.isArray(source);
 
 /** Every component under the source, parents before children, nested ones included. */

@@ -2,7 +2,9 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
+import { z } from "zod";
 
+import { column, countRows } from "../testing/index.ts";
 import { MIGRATIONS_DIR, clearData, closeDatabase, openDatabase } from "./database.ts";
 import { createRepos } from "./repos/index.ts";
 
@@ -12,11 +14,9 @@ test("openDatabase applies the generated migrations once", async () => {
   await closeDatabase(first);
   expect(first.sqlite.open).toBe(false);
   const second = openDatabase(path);
-  const applied = second.sqlite
-    .prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM __drizzle_migrations")
-    .get();
-  expect(applied).toBeDefined();
-  expect(applied?.n).toBe(readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).length);
+  expect(countRows(second.sqlite, "__drizzle_migrations")).toBe(
+    readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).length,
+  );
   await closeDatabase(second);
 });
 
@@ -60,17 +60,13 @@ test("clearData empties every table but keeps the migration history", async () =
 
   clearData(db);
 
-  const tables = db.sqlite
-    .prepare<[], { name: string }>(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
-    )
-    .all()
-    .map((t) => t.name);
+  const tables = column(
+    db.sqlite,
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'",
+    z.string(),
+  );
   for (const table of tables) {
-    const { n } = db.sqlite
-      .prepare<[], { n: number }>(`SELECT COUNT(*) AS n FROM "${table}"`)
-      .get() ?? { n: -1 };
-    expect({ table, empty: n === 0 }).toEqual({
+    expect({ table, empty: countRows(db.sqlite, table) === 0 }).toEqual({
       table,
       empty: table !== "__drizzle_migrations",
     });

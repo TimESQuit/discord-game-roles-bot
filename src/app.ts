@@ -1,5 +1,6 @@
 import { messageOf } from "./errors.ts";
 import {
+  HANDLER_NAMES,
   adminHandlers,
   lfgHandlers,
   memberHandlers,
@@ -16,9 +17,12 @@ export function buildHandlers(
 ): Handlers {
   const merged: Handlers = {};
   for (const map of maps) {
-    for (const [name, handler] of Object.entries(map)) {
-      if (name in merged) throw new Error(`Handler "${name}" is defined more than once`);
-      Object.assign(merged, { [name]: handler });
+    for (const name of HANDLER_NAMES) {
+      const handler = map[name];
+      if (handler === undefined) continue;
+      if (merged[name] !== undefined)
+        throw new Error(`Handler "${name}" is defined more than once`);
+      merged[name] = handler;
     }
   }
   return merged;

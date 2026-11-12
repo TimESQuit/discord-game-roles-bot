@@ -2,7 +2,7 @@ import { ChannelType, MessageFlags, PermissionsBitField } from "discord.js";
 
 import { DISCORD_ERROR, isDiscordError } from "./discord-errors.ts";
 
-import type { Client, Guild, OverwriteResolvable, PermissionsString, Role } from "discord.js";
+import type { Client, Guild, OverwriteResolvable, Role } from "discord.js";
 import type { Gateway, Overwrite, OwnMessage, Payload, RoleSnapshot } from "./gateway.ts";
 
 function snapshot(role: Role): RoleSnapshot {
@@ -18,14 +18,10 @@ function snapshot(role: Role): RoleSnapshot {
 type PayloadFlag = NonNullable<Payload["flags"]>[number];
 
 /** The ephemeral flag only exists on interaction replies. */
-const isSendFlag = (
-  flag: PayloadFlag,
-): flag is MessageFlags.IsComponentsV2 | MessageFlags.SuppressNotifications =>
-  flag !== MessageFlags.Ephemeral;
+const isSendFlag = (flag: PayloadFlag) => flag !== MessageFlags.Ephemeral;
 
 /** Notifications are decided when a message is sent, so an edit keeps only the layout flag. */
-const isEditFlag = (flag: PayloadFlag): flag is MessageFlags.IsComponentsV2 =>
-  flag === MessageFlags.IsComponentsV2;
+const isEditFlag = (flag: PayloadFlag) => flag === MessageFlags.IsComponentsV2;
 
 /**
  * The part of a payload a channel message can carry. Create and edit options share these
@@ -97,7 +93,7 @@ export function createDiscordGateway(client: Client<true>, guildId: string): Gat
     botTopRolePosition: () => guild().members.me?.roles.highest.position ?? 0,
     missingBotPermissions(required) {
       const perms = guild().members.me?.permissions ?? new PermissionsBitField();
-      return required.filter((p): p is PermissionsString => !perms.has(p));
+      return required.filter((p) => !perms.has(p));
     },
     memberRoleIds(userId) {
       const m = guild().members.cache.get(userId);

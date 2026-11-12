@@ -58,11 +58,11 @@ export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
     async countPending(userId) {
       const row = await kysely
         .selectFrom("suggestions")
-        .select((eb) => eb.fn.countAll<number>().as("n"))
+        .select((eb) => eb.fn.countAll().as("n"))
         .where("suggesterId", "=", userId)
         .where("status", "=", "pending")
         .executeTakeFirstOrThrow();
-      return row.n;
+      return Number(row.n);
     },
     pendingNames: () => pending().select(["id", "name"]).execute(),
     async decide(id, to, by, at, reason) {
