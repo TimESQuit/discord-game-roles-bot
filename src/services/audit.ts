@@ -24,6 +24,14 @@ export type AuditEvent =
   | { kind: "backup"; userId: string | null; file: string }
   | { kind: "setup"; userId: string; detail: string }
   | { kind: "started"; version: string }
+  | {
+      kind: "interaction-expired";
+      userId: string;
+      handler: string;
+      /** How long after the click the bot received it, and when its reply failed. */
+      receivedMs: number;
+      failedMs: number;
+    }
   | { kind: "uninstalled"; userId: string; detail: string };
 
 const SOURCE_LABELS = {
@@ -72,6 +80,8 @@ export function formatAuditLine(e: AuditEvent): string {
       return `${user(e.userId)} ran setup: ${text(e.detail)}`;
     case "started":
       return `Bot started (version ${text(e.version)}).`;
+    case "interaction-expired":
+      return `${user(e.userId)}'s \`${e.handler}\` interaction expired before the bot answered (received ${e.receivedMs}ms after the click, failed at ${e.failedMs}ms)`;
     case "uninstalled":
       return `${user(e.userId)} uninstalled the bot: ${text(e.detail)}`;
     default: {

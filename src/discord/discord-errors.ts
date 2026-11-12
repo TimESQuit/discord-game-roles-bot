@@ -4,6 +4,7 @@ import { DiscordAPIError } from "discord.js";
 export const DISCORD_ERROR = {
   unknownChannel: 10003,
   unknownMessage: 10008,
+  unknownInteraction: 10062,
   missingAccess: 50001,
   missingPermissions: 50013,
 } as const;

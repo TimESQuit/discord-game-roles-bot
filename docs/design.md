@@ -229,6 +229,7 @@ Things that need attention go to #game-roles-admin; routine records go to the mu
 - Suggestions: submitted, approved, edited, rejected, and by whom.
 - Admins: games added, edited or removed; categories changed; template re-applied.
 - A "bot started" line on every start, so repeated restarts are easy to spot.
+- Clicks that expired before the bot could answer (Discord allows 3 seconds), with how late each one arrived. They aren't errors to act on, so they don't go to #game-roles-admin.
 - Per-action lines let an admin trace what happened when a member says "my role disappeared".
 
 **#game-roles-admin: needs attention**

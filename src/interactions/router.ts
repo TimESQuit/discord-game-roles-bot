@@ -1,3 +1,4 @@
+import { DISCORD_ERROR, isDiscordError } from "../discord/index.ts";
 import {
   ADMIN_ACTIONS,
   CUSTOM_ID_KINDS,
@@ -268,6 +269,7 @@ export async function handleInteraction(
   handlers: Handlers,
   interaction: BaseInteraction,
 ): Promise<void> {
+  const receivedAt = Date.now();
   const input = routeInput(interaction, memberRoleIds(interaction));
   if (input === null) {
     console.warn(`Ignoring an unhandled interaction type (${interaction.type})`);
@@ -297,6 +299,17 @@ export async function handleInteraction(
         await respondEmpty(interaction);
       } else if (error instanceof UserFacingError) {
         await sayPrivately(interaction, error.message);
+      } else if (isDiscordError(error, DISCORD_ERROR.unknownInteraction)) {
+        // Discord's 3-second window closed before the reply, so no reply can reach the member.
+        // Nothing for the admins to act on: record it, with how late the click arrived.
+        const created = interaction.createdTimestamp;
+        await ctx.audit.log({
+          kind: "interaction-expired",
+          userId: interaction.user.id,
+          handler: result.handler,
+          receivedMs: receivedAt - created,
+          failedMs: Date.now() - created,
+        });
       } else {
         console.error(`Handler ${result.handler} failed`, error);
         try {

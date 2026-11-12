@@ -3,8 +3,10 @@ import {
   ApplicationCommandType,
   BaseInteraction,
   ComponentType,
+  DiscordAPIError,
   InteractionType,
   MessageFlags,
+  SnowflakeUtil,
 } from "discord.js";
 import { afterEach, describe, expect, test, vi } from "vitest";
 
@@ -215,6 +217,8 @@ type FakeOpts = {
   roles?: string[];
   deferred?: boolean;
   failReplies?: boolean;
+  /** When the interaction was created; sets its snowflake ID. */
+  createdAt?: number;
 };
 
 /** The fields discord.js's own type checks (isButton() and friends) read. */
@@ -234,6 +238,8 @@ const KINDS: Record<FakeOpts["type"], object> = {
   other: { type: InteractionType.Ping },
 };
 
+const USER = "100000000000000001";
+
 /** A real interaction prototype with just the data the router reads, so type checks such as
  * isButton() run discord.js's own code. Replies are recorded instead of sent.
  */
@@ -248,10 +254,14 @@ function fake(o: FakeOpts): { i: BaseInteraction; calls: { method: string; arg: 
   if (!(made instanceof BaseInteraction)) throw new Error("Could not build a fake interaction");
   const i = Object.assign(made, {
     ...KINDS[o.type],
+    ...(o.createdAt === undefined
+      ? {}
+      : { id: SnowflakeUtil.generate({ timestamp: o.createdAt }).toString() }),
     deferred: o.deferred ?? false,
     replied: false,
     customId: o.customId,
     commandName: o.commandName,
+    user: { id: USER },
     member: { roles: o.roles ?? [] },
     options: {
       getSubcommand: () => o.subcommand ?? null,
@@ -416,6 +426,40 @@ describe("handleInteraction", () => {
     );
     expect(log[0]).toBe("reply");
     expect(log[1]).toBe("notify:1500");
+  });
+
+  test("an expired interaction is logged with its timing, not sent to the admins", async () => {
+    const ctx = await makeContext({ setup: true });
+    const log = vi.spyOn(ctx.audit, "log");
+    const notify = vi.spyOn(ctx.audit, "notifyAdmins");
+    const { i, calls } = fake({
+      type: "button",
+      customId: encodeId({ kind: "cancel" }),
+      createdAt: Date.now() - 5000,
+    });
+    const expired = new DiscordAPIError(
+      { code: 10062, message: "Unknown interaction" },
+      10062,
+      404,
+      "POST",
+      "/",
+      {},
+    );
+    await handleInteraction(
+      ctx,
+      {
+        cancel: async () => {
+          throw expired;
+        },
+      },
+      i,
+    );
+    expect(notify).not.toHaveBeenCalled();
+    expect(calls).toEqual([]);
+    const event = log.mock.calls[0]?.[0];
+    expect(event).toMatchObject({ kind: "interaction-expired", userId: USER, handler: "cancel" });
+    if (event?.kind !== "interaction-expired") throw new Error("Expected an expiry event");
+    expect(event.receivedMs).toBeGreaterThanOrEqual(5000);
   });
 
   test("an unhandled interaction kind is warned about", async () => {
