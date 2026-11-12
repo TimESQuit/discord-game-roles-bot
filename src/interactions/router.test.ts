@@ -6,12 +6,14 @@ import { UserFacingError } from "../errors.ts";
 import {
   ADMIN_ROLE_ID as ADMIN,
   FAKE_USER_ID,
+  deletedIds,
   fakeInteraction,
   makeContext,
   methods,
 } from "../testing/index.ts";
 import { messageView } from "../views/index.ts";
 import { commandDefinitions } from "./commands.ts";
+import { NOTICE_LIFETIME_MS } from "./menus.ts";
 import { forReply } from "./replies.ts";
 import {
   autocomplete,
@@ -221,8 +223,46 @@ const reply = (content: string) => forReply(messageView(content));
 const expiredError = () =>
   new DiscordAPIError({ code: 10062, message: "Unknown interaction" }, 10062, 404, "POST", "/", {});
 
+const refuse = async () => {
+  throw new UserFacingError("You don't have permission for this action.");
+};
+const boom = async () => {
+  throw new Error("boom");
+};
+
 describe("handleInteraction", () => {
-  afterEach(() => vi.restoreAllMocks());
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  test("refusals close themselves, before and after the interaction was answered", async () => {
+    vi.useFakeTimers();
+    const ctx = await makeContext();
+    const denied = fake({
+      type: "button",
+      customId: encodeId({ kind: "admin", action: "backup" }),
+    });
+    const before = fake({ type: "button", customId: encodeId({ kind: "close" }) });
+    const after = fake({ type: "button", customId: encodeId({ kind: "close" }), deferred: true });
+    await handleInteraction(ctx, {}, denied.i);
+    await handleInteraction(ctx, { close: refuse }, before.i);
+    await handleInteraction(ctx, { close: refuse }, after.i);
+    await vi.advanceTimersByTimeAsync(NOTICE_LIFETIME_MS);
+    expect(deletedIds(denied.calls)).toHaveLength(1);
+    expect(deletedIds(before.calls)).toHaveLength(1);
+    expect(deletedIds(after.calls)).toEqual(["follow-up-1"]);
+  });
+
+  test("an unexpected error stays until dismissed", async () => {
+    vi.useFakeTimers();
+    const ctx = await makeContext({ setup: true });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { i, calls } = fake({ type: "button", customId: encodeId({ kind: "close" }) });
+    await handleInteraction(ctx, { close: boom }, i);
+    await vi.advanceTimersByTimeAsync(NOTICE_LIFETIME_MS);
+    expect(deletedIds(calls)).toEqual([]);
+  });
 
   test("denied button gets a private refusal and the handler does not run", async () => {
     const ctx = await makeContext();

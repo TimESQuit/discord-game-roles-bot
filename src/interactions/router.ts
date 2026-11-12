@@ -9,7 +9,7 @@ import {
   parseId,
 } from "../domain/index.ts";
 import { messageOf, UserFacingError } from "../errors.ts";
-import { messageView } from "../views/index.ts";
+import { messageView, noticeView } from "../views/index.ts";
 import { SUBCOMMANDS, SUBCOMMAND_GROUPS, USER_MENUS, hasKey, keysOf } from "./commands.ts";
 import { sayPrivately } from "./replies.ts";
 
@@ -209,9 +209,17 @@ export function memberRoleIds(interaction: BaseInteraction): ReadonlySet<string>
   return new Set(Array.isArray(roles) ? roles : roles.cache.keys());
 }
 
-/** Tells the person privately why their click failed. The message stays until they dismiss it. */
-async function answerWith(interaction: BaseInteraction, content: string): Promise<void> {
-  if (interaction.isRepliable()) await sayPrivately(interaction, messageView(content));
+/**
+ * Tells the person privately why their click failed. An expected refusal closes itself like any
+ * notice; an unexpected error (`stays`) waits for them to dismiss it.
+ */
+async function answerWith(
+  interaction: BaseInteraction,
+  content: string,
+  stays = false,
+): Promise<void> {
+  if (!interaction.isRepliable()) return;
+  await sayPrivately(interaction, stays ? messageView(content) : noticeView(content));
 }
 
 async function respondEmpty(interaction: BaseInteraction): Promise<void> {
@@ -261,7 +269,7 @@ export async function handleInteraction(
       } else {
         console.error(`Handler ${result.handler} failed`, error);
         try {
-          await answerWith(interaction, GENERIC_ERROR);
+          await answerWith(interaction, GENERIC_ERROR, true);
         } catch (replyError) {
           console.error("Could not send the error reply", replyError);
         }
