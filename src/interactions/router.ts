@@ -83,70 +83,45 @@ export const HANDLER_NAMES: readonly HandlerName[] = [
 export type Handler = (ctx: AppContext, interaction: BaseInteraction) => Promise<void>;
 export type Handlers = Partial<Record<HandlerName, Handler>>;
 
-const wrongKind = (kind: string): Error => new Error(`Expected a ${kind} interaction`);
-
 /*
  * Routing already decides the kind of interaction a handler gets. These wrappers check it again
  * with discord.js's own guards, so each handler's declared interaction type is checked, not
  * assumed.
  */
-export const button =
-  (fn: (ctx: AppContext, interaction: ButtonInteraction) => Promise<void>): Handler =>
+const guarded =
+  <I extends BaseInteraction>(
+    isKind: (interaction: BaseInteraction) => interaction is I,
+    kind: string,
+  ) =>
+  (fn: (ctx: AppContext, interaction: I) => Promise<void>): Handler =>
   async (ctx, interaction) => {
-    if (!interaction.isButton()) throw wrongKind("button");
+    if (!isKind(interaction)) throw new Error(`Expected a ${kind} interaction`);
     await fn(ctx, interaction);
   };
 
-export const select =
-  (fn: (ctx: AppContext, interaction: StringSelectMenuInteraction) => Promise<void>): Handler =>
-  async (ctx, interaction) => {
-    if (!interaction.isStringSelectMenu()) throw wrongKind("string select menu");
-    await fn(ctx, interaction);
-  };
-
-export const modal =
-  (fn: (ctx: AppContext, interaction: ModalSubmitInteraction) => Promise<void>): Handler =>
-  async (ctx, interaction) => {
-    if (!interaction.isModalSubmit()) throw wrongKind("modal submit");
-    await fn(ctx, interaction);
-  };
-
-export const chatInput =
-  (fn: (ctx: AppContext, interaction: ChatInputCommandInteraction) => Promise<void>): Handler =>
-  async (ctx, interaction) => {
-    if (!interaction.isChatInputCommand()) throw wrongKind("chat input command");
-    await fn(ctx, interaction);
-  };
-
-export const autocomplete =
-  (fn: (ctx: AppContext, interaction: AutocompleteInteraction) => Promise<void>): Handler =>
-  async (ctx, interaction) => {
-    if (!interaction.isAutocomplete()) throw wrongKind("autocomplete");
-    await fn(ctx, interaction);
-  };
-
-export const userContext =
-  (
-    fn: (ctx: AppContext, interaction: UserContextMenuCommandInteraction) => Promise<void>,
-  ): Handler =>
-  async (ctx, interaction) => {
-    if (!interaction.isUserContextMenuCommand()) throw wrongKind("user context menu command");
-    await fn(ctx, interaction);
-  };
-
-export const buttonOrChatInput =
-  (
-    fn: (
-      ctx: AppContext,
-      interaction: ButtonInteraction | ChatInputCommandInteraction,
-    ) => Promise<void>,
-  ): Handler =>
-  async (ctx, interaction) => {
-    if (!interaction.isButton() && !interaction.isChatInputCommand()) {
-      throw wrongKind("button or chat input command");
-    }
-    await fn(ctx, interaction);
-  };
+export const button = guarded((i): i is ButtonInteraction => i.isButton(), "button");
+export const select = guarded(
+  (i): i is StringSelectMenuInteraction => i.isStringSelectMenu(),
+  "string select menu",
+);
+export const modal = guarded((i): i is ModalSubmitInteraction => i.isModalSubmit(), "modal submit");
+export const chatInput = guarded(
+  (i): i is ChatInputCommandInteraction => i.isChatInputCommand(),
+  "chat input command",
+);
+export const autocomplete = guarded(
+  (i): i is AutocompleteInteraction => i.isAutocomplete(),
+  "autocomplete",
+);
+export const userContext = guarded(
+  (i): i is UserContextMenuCommandInteraction => i.isUserContextMenuCommand(),
+  "user context menu command",
+);
+export const buttonOrChatInput = guarded(
+  (i): i is ButtonInteraction | ChatInputCommandInteraction =>
+    i.isButton() || i.isChatInputCommand(),
+  "button or chat input command",
+);
 
 export type RouteInput = {
   type: "button" | "select" | "modal" | "command" | "autocomplete" | "user-context";

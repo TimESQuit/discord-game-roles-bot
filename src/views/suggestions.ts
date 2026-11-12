@@ -44,19 +44,16 @@ function statusLine(s: Suggestion): string {
   }
 }
 
-/** The parts of the review card, so the review list can reuse them without unwrapping a payload. */
-/** `categoryName` is undefined when the category is gone. */
-export function reviewCardParts(
-  s: Suggestion,
-  categoryName: string | undefined,
-  aliases?: string,
-): Part[] {
-  const shownAliases = aliases ?? s.aliases;
+/**
+ * The parts of the review card, so the review list can reuse them without unwrapping a payload.
+ * `categoryName` is undefined when the category is gone.
+ */
+export function reviewCardParts(s: Suggestion, categoryName: string | undefined): Part[] {
   const lines = [
     `**Suggestion #${s.id}:** **${text(s.name)}** from <@${s.suggesterId}>`,
     `Category: ${text(categoryName ?? "Unknown")}`,
   ];
-  if (shownAliases) lines.push(`Aliases: ${text(shownAliases)}`);
+  if (s.aliases) lines.push(`Aliases: ${text(s.aliases)}`);
   if (s.note) lines.push(`Note: ${text(s.note)}`);
   lines.push(statusLine(s));
   const parts: Part[] = [display(lines.join("\n"))];
@@ -73,12 +70,8 @@ export function reviewCardParts(
 }
 
 /** The #game-roles-admin card. Independent of the channel, so the review list can reuse it. */
-export function reviewCardView(
-  s: Suggestion,
-  categoryName: string | undefined,
-  aliases?: string,
-): Payload {
-  return payload(reviewCardParts(s, categoryName, aliases), false);
+export function reviewCardView(s: Suggestion, categoryName: string | undefined): Payload {
+  return payload(reviewCardParts(s, categoryName), false);
 }
 
 /** Posted in #game-roles. The role mention shows but does not ping. */

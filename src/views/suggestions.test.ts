@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 
 import { parseId } from "../domain/index.ts";
 import {
+  allComponents,
   buttonKinds,
   customIdButtons,
   defined,
@@ -10,7 +11,6 @@ import {
   flagBits,
   textOf,
 } from "../testing/index.ts";
-import { countComponents } from "./limits.ts";
 import {
   announcementView,
   duplicatePromptView,
@@ -92,8 +92,8 @@ test("decided card shows who decided and has no buttons", () => {
   expect(findComponents(rejected, ComponentType.Button)).toHaveLength(0);
 });
 
-test("card shows aliases from the argument and the note", () => {
-  const card = reviewCardView(sugg({ note: "fun co-op" }), "Chill", "vh, valhe");
+test("card shows the aliases and the note", () => {
+  const card = reviewCardView(sugg({ note: "fun co-op", aliases: "vh, valhe" }), "Chill");
   expect(texts(card)).toContain("vh, valhe");
   expect(texts(card)).toContain("fun co-op");
 });
@@ -121,7 +121,7 @@ test("my suggestions: Withdraw only on pending; rejected shows reason; within 40
   );
   const view = mySuggestionsView([...pending, ...decided], new Map(cats.map((c) => [c.id, c])));
   expect(buttonKinds(view).filter((kind) => kind === "withdraw")).toHaveLength(10);
-  expect(countComponents(view)).toBeLessThanOrEqual(40);
+  expect(allComponents(view).length).toBeLessThanOrEqual(40);
   expect(texts(view)).toContain("not a game");
   expect(texts(view)).toContain("D4");
   expect(texts(view)).not.toContain("D3");

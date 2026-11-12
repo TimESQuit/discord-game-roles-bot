@@ -2,7 +2,7 @@ import { join } from "node:path";
 import BetterSqlite3 from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { Kysely, SqliteDialect } from "kysely";
+import { CamelCasePlugin, Kysely, SqliteDialect } from "kysely";
 
 import type { Database } from "better-sqlite3";
 import type { DB } from "./kysely-types.ts";
@@ -29,7 +29,12 @@ export function openDatabase(path: string): Db {
     throw new Error("The database has rows that break a foreign key after migrating.");
   }
   sqlite.pragma("foreign_keys = ON");
-  return { sqlite, kysely: new Kysely<DB>({ dialect: new SqliteDialect({ database: sqlite }) }) };
+  // Queries use the schema's camelCase names; the plugin maps them to the snake_case columns.
+  const kysely = new Kysely<DB>({
+    dialect: new SqliteDialect({ database: sqlite }),
+    plugins: [new CamelCasePlugin()],
+  });
+  return { sqlite, kysely };
 }
 
 export async function closeDatabase(db: Db): Promise<void> {

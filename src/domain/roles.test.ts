@@ -1,13 +1,6 @@
 import { expect, test } from "vitest";
 
-import { UserFacingError } from "../errors.ts";
-import {
-  chunk,
-  computeRoleOrder,
-  diffSelection,
-  hasTiedRolePositions,
-  validateGameName,
-} from "./roles.ts";
+import { chunk, computeRoleOrder, diffSelection, hasTiedRolePositions } from "./roles.ts";
 
 test("diff only touches roles shown in that dropdown", () => {
   const shown = ["a", "b", "c"];
@@ -115,10 +108,4 @@ test("chunk", () => {
   expect(chunk([1, 2, 3], 2)).toEqual([[1, 2], [3]]);
   expect(chunk([], 25)).toEqual([]);
   expect(() => chunk([1], 0)).toThrow(RangeError);
-});
-
-test("validateGameName", () => {
-  expect(validateGameName("  Deep   Rock  ")).toBe("Deep Rock");
-  expect(() => validateGameName("!!!")).toThrow(UserFacingError);
-  expect(() => validateGameName("x".repeat(101))).toThrow(/100/);
 });

@@ -2,6 +2,7 @@ import { LFG_WHEN_MAX, MESSAGES, NEWS_CHANNEL_NAME, NOTE_MAX } from "../constant
 import { openLfgPost, toggleResponse } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { lfgClosedView, lfgPostView } from "../views/index.ts";
+import { serialised } from "./concurrency.ts";
 import { requireGame } from "./lookups.ts";
 import { addRole, assertRoleExists, removeRole } from "./membership.ts";
 
@@ -44,18 +45,6 @@ async function requireActivePost(
   const post = await requireOpenPost(ctx, messageId);
   if (post.gameId === null) throw new UserFacingError(LFG_REFUSALS.gameRemoved);
   return { post, gameId: post.gameId };
-}
-
-/** Runs tasks for the same key one after another; the map entry goes away when the chain drains. */
-const chains = new Map<string, Promise<unknown>>();
-function serialised<T>(key: string, task: () => Promise<T>): Promise<T> {
-  const run = (chains.get(key) ?? Promise.resolve()).then(task, task);
-  const tail = run.catch(() => undefined);
-  chains.set(key, tail);
-  void tail.then(() => {
-    if (chains.get(key) === tail) chains.delete(key);
-  });
-  return run;
 }
 
 /**

@@ -57,7 +57,7 @@ describe("addGame", () => {
       color: TEMPLATE_COLOR,
       mentionable: true,
     });
-    expect(await ctx.repos.games.ownsRole(game.roleId)).toBe(true);
+    expect(await ctx.repos.games.list()).toEqual([game]);
     expect(game.aliases).toEqual(["vh"]);
     expect(ctx.logLines).toContain(`<@${A1}> added game **Valheim**`);
     expect(defined(ctx.gateway.role(game.roleId)).position).toBeLessThan(templatePosition + 1);
@@ -140,7 +140,6 @@ describe("addGame", () => {
       addedAt: "2026-01-01T00:00:00Z",
     });
     await expect(add("Alpha")).rejects.toThrow("boom");
-    expect(await ctx.repos.games.byNormalizedName("Alpha")).toBeUndefined();
     expect(await ctx.repos.games.list()).toHaveLength(1);
     const created = calls("createRole").length;
     expect(created).toBe(1);
@@ -153,7 +152,8 @@ describe("editGame", () => {
   test("rename renames the role, re-sorts and logs the change", async () => {
     await add("Zed");
     const g = await add("Alpha");
-    const edited = await editGame(ctx, g.id, { name: "Zulu" }, A1);
+    const { game: edited, changed } = await editGame(ctx, g.id, { name: "Zulu" }, A1);
+    expect(changed).toBe(true);
     expect(edited.name).toBe("Zulu");
     expect(defined(ctx.gateway.role(g.roleId)).name).toBe("Zulu");
     expect(calls("setRolePositions").length).toBeGreaterThan(0);
@@ -167,11 +167,19 @@ describe("editGame", () => {
     expect(last).toContain("renamed Valheim → Valheim 2; moved to Competitive; aliases: vh, val");
   });
 
-  test("no-op patch → no Discord calls, no log line", async () => {
-    const g = await add("Valheim", "vh");
+  test("no-op patch → unchanged, no Discord calls, no log line", async () => {
+    const g = await add("Valheim", "vh, viking");
     const before = ctx.gateway.calls.length;
     const logs = ctx.logLines.length;
-    await editGame(ctx, g.id, { name: "Valheim", categoryId: chill.id, aliases: "vh" }, A1);
+    const unchanged = [
+      { name: "Valheim", categoryId: chill.id, aliases: "vh, viking" },
+      // Extra whitespace in the name, and aliases in another order, case or spacing.
+      { name: "  Valheim ", aliases: " VIKING ,vh" },
+      {},
+    ];
+    for (const patch of unchanged) {
+      expect((await editGame(ctx, g.id, patch, A1)).changed).toBe(false);
+    }
     expect(ctx.gateway.calls.length).toBe(before);
     expect(ctx.logLines).toHaveLength(logs);
   });
@@ -179,7 +187,7 @@ describe("editGame", () => {
   test("category-only change needs no role permissions", async () => {
     const g = await add("Valheim");
     ctx.gateway.setMissingPermissions(["ManageRoles"]);
-    const edited = await editGame(ctx, g.id, { categoryId: comp.id }, A1);
+    const { game: edited } = await editGame(ctx, g.id, { categoryId: comp.id }, A1);
     expect(edited.categoryId).toBe(comp.id);
   });
 
@@ -189,7 +197,7 @@ describe("editGame", () => {
     await expect(editGame(ctx, g.id, { name: "server staff" }, A1)).rejects.toThrow(
       "There's already a role called Server Staff in this server.",
     );
-    expect((await editGame(ctx, g.id, { name: "VALHEIM" }, A1)).name).toBe("VALHEIM");
+    expect((await editGame(ctx, g.id, { name: "VALHEIM" }, A1)).game.name).toBe("VALHEIM");
   });
 
   test("unknown game / category, and rename collision", async () => {

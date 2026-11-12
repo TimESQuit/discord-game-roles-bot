@@ -1,6 +1,5 @@
-import { MESSAGES } from "../constants.ts";
 import { DISCORD_ERROR, isDiscordError } from "../discord/index.ts";
-import { isAdmin, parseId } from "../domain/index.ts";
+import { isAdmin } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   autocompleteGames,
@@ -12,7 +11,7 @@ import {
   toggleRoleFromLfg,
 } from "../services/index.ts";
 import { LFG_FIELD, lfgManageView, lfgModal, noticeView } from "../views/index.ts";
-import { parseGameId } from "./parse.ts";
+import { idOf, parseGameId } from "./parse.ts";
 import { noticePrivately, showPrivately, updateWith } from "./replies.ts";
 import { autocomplete, button, chatInput, memberRoleIds, modal, select } from "./router.ts";
 import { choices, gamePicker, resolvePickedGame, roleNotice } from "./shared.ts";
@@ -70,10 +69,7 @@ const OUTCOMES = {
 
 /** Finish or Cancel post, clicked in the private Manage menu: the menu becomes a short notice. */
 const closeFromMenu = button(async (ctx, interaction) => {
-  const id = parseId(interaction.customId);
-  if (id?.kind !== "lfg-finish" && id?.kind !== "lfg-cancel") {
-    throw new UserFacingError(MESSAGES.menuExpired);
-  }
+  const id = idOf(interaction, "lfg-finish", "lfg-cancel");
   const { outcome, notice } = OUTCOMES[id.kind];
   await updateWith(interaction, async () => {
     await closeLfgPost(ctx, id.messageId, actorOf(ctx, interaction), outcome);
@@ -113,12 +109,11 @@ export const lfgHandlers: Handlers = {
   }),
 
   "lfg-modal": modal(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "lfg-modal") throw new UserFacingError(MESSAGES.formExpired);
+    const { gameId } = idOf(interaction, "lfg-modal");
     // The form stays in the channel the menu was opened in, so this is where the member started.
     await noticePrivately(interaction, () =>
       postLfg(ctx, interaction, {
-        gameId: id.gameId,
+        gameId,
         when: interaction.fields.getTextInputValue(LFG_FIELD.when),
         note: interaction.fields.getTextInputValue(LFG_FIELD.note),
       }),

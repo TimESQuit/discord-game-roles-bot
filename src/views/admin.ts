@@ -22,7 +22,7 @@ import {
   TEXT_INPUT_LIMIT,
 } from "../constants.ts";
 import { encodeId, text } from "../domain/index.ts";
-import { button, buttonRow, closeButton, display, payload } from "./components.ts";
+import { button, buttonRow, closeButton, count, display, payload } from "./components.ts";
 import { FIELD, categoryLabel, inputLabel, textInput } from "./modals.ts";
 import { reviewCardParts } from "./suggestions.ts";
 
@@ -130,10 +130,9 @@ export function categoryModal(category?: Category): ModalBuilder {
 }
 
 export function confirmRemoveView(game: Game, memberCount: number): Payload {
-  const members = memberCount === 1 ? "1 member" : `${String(memberCount)} members`;
   return payload(
     [
-      display(`Remove ${text(game.name)}? ${members} will lose the role.`),
+      display(`Remove ${text(game.name)}? ${count(memberCount, "member")} will lose the role.`),
       buttonRow(
         button({ kind: "confirm-remove", gameId: game.id }, "Confirm", ButtonStyle.Danger),
         closeButton("Cancel"),

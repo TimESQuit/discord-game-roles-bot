@@ -9,60 +9,27 @@ import {
   TEMPLATE_ROLE_NAME,
   MESSAGES,
 } from "../constants.ts";
-import { hasTiedRolePositions, planSetup } from "../domain/index.ts";
+import { planSetup } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { panelView } from "../views/index.ts";
+import { exclusive } from "./concurrency.ts";
+import {
+  REQUIRED_PERMISSIONS,
+  missingPermissionProblems,
+  roleOrderProblem,
+  templateRole,
+} from "./permissions.ts";
 
-import type { PermissionsString } from "discord.js";
 import type { SetupKey } from "../db/index.ts";
 import type { Overwrite } from "../discord/index.ts";
 import type { SetupItem } from "../domain/index.ts";
 import type { AppContext } from "./context.ts";
 
-export const REQUIRED_PERMISSIONS = [
-  "ManageRoles",
-  "ManageChannels",
-  "ViewChannel",
-  "SendMessages",
-  "EmbedLinks",
-  "AttachFiles",
-  "ReadMessageHistory",
-  "CreatePublicThreads",
-  "AddReactions",
-] as const satisfies readonly PermissionsString[];
-
-type RequiredPermission = (typeof REQUIRED_PERMISSIONS)[number];
-
-export const PERMISSION_NAMES = {
-  ManageRoles: "Manage Roles",
-  ManageChannels: "Manage Channels",
-  ViewChannel: "View Channels",
-  SendMessages: "Send Messages",
-  EmbedLinks: "Embed Links",
-  AttachFiles: "Attach Files",
-  ReadMessageHistory: "Read Message History",
-  CreatePublicThreads: "Create Public Threads",
-  AddReactions: "Add Reactions",
-} as const satisfies Record<RequiredPermission, string>;
-
-export const missingPermissionMessage = (name: string): string =>
-  `Give the bot the ${name} permission.`;
-
 /** The problems to fix before setup can run, each a full sentence. */
 export async function checkSetup(ctx: AppContext): Promise<string[]> {
-  // The gateway reports any PermissionsString, so look names up as optional.
-  const names: Partial<Record<PermissionsString, string>> = PERMISSION_NAMES;
-  const problems = ctx.gateway
-    .missingBotPermissions(REQUIRED_PERMISSIONS)
-    .map((p) => missingPermissionMessage(names[p] ?? p));
-  const id = await ctx.repos.setup.get("templateRoleId");
-  const template = id === undefined ? undefined : ctx.gateway.role(id);
-  const botTop = ctx.gateway.botTopRolePosition();
-  if (hasTiedRolePositions(ctx.gateway.roles(), botTop)) {
-    problems.push(MESSAGES.rolePositionsTied);
-  } else if (template && botTop <= template.position) {
-    problems.push(MESSAGES.botRoleTooLow);
-  }
+  const problems = missingPermissionProblems(ctx, REQUIRED_PERMISSIONS);
+  const roleProblem = roleOrderProblem(ctx, await templateRole(ctx));
+  if (roleProblem !== null) problems.push(roleProblem);
   return problems;
 }
 
@@ -91,23 +58,6 @@ export async function previewSetup(
   const problems = await checkSetup(ctx);
   // With problems the bot may not be able to read the panel message; it is shown as needing a repost.
   return { problems, plan: await planFor(ctx, problems.length === 0) };
-}
-
-/** Wraps `fn` so a call made while another is still running fails with `busyMessage`. */
-export function exclusive<Args extends unknown[], R>(
-  busyMessage: string,
-  fn: (...args: Args) => Promise<R>,
-): (...args: Args) => Promise<R> {
-  let running = false;
-  return async (...args) => {
-    if (running) throw new UserFacingError(busyMessage);
-    running = true;
-    try {
-      return await fn(...args);
-    } finally {
-      running = false;
-    }
-  };
 }
 
 const list = (items: SetupItem[]): string => (items.length > 0 ? items.join(", ") : "none");

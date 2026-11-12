@@ -1,10 +1,22 @@
-import { ButtonStyle, ComponentType } from "discord.js";
+import { ButtonStyle } from "discord.js";
 
-import { ADMIN_CATEGORY_NAME, NEWS_CHANNEL_NAME, PANEL_CHANNEL_NAME } from "../constants.ts";
-import { UNINSTALL_OPTIONS, choicesToBits, deletesHere, encodeId } from "../domain/index.ts";
-import { button, buttonRow, closeButton, display, payload } from "./components.ts";
+import {
+  ADMIN_CATEGORY_NAME,
+  MESSAGES,
+  NEWS_CHANNEL_NAME,
+  PANEL_CHANNEL_NAME,
+} from "../constants.ts";
+import { UNINSTALL_OPTIONS, choicesToBits, deletesHere } from "../domain/index.ts";
+import {
+  button,
+  buttonRow,
+  closeButton,
+  count,
+  display,
+  payload,
+  selectRow,
+} from "./components.ts";
 
-import type { APIActionRowComponent, APIStringSelectComponent } from "discord.js";
 import type { Payload } from "../discord/index.ts";
 import type {
   UninstallChoices,
@@ -12,9 +24,6 @@ import type {
   UninstallResult,
   UninstallSummary,
 } from "../domain/index.ts";
-
-const count = (n: number, one: string, many = `${one}s`): string =>
-  `${String(n)} ${n === 1 ? one : many}`;
 
 const OPTION_TEXT = {
   keepRoles: { label: "Keep roles", description: "Members keep their game roles" },
@@ -29,26 +38,17 @@ const OPTION_TEXT = {
   leave: { label: "Leave the server afterwards", description: "Otherwise the bot stays" },
 } as const satisfies Record<UninstallOption, { label: string; description: string }>;
 
-function choicesMenu(choices: UninstallChoices): APIActionRowComponent<APIStringSelectComponent> {
-  const options = UNINSTALL_OPTIONS.map((option) => ({
-    value: option,
-    ...OPTION_TEXT[option],
-    ...(choices.has(option) ? { default: true } : {}),
-  }));
-  return {
-    type: ComponentType.ActionRow,
-    components: [
-      {
-        type: ComponentType.StringSelect,
-        custom_id: encodeId({ kind: "uninstall-options" }),
-        placeholder: "Choose what to keep",
-        min_values: 0,
-        max_values: options.length,
-        options,
-      },
-    ],
-  };
-}
+const choicesMenu = (choices: UninstallChoices) =>
+  selectRow(
+    { kind: "uninstall-options" },
+    "Choose what to keep",
+    UNINSTALL_OPTIONS.map((option) => ({
+      value: option,
+      ...OPTION_TEXT[option],
+      ...(choices.has(option) ? { default: true } : {}),
+    })),
+    true,
+  );
 
 export function uninstallPreviewView(
   summary: UninstallSummary,
@@ -79,9 +79,7 @@ export function uninstallPreviewView(
   ];
   const blocked = deletesHere(summary.here, choices);
   if (blocked) {
-    plan.push(
-      "**Run this from a channel you're keeping, so the report and backup can reach you.**",
-    );
+    plan.push(`**${MESSAGES.uninstallFromKeptChannel}**`);
   }
 
   return payload(

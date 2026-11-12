@@ -3,7 +3,14 @@ import { expect, test } from "vitest";
 
 import { NEWS_CHANNEL_NAME } from "../constants.ts";
 import { parseId } from "../domain/index.ts";
-import { customIdButtons, defined, findComponents, flagBits, textOf } from "../testing/index.ts";
+import {
+  allComponents,
+  customIdButtons,
+  defined,
+  findComponents,
+  flagBits,
+  textOf,
+} from "../testing/index.ts";
 import {
   categoriesView,
   categoryModal,
@@ -13,7 +20,6 @@ import {
   setupPreviewView,
   setupReportView,
 } from "./admin.ts";
-import { countComponents } from "./limits.ts";
 
 import type { Category, Game, Suggestion } from "../db/index.ts";
 import type { ComponentSource } from "../testing/index.ts";
@@ -104,7 +110,7 @@ test("categories view: no Up on first, no Down on last", () => {
 
 test("categories view stays within 40 components and points to the command", () => {
   const view = categoriesView(Array.from({ length: 12 }, (_, i) => cat(i + 1, `C${String(i)}`)));
-  expect(countComponents(view)).toBeLessThanOrEqual(40);
+  expect(allComponents(view).length).toBeLessThanOrEqual(40);
   expect(texts(view)).toContain("/gameadmin category");
   expect(kinds(view).slice(-2)).toEqual(["category-add", "close"]);
 });
@@ -112,7 +118,7 @@ test("categories view stays within 40 components and points to the command", () 
 test("review list caps at 40 components and says how many more", () => {
   const pending = Array.from({ length: 10 }, (_, i) => sugg(i + 1));
   const view = reviewListView(pending, new Map([[1, cat(1, "Chill")]]));
-  expect(countComponents(view)).toBeLessThanOrEqual(40);
+  expect(allComponents(view).length).toBeLessThanOrEqual(40);
   expect(texts(view)).toContain("…and 3 more in");
   expect(kinds(view).filter((k) => k === "review-approve")).toHaveLength(7);
   expect(view.allowedMentions).toEqual({ parse: [] });
@@ -213,5 +219,5 @@ test("review list keeps total text within 4000 characters", () => {
   );
   expect(total).toBeLessThanOrEqual(4000);
   expect(texts(view)).toMatch(/…and \d+ more in/);
-  expect(countComponents(view)).toBeLessThanOrEqual(40);
+  expect(allComponents(view).length).toBeLessThanOrEqual(40);
 });

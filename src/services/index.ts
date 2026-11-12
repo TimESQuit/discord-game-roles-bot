@@ -1,7 +1,9 @@
 export { createAudit, formatAuditLine } from "./audit.ts";
 export { runBackup, scheduleNightlyBackups } from "./backup.ts";
+export { addCategory, moveCategory, renameCategory } from "./categories.ts";
 export type { AppContext } from "./context.ts";
 export { addGame, editGame, reapplyTemplate, removeGame } from "./games.ts";
+export type { GameEdit } from "./games.ts";
 export {
   requireCategory,
   requireGame,

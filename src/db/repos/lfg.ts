@@ -18,64 +18,48 @@ export type LfgRepo = {
 export function createLfg(kysely: Kysely<DB>): LfgRepo {
   const usersOf = async (messageId: string, kind: LfgAnswer): Promise<string[]> => {
     const rows = await kysely
-      .selectFrom("lfg_responses")
-      .select("user_id")
-      .where("message_id", "=", messageId)
+      .selectFrom("lfgResponses")
+      .select("userId")
+      .where("messageId", "=", messageId)
       .where("kind", "=", kind)
-      .orderBy("responded_at")
+      .orderBy("respondedAt")
       .orderBy(sql`rowid`)
       .execute();
-    return rows.map((row) => row.user_id);
+    return rows.map((row) => row.userId);
   };
 
   return {
     async add(post) {
+      // Columns are picked, not spread: callers may pass a whole `LfgPost`.
+      const { messageId, channelId, gameId, gameName, authorId, when, note, createdAt } = post;
       await kysely.transaction().execute(async (trx) => {
         await trx
-          .insertInto("lfg_posts")
-          .values({
-            message_id: post.messageId,
-            channel_id: post.channelId,
-            game_id: post.gameId,
-            game_name: post.gameName,
-            author_id: post.authorId,
-            when: post.when,
-            note: post.note,
-            created_at: post.createdAt,
-          })
+          .insertInto("lfgPosts")
+          .values({ messageId, channelId, gameId, gameName, authorId, when, note, createdAt })
           .execute();
-        for (const userId of post.in) {
-          await trx
-            .insertInto("lfg_responses")
-            .values({
-              message_id: post.messageId,
-              user_id: userId,
-              kind: "in",
-              responded_at: post.createdAt,
-            })
-            .execute();
-        }
+        if (post.in.length === 0) return;
+        await trx
+          .insertInto("lfgResponses")
+          .values(
+            post.in.map((userId) => ({
+              messageId,
+              userId,
+              kind: "in" as const,
+              respondedAt: createdAt,
+            })),
+          )
+          .execute();
       });
     },
     async get(messageId) {
       const row = await kysely
-        .selectFrom("lfg_posts")
+        .selectFrom("lfgPosts")
         .selectAll()
-        .where("message_id", "=", messageId)
+        .where("messageId", "=", messageId)
         .executeTakeFirst();
       if (!row) return undefined;
       return {
-        messageId: row.message_id,
-        channelId: row.channel_id,
-        gameId: row.game_id,
-        gameName: row.game_name,
-        authorId: row.author_id,
-        when: row.when,
-        note: row.note,
-        createdAt: row.created_at,
-        status: row.status,
-        closedBy: row.closed_by,
-        closedAt: row.closed_at,
+        ...row,
         in: await usersOf(messageId, "in"),
         maybe: await usersOf(messageId, "maybe"),
       };
@@ -83,51 +67,51 @@ export function createLfg(kysely: Kysely<DB>): LfgRepo {
     async setResponse(messageId, userId, kind) {
       if (kind === null) {
         await kysely
-          .deleteFrom("lfg_responses")
-          .where("message_id", "=", messageId)
-          .where("user_id", "=", userId)
+          .deleteFrom("lfgResponses")
+          .where("messageId", "=", messageId)
+          .where("userId", "=", userId)
           .execute();
         return;
       }
       await kysely.transaction().execute(async (trx) => {
         const existing = await trx
-          .selectFrom("lfg_responses")
+          .selectFrom("lfgResponses")
           .select("kind")
-          .where("message_id", "=", messageId)
-          .where("user_id", "=", userId)
+          .where("messageId", "=", messageId)
+          .where("userId", "=", userId)
           .executeTakeFirst();
         if (existing?.kind === kind) return;
         // Delete then insert so a changed answer gets a fresh rowid, which breaks same-millisecond ties.
         await trx
-          .deleteFrom("lfg_responses")
-          .where("message_id", "=", messageId)
-          .where("user_id", "=", userId)
+          .deleteFrom("lfgResponses")
+          .where("messageId", "=", messageId)
+          .where("userId", "=", userId)
           .execute();
         await trx
-          .insertInto("lfg_responses")
+          .insertInto("lfgResponses")
           .values({
-            message_id: messageId,
-            user_id: userId,
+            messageId,
+            userId,
             kind,
-            responded_at: new Date().toISOString(),
+            respondedAt: new Date().toISOString(),
           })
           .execute();
       });
     },
     async close(messageId, outcome, by, at) {
       const result = await kysely
-        .updateTable("lfg_posts")
-        .set({ status: outcome, closed_by: by, closed_at: at })
-        .where("message_id", "=", messageId)
+        .updateTable("lfgPosts")
+        .set({ status: outcome, closedBy: by, closedAt: at })
+        .where("messageId", "=", messageId)
         .where("status", "=", "open")
         .executeTakeFirst();
       return result.numUpdatedRows > 0n;
     },
     async reopen(messageId) {
       await kysely
-        .updateTable("lfg_posts")
-        .set({ status: "open", closed_by: null, closed_at: null })
-        .where("message_id", "=", messageId)
+        .updateTable("lfgPosts")
+        .set({ status: "open", closedBy: null, closedAt: null })
+        .where("messageId", "=", messageId)
         .execute();
     },
   };

@@ -1,8 +1,10 @@
+import { MESSAGES } from "../constants.ts";
 import { clearData } from "../db/index.ts";
 import { deletesHere, text } from "../domain/index.ts";
 import { messageOf, UserFacingError } from "../errors.ts";
 import { snapshotDatabase } from "./backup.ts";
-import { exclusive } from "./setup.ts";
+import { exclusive } from "./concurrency.ts";
+import { liveGameRoleIds } from "./games.ts";
 
 import type { SetupKey } from "../db/index.ts";
 import type {
@@ -47,9 +49,7 @@ export async function previewUninstall(
   ctx: AppContext,
   fromChannelId: string | null,
 ): Promise<UninstallSummary> {
-  const roles = (await ctx.repos.games.list())
-    .map((g) => g.roleId)
-    .filter((id) => ctx.gateway.role(id) !== undefined);
+  const roles = await liveGameRoleIds(ctx);
   const members = new Set(roles.flatMap((id) => ctx.gateway.roleMemberIds(id)));
   const recorded = await ctx.repos.setup.all();
   const admin = existingChannels(ctx, recorded, ADMIN_CHANNELS);
@@ -84,9 +84,7 @@ async function runUninstall(
   // Nothing below changes the setup table until the wipe, so one read serves the whole run.
   const recorded = await ctx.repos.setup.all();
   if (deletesHere(groupOf(recorded, fromChannelId), choices)) {
-    throw new UserFacingError(
-      "Run this from a channel you're keeping, so the report and backup can reach you.",
-    );
+    throw new UserFacingError(MESSAGES.uninstallFromKeptChannel);
   }
 
   const { gateway, repos } = ctx;

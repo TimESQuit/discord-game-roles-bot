@@ -59,7 +59,7 @@ test("countPending counts only that user's pending suggestions", async () => {
   expect(await r.suggestions.countPending(U3)).toBe(0);
 });
 
-test("lists, pendingNames, update and links", async () => {
+test("lists, pendingNames, pending updates and links", async () => {
   const { r, c, game } = await setup();
   const a = await r.suggestions.add({
     suggesterId: U1,
@@ -89,12 +89,12 @@ test("lists, pendingNames, update and links", async () => {
     { id: b.id, name: "B" },
     { id: d.id, name: "D" },
   ]);
-  await r.suggestions.update(b.id, { name: "B2", note: "hi" });
+  expect(await r.suggestions.updatePending(b.id, { name: "B2", aliases: "b two" })).toBe(true);
   await r.suggestions.setReviewMessage(b.id, M1);
   await r.suggestions.setGame(b.id, game.id);
   expect(await r.suggestions.get(b.id)).toMatchObject({
     name: "B2",
-    note: "hi",
+    aliases: "b two",
     categoryId: c.id,
     reviewMessageId: M1,
     gameId: game.id,

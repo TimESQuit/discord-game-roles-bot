@@ -1,4 +1,4 @@
-import type { Kysely, Selectable } from "kysely";
+import type { Kysely } from "kysely";
 import type { DB } from "../kysely-types.ts";
 import type { Suggestion, SuggestionStatus } from "../types.ts";
 
@@ -19,10 +19,6 @@ export type SuggestionsRepo = {
     reason?: string,
   ): Promise<boolean>;
   undoDecision(id: number): Promise<void>;
-  update(
-    id: number,
-    patch: Partial<Pick<Suggestion, "name" | "categoryId" | "note" | "aliases">>,
-  ): Promise<void>;
   /** Writes only while the suggestion is still pending; false means it was already decided. */
   updatePending(
     id: number,
@@ -33,102 +29,50 @@ export type SuggestionsRepo = {
   setGame(id: number, gameId: number | null): Promise<void>;
 };
 
-function toSuggestion(row: Selectable<DB["suggestions"]>): Suggestion {
-  return {
-    id: row.id,
-    suggesterId: row.suggester_id,
-    name: row.name,
-    categoryId: row.category_id,
-    note: row.note,
-    status: row.status,
-    reviewerId: row.reviewer_id,
-    rejectionReason: row.rejection_reason,
-    decidedAt: row.decided_at,
-    createdAt: row.created_at,
-    reviewMessageId: row.review_message_id,
-    gameId: row.game_id,
-    aliases: row.aliases,
-  };
-}
-
-type SuggestionPatch = Partial<Pick<Suggestion, "name" | "categoryId" | "note" | "aliases">>;
-
-function toColumns(patch: SuggestionPatch) {
-  return {
-    ...(patch.name === undefined ? {} : { name: patch.name }),
-    ...(patch.categoryId === undefined ? {} : { category_id: patch.categoryId }),
-    ...(patch.note === undefined ? {} : { note: patch.note }),
-    ...(patch.aliases === undefined ? {} : { aliases: patch.aliases }),
-  };
-}
-
 export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
   const select = () => kysely.selectFrom("suggestions").selectAll();
-
-  const get = async (id: number): Promise<Suggestion | undefined> => {
-    const row = await select().where("id", "=", id).executeTakeFirst();
-    return row ? toSuggestion(row) : undefined;
-  };
+  const get = (id: number): Promise<Suggestion | undefined> =>
+    select().where("id", "=", id).executeTakeFirst();
+  const pending = () =>
+    kysely
+      .selectFrom("suggestions")
+      .where("status", "=", "pending")
+      .orderBy("createdAt")
+      .orderBy("id");
 
   return {
     async add(input) {
-      const result = await kysely
-        .insertInto("suggestions")
-        .values({
-          suggester_id: input.suggesterId,
-          name: input.name,
-          category_id: input.categoryId,
-          note: input.note,
-          created_at: input.createdAt,
-        })
-        .executeTakeFirstOrThrow();
+      const result = await kysely.insertInto("suggestions").values(input).executeTakeFirstOrThrow();
       const created = await get(Number(result.insertId));
       if (!created) throw new Error("suggestion vanished after insert");
       return created;
     },
     get,
-    async listByUser(userId) {
-      const rows = await select()
-        .where("suggester_id", "=", userId)
-        .orderBy("created_at", "desc")
+    listByUser: (userId) =>
+      select()
+        .where("suggesterId", "=", userId)
+        .orderBy("createdAt", "desc")
         .orderBy("id", "desc")
-        .execute();
-      return rows.map(toSuggestion);
-    },
-    async listPending() {
-      const rows = await select()
-        .where("status", "=", "pending")
-        .orderBy("created_at")
-        .orderBy("id")
-        .execute();
-      return rows.map(toSuggestion);
-    },
+        .execute(),
+    listPending: () => pending().selectAll().execute(),
     async countPending(userId) {
       const row = await kysely
         .selectFrom("suggestions")
         .select((eb) => eb.fn.countAll<number>().as("n"))
-        .where("suggester_id", "=", userId)
+        .where("suggesterId", "=", userId)
         .where("status", "=", "pending")
         .executeTakeFirstOrThrow();
       return row.n;
     },
-    async pendingNames() {
-      return kysely
-        .selectFrom("suggestions")
-        .select(["id", "name"])
-        .where("status", "=", "pending")
-        .orderBy("created_at")
-        .orderBy("id")
-        .execute();
-    },
+    pendingNames: () => pending().select(["id", "name"]).execute(),
     async decide(id, to, by, at, reason) {
       const result = await kysely
         .updateTable("suggestions")
         .set({
           status: to,
-          reviewer_id: by,
-          rejection_reason: to === "rejected" ? (reason ?? null) : null,
-          decided_at: at,
+          reviewerId: by,
+          rejectionReason: to === "rejected" ? (reason ?? null) : null,
+          decidedAt: at,
         })
         .where("id", "=", id)
         .where("status", "=", "pending")
@@ -138,21 +82,17 @@ export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
     async undoDecision(id) {
       await kysely
         .updateTable("suggestions")
-        .set({ status: "pending", reviewer_id: null, rejection_reason: null, decided_at: null })
+        .set({ status: "pending", reviewerId: null, rejectionReason: null, decidedAt: null })
         .where("id", "=", id)
         .execute();
     },
-    async update(id, patch) {
-      const set = toColumns(patch);
-      if (Object.keys(set).length === 0) return;
-      await kysely.updateTable("suggestions").set(set).where("id", "=", id).execute();
-    },
     async updatePending(id, patch) {
-      const set = toColumns(patch);
-      if (Object.keys(set).length === 0) return (await get(id))?.status === "pending";
+      if (Object.values(patch).every((value) => value === undefined)) {
+        return (await get(id))?.status === "pending";
+      }
       const result = await kysely
         .updateTable("suggestions")
-        .set(set)
+        .set(patch)
         .where("id", "=", id)
         .where("status", "=", "pending")
         .executeTakeFirst();
@@ -164,16 +104,12 @@ export function createSuggestions(kysely: Kysely<DB>): SuggestionsRepo {
     async setReviewMessage(id, messageId) {
       await kysely
         .updateTable("suggestions")
-        .set({ review_message_id: messageId })
+        .set({ reviewMessageId: messageId })
         .where("id", "=", id)
         .execute();
     },
     async setGame(id, gameId) {
-      await kysely
-        .updateTable("suggestions")
-        .set({ game_id: gameId })
-        .where("id", "=", id)
-        .execute();
+      await kysely.updateTable("suggestions").set({ gameId }).where("id", "=", id).execute();
     },
   };
 }

@@ -27,11 +27,11 @@ test("foreign keys are enforced", async () => {
       .insertInto("games")
       .values({
         name: "Valheim",
-        normalized_name: "valheim",
-        category_id: 999,
-        role_id: "200000000000000001",
-        added_by: "100000000000000001",
-        added_at: "2026-01-01T00:00:00.000Z",
+        normalizedName: "valheim",
+        categoryId: 999,
+        roleId: "200000000000000001",
+        addedBy: "100000000000000001",
+        addedAt: "2026-01-01T00:00:00.000Z",
       })
       .execute(),
   ).rejects.toThrow(/FOREIGN KEY/);

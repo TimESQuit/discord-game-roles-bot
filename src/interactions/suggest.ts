@@ -1,5 +1,4 @@
-import { MESSAGES } from "../constants.ts";
-import { text, parseId } from "../domain/index.ts";
+import { text } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   join,
@@ -21,6 +20,7 @@ import {
   reviewEditModal,
   suggestModal,
 } from "../views/index.ts";
+import { idOf } from "./parse.ts";
 import {
   noticePrivately,
   replyPrivately,
@@ -62,8 +62,6 @@ export const draftStore = {
   },
 };
 
-const EXPIRED_MENU = MESSAGES.menuExpired;
-
 async function requireCategories(ctx: AppContext): Promise<Category[]> {
   const categories = await ctx.repos.categories.list();
   if (categories.length === 0) {
@@ -90,21 +88,6 @@ async function openSuggestForm(
 async function submitDraft(ctx: AppContext, userId: string, draft: Draft): Promise<string> {
   await submitSuggestion(ctx, { userId, ...draft });
   return `Suggested ${text(draft.name)}. Check its status under My suggestions.`;
-}
-
-function suggestionId(
-  raw: string,
-  kind:
-    | "withdraw"
-    | "review-approve"
-    | "review-edit"
-    | "review-reject"
-    | "review-edit-modal"
-    | "review-reject-modal",
-): number {
-  const id = parseId(raw);
-  if (id?.kind !== kind || !("suggestionId" in id)) throw new UserFacingError(EXPIRED_MENU);
-  return id.suggestionId;
 }
 
 export const suggestHandlers: Handlers = {
@@ -153,10 +136,9 @@ export const suggestHandlers: Handlers = {
   }),
 
   "dup-join": button(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "dup-join") throw new UserFacingError(EXPIRED_MENU);
+    const { gameId } = idOf(interaction, "dup-join");
     await updateWith(interaction, async () => {
-      const game = await requireGame(ctx, id.gameId);
+      const game = await requireGame(ctx, gameId);
       const result = await join(ctx, interaction.user.id, game.id, "suggestion");
       draftStore.delete(interaction.user.id);
       return noticeView(roleNotice(result, game.name));
@@ -164,7 +146,7 @@ export const suggestHandlers: Handlers = {
   }),
 
   withdraw: button(async (ctx, interaction) => {
-    const id = suggestionId(interaction.customId, "withdraw");
+    const id = idOf(interaction, "withdraw").suggestionId;
     await updateWith(interaction, async () => {
       await withdrawSuggestion(ctx, id, interaction.user.id);
       return mySuggestions(ctx, interaction.user.id);
@@ -172,27 +154,21 @@ export const suggestHandlers: Handlers = {
   }),
 
   "review-approve": button(async (ctx, interaction) => {
-    const id = suggestionId(interaction.customId, "review-approve");
+    const id = idOf(interaction, "review-approve").suggestionId;
     await interaction.deferUpdate();
     const game = await approveSuggestion(ctx, id, interaction.user.id);
     await sayPrivately(interaction, noticeView(`Approved ${text(game.name)}.`));
   }),
   "review-edit": button(async (ctx, interaction) => {
-    const s = await requirePendingSuggestion(
-      ctx,
-      suggestionId(interaction.customId, "review-edit"),
-    );
+    const s = await requirePendingSuggestion(ctx, idOf(interaction, "review-edit").suggestionId);
     await interaction.showModal(reviewEditModal(s, await requireCategories(ctx)));
   }),
   "review-reject": button(async (ctx, interaction) => {
-    const s = await requirePendingSuggestion(
-      ctx,
-      suggestionId(interaction.customId, "review-reject"),
-    );
+    const s = await requirePendingSuggestion(ctx, idOf(interaction, "review-reject").suggestionId);
     await interaction.showModal(rejectModal(s));
   }),
   "review-edit-modal": modal(async (ctx, interaction) => {
-    const id = suggestionId(interaction.customId, "review-edit-modal");
+    const id = idOf(interaction, "review-edit-modal").suggestionId;
     await noticePrivately(interaction, async () => {
       const updated = await editSuggestion(
         ctx,
@@ -208,7 +184,7 @@ export const suggestHandlers: Handlers = {
     });
   }),
   "review-reject-modal": modal(async (ctx, interaction) => {
-    const id = suggestionId(interaction.customId, "review-reject-modal");
+    const id = idOf(interaction, "review-reject-modal").suggestionId;
     await noticePrivately(interaction, async () => {
       const s = await ctx.repos.suggestions.get(id);
       await rejectSuggestion(

@@ -84,6 +84,23 @@ export function parseAliases(raw: string): string[] {
   return [...seen];
 }
 
+/** Categories whose name starts with the query, then those that contain it, each in display order. */
+export function rankCategories<T extends { name: string; position: number }>(
+  query: string,
+  categories: readonly T[],
+  limit = AUTOCOMPLETE_CHOICE_LIMIT,
+): T[] {
+  const q = normalize(query);
+  const rank = (c: T): number => {
+    const n = normalize(c.name);
+    return n.startsWith(q) ? 0 : n.includes(q) ? 1 : 2;
+  };
+  return categories
+    .filter((c) => rank(c) < 2)
+    .toSorted((a, b) => rank(a) - rank(b) || a.position - b.position)
+    .slice(0, limit);
+}
+
 /** Alphabetical by normalized name, then ID, so every list shows the same order. */
 export function byName(a: { id: number; name: string }, b: { id: number; name: string }): number {
   return normalize(a.name).localeCompare(normalize(b.name), "en") || a.id - b.id;

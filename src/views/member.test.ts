@@ -3,6 +3,7 @@ import { expect, test } from "vitest";
 
 import { parseId } from "../domain/index.ts";
 import {
+  allComponents,
   buttonKinds,
   customIdButtons,
   defined,
@@ -10,7 +11,7 @@ import {
   flagBits,
   textOf,
 } from "../testing/index.ts";
-import { countComponents, truncate } from "./limits.ts";
+import { truncate } from "./limits.ts";
 import {
   addGamesPageCount,
   addGamesView,
@@ -69,7 +70,7 @@ test("menu: 7 member buttons and Close; admin row only for admins", () => {
       expect(row.components.length).toBeLessThanOrEqual(5);
     }
     for (const b of buttons(p)) expect(parseId(b.custom_id)).not.toBeNull();
-    expect(countComponents(p)).toBeLessThanOrEqual(40);
+    expect(allComponents(p).length).toBeLessThanOrEqual(40);
   }
   expect(buttons(admin).map((b) => b.label)).toContain("Run setup");
 });
@@ -112,7 +113,7 @@ test("12 categories x 25 games stays at 40 components per page and pages", () =>
   const pages = Array.from({ length: count }, (_, i) =>
     addGamesView(categories, games, new Set(), i, "Added X."),
   );
-  for (const p of pages) expect(countComponents(p)).toBeLessThanOrEqual(40);
+  for (const p of pages) expect(allComponents(p).length).toBeLessThanOrEqual(40);
   expect(pages.flatMap(allSelects)).toHaveLength(12);
   const ids = pages.flatMap(buttons).map((b) => parseId(b.custom_id));
   expect(ids).toContainEqual({ kind: "add-page", page: 1 });
@@ -189,7 +190,7 @@ test("pick view pages: 24 chunks give 2+ pages, each within 40, every game reach
   const pages = Array.from({ length: count }, (_, i) =>
     pickGameView("who", manyCategories, manyGames, i),
   );
-  for (const p of pages) expect(countComponents(p)).toBeLessThanOrEqual(40);
+  for (const p of pages) expect(allComponents(p).length).toBeLessThanOrEqual(40);
   const values = pages.flatMap(allSelects).flatMap((s) => s.options);
   expect(new Set(values.map((o) => o.value)).size).toBe(manyGames.length);
   const first = defined(allSelects(defined(pages[0]))[0]);
@@ -216,7 +217,7 @@ test("remove view with 60 games: three dropdowns, all games, within 40", () => {
   const games = Array.from({ length: 60 }, (_, i) => game(i + 1, `G${String(i + 100)}`, 1));
   const p = removeGamesView(games, "Removed X.");
   expect(allSelects(p).map((s) => s.options.length)).toEqual([25, 25, 10]);
-  expect(countComponents(p)).toBeLessThanOrEqual(40);
+  expect(allComponents(p).length).toBeLessThanOrEqual(40);
 });
 
 test("every menu and list can be closed", () => {
@@ -238,7 +239,7 @@ test("every menu and list can be closed", () => {
 test("remove view with more games than fit stays within 40 and says so", () => {
   const games = Array.from({ length: 600 }, (_, i) => game(i + 1, `G${String(i + 1000)}`, 1));
   const p = removeGamesView(games, "Removed X.");
-  expect(countComponents(p)).toBeLessThanOrEqual(40);
+  expect(allComponents(p).length).toBeLessThanOrEqual(40);
   expect(texts(p)).toMatch(/Only the first \d+ of your games/);
 });
 

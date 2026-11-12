@@ -1,34 +1,32 @@
 import { MESSAGES } from "../constants.ts";
-import {
-  computeRoleOrder,
-  hasTiedRolePositions,
-  validateGameName,
-  parseAliases,
-  text,
-} from "../domain/index.ts";
+import { computeRoleOrder, validateGameName, parseAliases, text } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import { normalize } from "../normalize.ts";
 import { requireCategory, requireGame } from "./lookups.ts";
-import { missingPermissionMessage, PERMISSION_NAMES } from "./setup.ts";
+import { missingPermissionProblems, roleOrderProblem, templateRole } from "./permissions.ts";
 
 import type { Game } from "../db/index.ts";
 import type { RoleSnapshot } from "../discord/index.ts";
 import type { AppContext } from "./context.ts";
 
+/** A game edit as submitted: each field left out stays as it is. */
+export type GameEdit = { name?: string; categoryId?: number; aliases?: string };
+
 /** Returns the template role, or throws the exact fix for the admin. */
-export async function assertCanManageRoles(ctx: AppContext): Promise<RoleSnapshot> {
-  const templateId = await ctx.repos.setup.get("templateRoleId");
-  const template = templateId === undefined ? undefined : ctx.gateway.role(templateId);
+async function assertCanManageRoles(ctx: AppContext): Promise<RoleSnapshot> {
+  const template = await templateRole(ctx);
   if (!template) throw new UserFacingError(MESSAGES.setupFirst);
-  if (ctx.gateway.missingBotPermissions(["ManageRoles"]).length > 0) {
-    throw new UserFacingError(missingPermissionMessage(PERMISSION_NAMES.ManageRoles));
-  }
-  const botTop = ctx.gateway.botTopRolePosition();
-  if (hasTiedRolePositions(ctx.gateway.roles(), botTop)) {
-    throw new UserFacingError(MESSAGES.rolePositionsTied);
-  }
-  if (botTop <= template.position) throw new UserFacingError(MESSAGES.botRoleTooLow);
+  const problem =
+    missingPermissionProblems(ctx, ["ManageRoles"])[0] ?? roleOrderProblem(ctx, template);
+  if (problem !== null) throw new UserFacingError(problem);
   return template;
+}
+
+/** The roles of the stored games that still exist in Discord. */
+export async function liveGameRoleIds(ctx: AppContext): Promise<string[]> {
+  return (await ctx.repos.games.list())
+    .map((g) => g.roleId)
+    .filter((id) => ctx.gateway.role(id) !== undefined);
 }
 
 async function checkCollisions(
@@ -71,10 +69,7 @@ async function checkCollisions(
 export async function sortGameRoles(ctx: AppContext, actorId = "the bot"): Promise<void> {
   const templateId = await ctx.repos.setup.get("templateRoleId");
   if (templateId === undefined) return;
-  const roleIds = (await ctx.repos.games.list())
-    .map((g) => g.roleId)
-    .filter((id) => ctx.gateway.role(id) !== undefined);
-  const changes = computeRoleOrder(ctx.gateway.roles(), templateId, roleIds);
+  const changes = computeRoleOrder(ctx.gateway.roles(), templateId, await liveGameRoleIds(ctx));
   if (changes.length > 0) {
     await ctx.gateway.setRolePositions(changes, `Game roles sorted for ${actorId}`);
   }
@@ -118,12 +113,13 @@ export async function addGame(
   return game;
 }
 
+/** Applies the fields of `patch` that differ from the game; `changed` is false when none did. */
 export async function editGame(
   ctx: AppContext,
   gameId: number,
-  patch: { name?: string; categoryId?: number; aliases?: string },
+  patch: GameEdit,
   actorId: string,
-): Promise<Game> {
+): Promise<{ game: Game; changed: boolean }> {
   const game = await requireGame(ctx, gameId);
 
   const name = patch.name === undefined ? game.name : validateGameName(patch.name);
@@ -134,7 +130,7 @@ export async function editGame(
     patch.categoryId === undefined ? undefined : await requireCategory(ctx, patch.categoryId);
   const categoryChanged = category !== undefined && category.id !== game.categoryId;
 
-  if (!nameChanged && !aliasesChanged && !categoryChanged) return game;
+  if (!nameChanged && !aliasesChanged && !categoryChanged) return { game, changed: false };
   if (nameChanged) await assertCanManageRoles(ctx);
   await checkCollisions(ctx, name, aliases, game.id);
 
@@ -158,7 +154,7 @@ export async function editGame(
     game: updated.name,
     changes: changes.join("; "),
   });
-  return updated;
+  return { game: updated, changed: true };
 }
 
 export async function removeGame(

@@ -42,6 +42,8 @@ export const MESSAGES = {
   noGamesPicked: "You haven't picked any games yet.",
   gameRoleMissing: "That game's role is missing. This error has been logged.",
   botRoleTooLow: `Move the bot's role above ${TEMPLATE_ROLE_NAME} in Server Settings → Roles.`,
+  uninstallFromKeptChannel:
+    "Run this from a channel you're keeping, so the report and backup can reach you.",
   rolePositionsTied:
     "Some roles share a position, so the bot can't sort game roles. In Server Settings → Roles, drag any role down one place and back up, then try again.",
 } as const;

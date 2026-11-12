@@ -3,17 +3,17 @@ import { describe, expect, test } from "vitest";
 
 import {
   A1 as ADMIN,
-  U2,
-  U3,
+  allComponents,
   buttonKinds,
   customIdButtons,
   findComponents,
   flagBits,
   parsedIds,
   textOf,
+  U2,
+  U3,
 } from "../testing/index.ts";
 import { lfgClosedView, lfgManageView, lfgModal, lfgPostView } from "./lfg.ts";
-import { countComponents } from "./limits.ts";
 
 import type { Game, LfgPost } from "../db/index.ts";
 
@@ -53,7 +53,7 @@ test("is a layout-V2 message with no content or embeds", () => {
   expect(flagBits(v) & MessageFlags.SuppressNotifications).toBe(0);
   expect(v).not.toHaveProperty("content");
   expect(v).not.toHaveProperty("embeds");
-  expect(countComponents(v)).toBeLessThanOrEqual(40);
+  expect(allComponents(v).length).toBeLessThanOrEqual(40);
 });
 
 test("post pings only its game role; user text can't add mentions", () => {

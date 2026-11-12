@@ -44,12 +44,10 @@ test("games round-trip with aliases and are listed A→Z by normalized name", as
   const got = await repos.games.get(among.id);
   expect(got).toEqual(among);
   expect(got?.aliases.toSorted()).toEqual(["amogus", "sus"]);
-  expect((await repos.games.byRoleId("200000000000000001"))?.name).toBe("valheim");
-  expect((await repos.games.byNormalizedName("among us"))?.id).toBe(among.id);
   const updated = await repos.games.update(among.id, { name: "Among Us 2", aliases: ["Impostor"] });
   expect(updated.name).toBe("Among Us 2");
   expect(updated.aliases).toEqual(["impostor"]);
-  expect((await repos.games.byNormalizedName("among us 2"))?.id).toBe(among.id);
+  expect((await repos.games.list()).map((g) => g.name)).toEqual(["Among Us 2", "valheim"]);
 });
 
 test("a duplicate normalized name is rejected by the database", async () => {
@@ -69,7 +67,7 @@ test("removing a game removes its aliases", async () => {
   );
   await repos.games.remove(game.id);
   expect(await repos.games.get(game.id)).toBeUndefined();
-  expect(await repos.games.ownsRole("200000000000000001")).toBe(false);
+  expect(await repos.games.list()).toEqual([]);
   const row = db.sqlite.prepare<[], { n: number }>("SELECT COUNT(*) AS n FROM game_aliases").get();
   expect(row?.n).toBe(0);
 });

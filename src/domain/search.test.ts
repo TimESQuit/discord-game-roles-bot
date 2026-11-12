@@ -1,7 +1,7 @@
 import { expect, test } from "vitest";
 
 import { normalize } from "../normalize.ts";
-import { findCloseMatches, parseAliases, rankGames } from "./search.ts";
+import { findCloseMatches, parseAliases, rankCategories, rankGames } from "./search.ts";
 
 const g = (name: string, aliases: string[] = []) => ({ name, aliases });
 const games = [
@@ -85,4 +85,16 @@ test("short names only prompt on an exact match, not a fuzzy one", () => {
 
 test("parseAliases: comma list, normalized, de-duplicated, empties dropped", () => {
   expect(parseAliases(" CoD, cod ,, Warzone ")).toEqual(["cod", "warzone"]);
+});
+
+test("categories: prefix matches first, then inner ones, each in display order", () => {
+  const categories = [
+    { name: "Party", position: 0 },
+    { name: "Co-op", position: 1 },
+    { name: "Competitive", position: 2 },
+    { name: "Chill", position: 3 },
+  ];
+  expect(rankCategories("co", categories).map((c) => c.name)).toEqual(["Co-op", "Competitive"]);
+  expect(rankCategories("ti", categories).map((c) => c.name)).toEqual(["Competitive"]);
+  expect(rankCategories("", categories, 2).map((c) => c.name)).toEqual(["Party", "Co-op"]);
 });

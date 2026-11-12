@@ -13,6 +13,7 @@ import { join } from "./membership.ts";
 
 import type { Game, Suggestion } from "../db/index.ts";
 import type { AppContext } from "./context.ts";
+import type { GameEdit } from "./games.ts";
 
 /** Claims a pending suggestion (first wins) or throws with its current status. */
 async function claim(
@@ -139,17 +140,13 @@ export async function approveSuggestion(
 export async function editSuggestion(
   ctx: AppContext,
   id: number,
-  patch: { name?: string; categoryId?: number; aliases?: string },
+  patch: GameEdit,
   adminId: string,
 ): Promise<Suggestion> {
   await requirePendingSuggestion(ctx, id);
   const name = patch.name === undefined ? undefined : validateGameName(patch.name);
   if (patch.categoryId !== undefined) await requireCategory(ctx, patch.categoryId);
-  const wrote = await ctx.repos.suggestions.updatePending(id, {
-    ...(name === undefined ? {} : { name }),
-    ...(patch.categoryId === undefined ? {} : { categoryId: patch.categoryId }),
-    ...(patch.aliases === undefined ? {} : { aliases: patch.aliases }),
-  });
+  const wrote = await ctx.repos.suggestions.updatePending(id, { ...patch, name });
   if (!wrote) throw alreadyDecided((await requireSuggestion(ctx, id)).status);
   const updated = await requireSuggestion(ctx, id);
   await refreshCard(ctx, id);

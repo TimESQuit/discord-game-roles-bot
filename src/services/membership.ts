@@ -46,14 +46,8 @@ export async function applySelection(
   const added = present.filter((g) => add.includes(g.roleId));
   const removed = present.filter((g) => remove.includes(g.roleId));
 
-  for (const game of added) {
-    await ctx.gateway.addMemberRole(userId, game.roleId, `Joined ${game.name} via ${source}`);
-    await ctx.audit.log({ kind: "joined", userId, game: game.name, source });
-  }
-  for (const game of removed) {
-    await ctx.gateway.removeMemberRole(userId, game.roleId, `Left ${game.name} via ${source}`);
-    await ctx.audit.log({ kind: "left", userId, game: game.name, source });
-  }
+  for (const game of added) await addRole(ctx, userId, game, source);
+  for (const game of removed) await removeRole(ctx, userId, game, source);
   if (missing.length > 0) {
     await ctx.audit.reportError(
       `These games' roles are missing in Discord: ${missing.map((g) => g.name).join(", ")}. Remove the games or recreate them.`,

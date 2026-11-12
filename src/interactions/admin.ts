@@ -1,23 +1,13 @@
-import {
-  AUTOCOMPLETE_CHOICE_LIMIT,
-  BACKUPS_CHANNEL_NAME,
-  MESSAGES,
-  MOVE_DIRECTIONS,
-} from "../constants.ts";
-import {
-  validateCategoryName,
-  diffGameEdit,
-  text,
-  parseId,
-  choicesFromBits,
-  choicesFromValues,
-} from "../domain/index.ts";
+import { BACKUPS_CHANNEL_NAME, MESSAGES, MOVE_DIRECTIONS } from "../constants.ts";
+import { text, choicesFromBits, choicesFromValues, rankCategories } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
-import { normalize } from "../normalize.ts";
 import {
   runBackup,
+  addCategory,
   addGame,
   editGame,
+  moveCategory,
+  renameCategory,
   reapplyTemplate,
   removeGame,
   autocompleteGames,
@@ -28,7 +18,6 @@ import {
   previewUninstall,
   refreshPanel,
   requireCategory,
-  requireGame,
 } from "../services/index.ts";
 import {
   categoriesView,
@@ -43,7 +32,7 @@ import {
   uninstallReportView,
   FIELD,
 } from "../views/index.ts";
-import { parseCategoryId } from "./parse.ts";
+import { idOf, parseCategoryId, parseGameId } from "./parse.ts";
 import {
   deferAndKeep,
   forEdit,
@@ -69,72 +58,45 @@ import type {
   StringSelectMenuInteraction,
 } from "discord.js";
 import type { MoveDirection } from "../constants.ts";
-import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 import type { UninstallChoices } from "../domain/index.ts";
-import type { AppContext } from "../services/index.ts";
+import type { AppContext, GameEdit } from "../services/index.ts";
 import type { Handlers } from "./router.ts";
 
-const EXPIRED_FORM = MESSAGES.formExpired;
+const addCategoryNotice = async (ctx: AppContext, rawName: string, actorId: string) =>
+  `Added the category ${text((await addCategory(ctx, rawName, actorId)).name)}.`;
 
-async function addCategory(ctx: AppContext, rawName: string, actorId: string): Promise<string> {
-  const name = validateCategoryName(rawName, await ctx.repos.categories.list());
-  await ctx.repos.categories.add(name);
-  await ctx.audit.log({ kind: "category-changed", userId: actorId, detail: `added ${name}` });
-  return `Added the category ${text(name)}.`;
-}
-
-async function renameCategory(
+async function renameCategoryNotice(
   ctx: AppContext,
   categoryId: number,
   rawName: string,
   actorId: string,
 ): Promise<string> {
-  const category = await requireCategory(ctx, categoryId);
-  const name = validateCategoryName(rawName, await ctx.repos.categories.list(), categoryId);
-  if (name === category.name) return MESSAGES.nothingChanged;
-  await ctx.repos.categories.rename(categoryId, name);
-  await ctx.audit.log({
-    kind: "category-changed",
-    userId: actorId,
-    detail: `renamed ${category.name} → ${name}`,
-  });
-  return `Renamed ${text(category.name)} to ${text(name)}.`;
+  const { previousName, name, changed } = await renameCategory(ctx, categoryId, rawName, actorId);
+  return changed ? `Renamed ${text(previousName)} to ${text(name)}.` : MESSAGES.nothingChanged;
 }
 
-async function moveCategory(
+async function moveCategoryNotice(
   ctx: AppContext,
   categoryId: number,
   dir: MoveDirection,
   actorId: string,
 ): Promise<string> {
-  const categories = await ctx.repos.categories.list();
-  const index = categories.findIndex((c) => c.id === categoryId);
-  const category = categories[index];
-  if (!category) throw new UserFacingError(MESSAGES.categoryGone);
-  if (dir === "up" ? index === 0 : index === categories.length - 1) {
-    throw new UserFacingError(
-      `${text(category.name)} is already ${dir === "up" ? "first" : "last"}.`,
-    );
-  }
-  await ctx.repos.categories.move(categoryId, dir);
-  await ctx.audit.log({
-    kind: "category-changed",
-    userId: actorId,
-    detail: `moved ${category.name} ${dir}`,
-  });
+  const category = await moveCategory(ctx, categoryId, dir, actorId);
   return `Moved ${text(category.name)} ${dir}.`;
 }
 
-async function saveEdit(
+const addGameNotice = async (ctx: AppContext, input: Parameters<typeof addGame>[1]) =>
+  `Added ${text((await addGame(ctx, input)).name)}.`;
+
+async function editGameNotice(
   ctx: AppContext,
-  game: Game,
-  patch: ReturnType<typeof diffGameEdit>,
+  gameId: number,
+  patch: GameEdit,
   actorId: string,
 ): Promise<string> {
-  if (Object.keys(patch).length === 0) return MESSAGES.nothingChanged;
-  const after = await editGame(ctx, game.id, patch, actorId);
-  return `Saved changes to ${text(after.name)}.`;
+  const { game, changed } = await editGame(ctx, gameId, patch, actorId);
+  return changed ? `Saved changes to ${text(game.name)}.` : MESSAGES.nothingChanged;
 }
 
 const showCategories = async (ctx: AppContext): Promise<Payload> =>
@@ -246,38 +208,36 @@ export const adminHandlers: Handlers = {
   }),
 
   "game-add-modal": modal(async (ctx, interaction) => {
-    if (parseId(interaction.customId)?.kind !== "game-add-modal") {
-      throw new UserFacingError(EXPIRED_FORM);
-    }
-    await noticePrivately(interaction, async () => {
-      const game = await addGame(ctx, {
+    await noticePrivately(interaction, () =>
+      addGameNotice(ctx, {
         name: interaction.fields.getTextInputValue(FIELD.name),
         categoryId: modalCategory(interaction),
         aliases: interaction.fields.getTextInputValue(FIELD.aliases),
         actorId: interaction.user.id,
-      });
-      return `Added ${text(game.name)}.`;
-    });
+      }),
+    );
   }),
   "game-edit-modal": modal(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "game-edit-modal") throw new UserFacingError(EXPIRED_FORM);
-    await noticePrivately(interaction, async () => {
-      const game = await requireGame(ctx, id.gameId);
-      // Aliases are left out of the modal when they are too long to prefill.
-      const patch = diffGameEdit(game, {
-        name: interaction.fields.getTextInputValue(FIELD.name),
-        categoryId: modalCategory(interaction),
-        ...(interaction.fields.fields.has(FIELD.aliases)
-          ? { aliases: interaction.fields.getTextInputValue(FIELD.aliases) }
-          : {}),
-      });
-      return saveEdit(ctx, game, patch, interaction.user.id);
-    });
+    const { gameId } = idOf(interaction, "game-edit-modal");
+    const { fields } = interaction;
+    await noticePrivately(interaction, () =>
+      editGameNotice(
+        ctx,
+        gameId,
+        {
+          name: fields.getTextInputValue(FIELD.name),
+          categoryId: modalCategory(interaction),
+          // Aliases are left out of the modal when they are too long to prefill.
+          aliases: fields.fields.has(FIELD.aliases)
+            ? fields.getTextInputValue(FIELD.aliases)
+            : undefined,
+        },
+        interaction.user.id,
+      ),
+    );
   }),
   "confirm-remove": button(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "confirm-remove") throw new UserFacingError(EXPIRED_FORM);
+    const id = idOf(interaction, "confirm-remove");
     await updateWith(interaction, async () => {
       const { game } = await removeGame(ctx, id.gameId, interaction.user.id);
       return noticeView(`Removed ${text(game.name)}.`);
@@ -300,9 +260,7 @@ export const adminHandlers: Handlers = {
     );
   }),
   "uninstall-confirm": button(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "uninstall-confirm") throw new UserFacingError(MESSAGES.menuExpired);
-    const picked = choicesFromBits(id.choices);
+    const picked = choicesFromBits(idOf(interaction, "uninstall-confirm").choices);
     // The report will carry the only copy of the backup: from now on nothing may delete it.
     await deferAndKeep(interaction);
     await applyUninstall(
@@ -322,33 +280,27 @@ export const adminHandlers: Handlers = {
     await interaction.showModal(categoryModal());
   }),
   "category-rename": button(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "category-rename") throw new UserFacingError(EXPIRED_FORM);
-    await interaction.showModal(categoryModal(await requireCategory(ctx, id.categoryId)));
+    const { categoryId } = idOf(interaction, "category-rename");
+    await interaction.showModal(categoryModal(await requireCategory(ctx, categoryId)));
   }),
   "category-add-modal": modal(async (ctx, interaction) => {
-    if (parseId(interaction.customId)?.kind !== "category-add-modal") {
-      throw new UserFacingError(EXPIRED_FORM);
-    }
     await answerCategoryModal(ctx, interaction, () =>
-      addCategory(ctx, interaction.fields.getTextInputValue(FIELD.name), interaction.user.id),
+      addCategoryNotice(ctx, interaction.fields.getTextInputValue(FIELD.name), interaction.user.id),
     );
   }),
   "category-rename-modal": modal(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "category-rename-modal") throw new UserFacingError(EXPIRED_FORM);
+    const { categoryId } = idOf(interaction, "category-rename-modal");
     await answerCategoryModal(ctx, interaction, () =>
-      renameCategory(
+      renameCategoryNotice(
         ctx,
-        id.categoryId,
+        categoryId,
         interaction.fields.getTextInputValue(FIELD.name),
         interaction.user.id,
       ),
     );
   }),
   "category-move": button(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "category-move") throw new UserFacingError(EXPIRED_FORM);
+    const id = idOf(interaction, "category-move");
     await updateWith(interaction, async () => {
       await moveCategory(ctx, id.categoryId, id.dir, interaction.user.id);
       return showCategories(ctx);
@@ -362,15 +314,14 @@ export const adminHandlers: Handlers = {
 
   "gameadmin-add": chatInput(async (ctx, interaction) => {
     const categoryId = parseCategoryId(interaction.options.getString("category", true));
-    await noticePrivately(interaction, async () => {
-      const game = await addGame(ctx, {
+    await noticePrivately(interaction, () =>
+      addGameNotice(ctx, {
         name: interaction.options.getString("name", true),
         categoryId,
         aliases: interaction.options.getString("aliases") ?? "",
         actorId: interaction.user.id,
-      });
-      return `Added ${text(game.name)}.`;
-    });
+      }),
+    );
   }),
   "gameadmin-edit": chatInput(async (ctx, interaction) => {
     const { options } = interaction;
@@ -380,14 +331,15 @@ export const adminHandlers: Handlers = {
     if (name === null && category === null && aliases === null) {
       throw new UserFacingError("Nothing to change.");
     }
-    const game = await resolvePickedGame(ctx, options.getString("game", true));
-    const categoryId = category === null ? undefined : parseCategoryId(category);
-    const patch = diffGameEdit(game, {
-      ...(name === null ? {} : { name }),
-      ...(categoryId === undefined ? {} : { categoryId }),
-      ...(aliases === null ? {} : { aliases }),
-    });
-    await noticePrivately(interaction, () => saveEdit(ctx, game, patch, interaction.user.id));
+    const gameId = parseGameId(options.getString("game", true));
+    const patch: GameEdit = {
+      name: name ?? undefined,
+      categoryId: category === null ? undefined : parseCategoryId(category),
+      aliases: aliases ?? undefined,
+    };
+    await noticePrivately(interaction, () =>
+      editGameNotice(ctx, gameId, patch, interaction.user.id),
+    );
   }),
   "gameadmin-remove": chatInput(async (ctx, interaction) => {
     const game = await resolvePickedGame(ctx, interaction.options.getString("game", true));
@@ -396,13 +348,13 @@ export const adminHandlers: Handlers = {
 
   "gameadmin-category-add": chatInput(async (ctx, interaction) => {
     await noticePrivately(interaction, () =>
-      addCategory(ctx, interaction.options.getString("name", true), interaction.user.id),
+      addCategoryNotice(ctx, interaction.options.getString("name", true), interaction.user.id),
     );
   }),
   "gameadmin-category-rename": chatInput(async (ctx, interaction) => {
     const categoryId = parseCategoryId(interaction.options.getString("category", true));
     await noticePrivately(interaction, () =>
-      renameCategory(
+      renameCategoryNotice(
         ctx,
         categoryId,
         interaction.options.getString("name", true),
@@ -416,7 +368,7 @@ export const adminHandlers: Handlers = {
     const direction = MOVE_DIRECTIONS.find((d) => d === dir);
     if (direction === undefined) throw new UserFacingError("Pick up or down.");
     await noticePrivately(interaction, () =>
-      moveCategory(ctx, categoryId, direction, interaction.user.id),
+      moveCategoryNotice(ctx, categoryId, direction, interaction.user.id),
     );
   }),
 
@@ -426,17 +378,8 @@ export const adminHandlers: Handlers = {
       const matches = await autocompleteGames(ctx, interaction.user.id, focused.value, "any");
       await interaction.respond(choices(matches));
     } else if (focused.name === "category") {
-      const query = normalize(focused.value);
       const categories = await ctx.repos.categories.list();
-      const rank = (c: Category): number => {
-        const n = normalize(c.name);
-        return n.startsWith(query) ? 0 : n.includes(query) ? 1 : 2;
-      };
-      const matches = categories
-        .filter((c) => rank(c) < 2)
-        .toSorted((a, b) => rank(a) - rank(b) || a.position - b.position)
-        .slice(0, AUTOCOMPLETE_CHOICE_LIMIT);
-      await interaction.respond(choices(matches));
+      await interaction.respond(choices(rankCategories(focused.value, categories)));
     } else {
       await interaction.respond([]);
     }

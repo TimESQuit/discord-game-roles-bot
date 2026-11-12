@@ -10,6 +10,7 @@ import type {
   APIButtonComponentWithCustomId,
   APIComponentInContainer,
   APIContainerComponent,
+  APISelectMenuOption,
   APIStringSelectComponent,
   APITextDisplayComponent,
 } from "discord.js";
@@ -21,7 +22,8 @@ const PRIVATE = [MessageFlags.IsComponentsV2, MessageFlags.Ephemeral] as const;
 const NO_PINGS = { parse: [] } as const;
 
 export type ButtonRow = APIActionRowComponent<APIButtonComponent>;
-export type Row = ButtonRow | APIActionRowComponent<APIStringSelectComponent>;
+export type SelectRow = APIActionRowComponent<APIStringSelectComponent>;
+export type Row = ButtonRow | SelectRow;
 export type Part = APIComponentInContainer | Row;
 
 /** A text display, cut to the per-display limit. */
@@ -54,6 +56,26 @@ export const buttonRow = (...buttons: APIButtonComponent[]): ButtonRow => ({
   components: buttons,
 });
 
+/** A dropdown in its own row: `multi` lets the person tick any number of options, even none. */
+export const selectRow = (
+  id: CustomId,
+  placeholder: string,
+  options: APISelectMenuOption[],
+  multi: boolean,
+): SelectRow => ({
+  type: ComponentType.ActionRow,
+  components: [
+    {
+      type: ComponentType.StringSelect,
+      custom_id: encodeId(id),
+      placeholder: truncate(placeholder, TEXT_LIMIT),
+      min_values: multi ? 0 : 1,
+      max_values: multi ? options.length : 1,
+      options,
+    },
+  ],
+});
+
 export const container = (...components: Part[]): APIContainerComponent => ({
   type: ComponentType.Container,
   components,
@@ -68,18 +90,22 @@ export const silent = (view: Payload): Payload => ({
   flags: [...(view.flags ?? []), MessageFlags.SuppressNotifications],
 });
 
-/** A components-v2 message holding one container; mentions never ping. */
 /**
  * A view to show privately in answer to an interaction. `notice` marks a one-line result that
  * closes itself soon after it is shown; how a view is shown is up to the interaction helpers.
  */
 export type PrivateView = Payload & { notice?: true };
 
+/** A components-v2 message holding one container; mentions never ping. */
 export const payload = (parts: Part[], privateMessage: boolean): Payload => ({
   flags: privateMessage ? PRIVATE : PUBLIC,
   components: [container(...parts)],
   allowedMentions: NO_PINGS,
 });
+
+/** "1 member", "2 members". */
+export const count = (n: number, one: string, many = `${one}s`): string =>
+  `${String(n)} ${n === 1 ? one : many}`;
 
 /** Mentions of the first people (capped), and the "…and N more" line when there are others. */
 export function shownPeople(ids: readonly string[]): { mentions: string[]; more: string | null } {

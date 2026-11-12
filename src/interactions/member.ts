@@ -1,5 +1,5 @@
 import { MESSAGES } from "../constants.ts";
-import { isAdmin, text, parseId } from "../domain/index.ts";
+import { isAdmin, text } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
 import {
   applySelection,
@@ -22,7 +22,7 @@ import {
   removeGamesView,
 } from "../views/index.ts";
 import { closeIfPresent, openMenus } from "./menus.ts";
-import { parseGameId } from "./parse.ts";
+import { idOf, parseGameId } from "./parse.ts";
 import { noticePrivately, showPrivately, updateWith } from "./replies.ts";
 import { autocomplete, button, chatInput, memberRoleIds, select, userContext } from "./router.ts";
 import { catalog, choices, gamePicker, roleNotice } from "./shared.ts";
@@ -96,9 +96,8 @@ async function commandJoinLeave(
 
 /** Shared by all four pick-page-* handlers; the router already checked admin rights. */
 async function pickPage(ctx: AppContext, interaction: ButtonInteraction): Promise<void> {
-  const id = parseId(interaction.customId);
-  if (id?.kind !== "pick-page") throw new UserFacingError(MESSAGES.menuExpired);
-  await updateWith(interaction, () => gamePicker(ctx, id.purpose, id.page));
+  const { purpose, page } = idOf(interaction, "pick-page");
+  await updateWith(interaction, () => gamePicker(ctx, purpose, page));
 }
 
 export const memberHandlers: Handlers = {
@@ -125,8 +124,7 @@ export const memberHandlers: Handlers = {
   }),
 
   "add-select": select(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "add-select") throw new UserFacingError(MESSAGES.menuExpired);
+    const id = idOf(interaction, "add-select");
     // Only options whose tick differs from what this menu showed may change, so a stale menu
     // can never touch a role the person did not tick or untick.
     const rendered = interaction.component?.options;
@@ -149,13 +147,10 @@ export const memberHandlers: Handlers = {
     });
   }),
   "add-page": button(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "add-page") throw new UserFacingError(MESSAGES.menuExpired);
-    await updateWith(interaction, () => addGames(ctx, interaction.user.id, id.page));
+    const { page } = idOf(interaction, "add-page");
+    await updateWith(interaction, () => addGames(ctx, interaction.user.id, page));
   }),
   "remove-select": select(async (ctx, interaction) => {
-    const id = parseId(interaction.customId);
-    if (id?.kind !== "remove-select") throw new UserFacingError(MESSAGES.menuExpired);
     await updateWith(interaction, async () => {
       const userId = interaction.user.id;
       const removed = [];

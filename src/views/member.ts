@@ -1,4 +1,4 @@
-import { ButtonStyle, ComponentType } from "discord.js";
+import { ButtonStyle } from "discord.js";
 
 import {
   COMPONENT_LIMIT,
@@ -7,23 +7,20 @@ import {
   TEXT_DISPLAY_LIMIT,
   TEXT_LIMIT,
 } from "../constants.ts";
-import { byName, chunk, encodeId, text } from "../domain/index.ts";
+import { byName, chunk, text } from "../domain/index.ts";
 import {
   button,
   buttonRow,
   closeButton,
   display,
   payload,
+  selectRow,
   separator,
   shownPeople,
 } from "./components.ts";
 import { truncate } from "./limits.ts";
 
-import type {
-  APIActionRowComponent,
-  APIButtonComponent,
-  APIStringSelectComponent,
-} from "discord.js";
+import type { APIButtonComponent } from "discord.js";
 import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 import type { PickPurpose, AdminAction, CustomId, MenuAction } from "../domain/index.ts";
@@ -115,27 +112,6 @@ const options = (games: readonly Game[], ticked: ReadonlySet<string> | null) =>
     value: String(g.id),
     ...(ticked?.has(g.roleId) ? { default: true } : {}),
   }));
-
-function selectRow(
-  id: CustomId,
-  placeholder: string,
-  opts: ReturnType<typeof options>,
-  multi: boolean,
-): APIActionRowComponent<APIStringSelectComponent> {
-  return {
-    type: ComponentType.ActionRow,
-    components: [
-      {
-        type: ComponentType.StringSelect,
-        custom_id: encodeId(id),
-        placeholder: truncate(placeholder, TEXT_LIMIT),
-        min_values: multi ? 0 : 1,
-        max_values: multi ? opts.length : 1,
-        options: opts,
-      },
-    ],
-  };
-}
 
 /** Previous and Next buttons shared by the add and pick views. */
 function pagerButtons(
@@ -329,6 +305,13 @@ export function pickGameView(
   return payload([display(header), ...rows, buttonRow(...nav, closeButton("Cancel"))], true);
 }
 
+/** One bulleted line per game, A→Z, cut short to fit one text display. */
+const gamesBody = (games: readonly Game[], empty: string): string =>
+  listBody(
+    games.toSorted(byName).map((g) => `- ${text(g.name)}`),
+    empty,
+  );
+
 function listBody(lines: readonly string[], empty: string): string {
   if (lines.length === 0) return empty;
   const out: string[] = [];
@@ -348,12 +331,7 @@ export function myGamesView(games: readonly Game[], notice?: string): Payload {
   const parts: Part[] = [];
   if (notice) parts.push(display(notice));
   parts.push(
-    display(
-      `### My games\n${listBody(
-        games.toSorted(byName).map((g) => `- ${text(g.name)}`),
-        MESSAGES.noGamesPicked,
-      )}`,
-    ),
+    display(`### My games\n${gamesBody(games, MESSAGES.noGamesPicked)}`),
     buttonRow(
       button({ kind: "menu", action: "add" }, "Add games", ButtonStyle.Primary),
       button({ kind: "menu", action: "remove" }, "Remove games"),
@@ -365,11 +343,10 @@ export function myGamesView(games: readonly Game[], notice?: string): Payload {
 
 /** `title` is trusted text; callers escape any name they put in it with `text()`. */
 export function gameListView(title: string, games: readonly Game[], empty: string): Payload {
-  const body = listBody(
-    games.toSorted(byName).map((g) => `- ${text(g.name)}`),
-    empty,
+  return payload(
+    [display(`### ${title}\n${gamesBody(games, empty)}`), buttonRow(closeButton())],
+    true,
   );
-  return payload([display(`### ${title}\n${body}`), buttonRow(closeButton())], true);
 }
 
 /** A list of people as mentions (they do not ping), capped at 50. */
