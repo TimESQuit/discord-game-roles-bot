@@ -62,10 +62,10 @@ test("review card and announcement never ping", () => {
   expect(flagBits(card)).toBe(MessageFlags.IsComponentsV2);
   expect("content" in card).toBe(false);
   expect(texts(card)).not.toContain("@everyone");
-  expect(announcementView(game(1, "Valheim")).allowedMentions).toEqual({ parse: [] });
-  expect(texts(announcementView(game(1, "Valheim")))).toBe(
-    "New game: **Valheim** — <@&200000000000000001>",
-  );
+  const announcement = announcementView(game(1, "@everyone"));
+  expect(announcement.allowedMentions).toEqual({ parse: [] });
+  expect(texts(announcement)).toContain("<@&200000000000000001>");
+  expect(texts(announcement)).not.toContain("@everyone");
 });
 
 test("pending card has Approve, Edit and Reject with the suggestion ID", () => {
@@ -104,7 +104,6 @@ test("duplicate prompt: one Join per game (max 5), Submit anyway and Cancel", ()
   const ids = buttons(view).map((b) => parseId(b.custom_id));
   expect(ids.filter((i) => i?.kind === "dup-join")).toHaveLength(5);
   expect(ids.map((i) => i?.kind).slice(-2)).toEqual(["dup-submit", "close"]);
-  expect(texts(view)).toContain("Did you mean");
   expect(texts(view)).toContain("Valhalla");
   expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
 });

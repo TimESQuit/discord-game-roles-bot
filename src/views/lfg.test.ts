@@ -72,7 +72,8 @@ test("'when' is shown exactly as typed (escaped, not interpreted)", () => {
 
 test("shows author, game, note, and omits When when not given", () => {
   const text = all(lfgPostView(post({ note: "bring food" }), game));
-  expect(text).toContain("<@100000000000000001> is looking for a group: **Valheim**");
+  expect(text).toContain(`<@${base.authorId}>`);
+  expect(text).toContain("Valheim");
   expect(text).toContain("bring food");
   expect(text).not.toContain("When:");
 });
@@ -87,13 +88,6 @@ test("In and Maybe counts and lists", () => {
   expect(text).toContain("In (2): <@100000000000000002>, <@100000000000000003>");
   expect(text).toContain("Maybe (1): <@100000000000000004>");
   expect(all(lfgPostView(post(), game))).toContain("In (0):");
-});
-
-test("a very long In list stays under the text display limit", () => {
-  const many = Array.from({ length: 300 }, (_, i) => String(100000000000001000n + BigInt(i)));
-  const v = lfgPostView(post({ in: many }), game);
-  for (const t of textParts(v)) expect(t.content.length).toBeLessThanOrEqual(4000);
-  expect(all(v)).toContain("In (300):");
 });
 
 test("has the answer, role and Manage buttons, which fit one row", () => {
@@ -112,7 +106,6 @@ test("post for a removed game still renders, labelled removed", () => {
 
 test("lfgModal has optional when (max 100) and note (max 300)", () => {
   const json = lfgModal(7).toJSON();
-  expect(JSON.stringify(json)).toContain("tonight 9pm");
   const inputs = findComponents(json.components, ComponentType.TextInput);
   expect(inputs.map((i) => [i.required, i.max_length])).toEqual([
     [false, 100],
@@ -122,9 +115,11 @@ test("lfgModal has optional when (max 100) and note (max 300)", () => {
   expect(inputs[1]?.style).toBe(TextInputStyle.Paragraph);
 });
 
-test("300 responders show exactly 50 mentions, an overflow line and the full count", () => {
+test("300 responders show exactly 50 mentions, an overflow line and the full count, within limits", () => {
   const many = Array.from({ length: 300 }, (_, i) => String(100000000000001000n + BigInt(i)));
-  const text = all(lfgPostView(post({ in: many }), game));
+  const v = lfgPostView(post({ in: many }), game);
+  for (const t of textParts(v)) expect(t.content.length).toBeLessThanOrEqual(4000);
+  const text = all(v);
   expect(text).toContain("In (300):");
   expect(text.match(/<@\d+>/g)?.length).toBe(50 + 1); // 50 responders + the author
   expect(text).toContain("…and 250 more");

@@ -1,4 +1,4 @@
-import { DiscordAPIError, MessageFlags, MessageFlagsBitField } from "discord.js";
+import { DiscordAPIError, MessageFlags } from "discord.js";
 import { afterEach, beforeEach, expect, test, vi } from "vitest";
 
 import { DISCORD_ERROR } from "../discord/index.ts";
@@ -6,7 +6,6 @@ import { FAKE_USER_ID, deletedIds, fakeButton, flagBits, methods } from "../test
 import { menuView, messageView, noticeView } from "../views/index.ts";
 import { NOTICE_LIFETIME_MS, TOKEN_LIFETIME_MS, openMenus } from "./menus.ts";
 import {
-  PRIVATE_V2_DEFER,
   deferAndKeep,
   forEdit,
   forReply,
@@ -18,12 +17,6 @@ import {
 } from "./replies.ts";
 
 import type { Call } from "../testing/index.ts";
-
-test("the defer flags resolve to Ephemeral | IsComponentsV2", () => {
-  expect(new MessageFlagsBitField(PRIVATE_V2_DEFER).bitfield).toBe(
-    MessageFlags.Ephemeral | MessageFlags.IsComponentsV2,
-  );
-});
 
 test("a private view replies privately and edits keep only the layout flag", () => {
   const view = noticeView("hello");

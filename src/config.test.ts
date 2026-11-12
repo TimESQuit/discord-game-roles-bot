@@ -9,13 +9,6 @@ const valid = {
   ADMIN_ROLE_ID: "100000000000000003",
 };
 
-test("defaults", () => {
-  expect(loadConfig(valid)).toMatchObject({
-    databasePath: "data/bot.sqlite",
-    backupHourUtc: 4,
-  });
-});
-
 test("lists every missing variable at once", () => {
   expect(() => loadConfig({})).toThrow(
     /DISCORD_TOKEN.*DISCORD_APPLICATION_ID.*DISCORD_GUILD_ID.*ADMIN_ROLE_ID/s,

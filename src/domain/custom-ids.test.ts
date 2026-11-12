@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 
-import { encodeId, isAdminId, parseId } from "./custom-ids.ts";
+import { CUSTOM_ID_KINDS, encodeId, isAdminId, parseId } from "./custom-ids.ts";
 
 import type { CustomId } from "./custom-ids.ts";
 
@@ -54,6 +54,8 @@ const samples: CustomId[] = [
   { kind: "game-edit-modal", gameId: 12 },
   { kind: "confirm-remove", gameId: 12 },
   { kind: "confirm-setup" },
+  { kind: "uninstall-options" },
+  { kind: "uninstall-confirm", choices: 15 },
   { kind: "category-add-modal" },
   { kind: "category-rename-modal", categoryId: 2 },
   { kind: "category-move", categoryId: 2, dir: "up" },
@@ -63,6 +65,10 @@ const samples: CustomId[] = [
 ];
 
 describe("custom IDs", () => {
+  test("the samples cover every kind", () => {
+    expect(new Set(samples.map((id) => id.kind))).toEqual(new Set(CUSTOM_ID_KINDS));
+  });
+
   test("every CustomId round-trips and fits 100 chars", () => {
     for (const id of samples) {
       const raw = encodeId(id);
@@ -119,6 +125,8 @@ describe("custom IDs", () => {
       "game-edit-modal",
       "confirm-remove",
       "confirm-setup",
+      "uninstall-options",
+      "uninstall-confirm",
       "category-add-modal",
       "category-rename-modal",
       "category-move",

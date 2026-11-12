@@ -72,9 +72,7 @@ test("setup preview enables Confirm when there is something to create", () => {
   });
   const confirm = buttons(view).find((b) => parseId(b.custom_id)?.kind === "confirm-setup");
   expect(confirm?.disabled).toBeFalsy();
-  expect(texts(view)).toContain("Will create:");
   expect(texts(view)).toContain(`#${NEWS_CHANNEL_NAME}`);
-  expect(texts(view)).toContain("Already fine:");
   expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
 });
 

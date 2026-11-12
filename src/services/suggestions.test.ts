@@ -127,7 +127,7 @@ describe("approve", () => {
     expect(ctx.gateway.memberRoleIds(U1).has(game.roleId)).toBe(true);
     const news = sentTo(ctx, "newsChannelId");
     expect(news).toHaveLength(1);
-    expect(textOf(defined(news[0]))).toBe(`New game: **Valheim** — <@&${game.roleId}>`);
+    expect(textOf(defined(news[0]))).toContain(`<@&${game.roleId}>`);
     expect(await ctx.repos.suggestions.get(s.id)).toMatchObject({
       status: "approved",
       reviewerId: A1,

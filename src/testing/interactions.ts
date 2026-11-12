@@ -9,7 +9,7 @@ import {
   SnowflakeUtil,
 } from "discord.js";
 
-import type { MessageResolvable } from "discord.js";
+import type { MessageResolvable, PermissionsString } from "discord.js";
 
 export const FAKE_USER_ID = "100000000000000001";
 
@@ -54,6 +54,18 @@ export type FakeOptions = {
   ephemeral?: boolean;
   /** The ID a new reply gets. */
   replyId?: string;
+  /** A select menu's chosen values. */
+  values?: string[];
+  /** The options the select menu was rendered with, as Discord sends them back. */
+  rendered?: readonly { value: string; default?: boolean | null }[];
+  /** A modal's submitted fields: text inputs as strings, selects as arrays. */
+  fields?: Record<string, string | string[]>;
+  /** A slash command's string options. */
+  strings?: Record<string, string>;
+  /** The member's permissions in the channel. */
+  permissions?: PermissionsString[];
+  /** The interaction comes from a thread under this parent channel. */
+  threadParentId?: string;
 };
 
 const PRIVATE = MessageFlags.Ephemeral | MessageFlags.IsComponentsV2;
@@ -73,8 +85,23 @@ function fakeOn<T extends BaseInteraction>(made: T, kind: FakeKind, calls: Call[
     if (o.failReplies === true && method !== "respond") throw new Error("discord down");
   };
   const answered = (key: "deferred" | "replied") => Object.assign(made, { [key]: true });
-  // A getter on the prototype that reads the client's cache; the fake has no cached channel.
-  Object.defineProperty(made, "channel", { value: null });
+  // A getter on the prototype that reads the client's cache; the fake has only a thread, if any.
+  const thread = o.threadParentId;
+  Object.defineProperty(made, "channel", {
+    value: thread === undefined ? null : { isThread: () => true, parentId: thread },
+  });
+  // Also a getter, reading the message the component sits on.
+  Object.defineProperty(made, "component", {
+    value: o.rendered === undefined ? null : { options: o.rendered },
+  });
+  const fields = o.fields ?? {};
+  const field = (name: string, want: "string" | "array") => {
+    const value = fields[name];
+    if (want === "string" ? typeof value !== "string" : !Array.isArray(value)) {
+      throw new Error(`No ${want} field ${name}`);
+    }
+    return value;
+  };
   return Object.assign(made, {
     ...KINDS[kind],
     id: SnowflakeUtil.generate({ timestamp: o.createdAt ?? Date.now() }).toString(),
@@ -89,7 +116,22 @@ function fakeOn<T extends BaseInteraction>(made: T, kind: FakeKind, calls: Call[
     options: {
       getSubcommand: () => o.subcommand ?? null,
       getSubcommandGroup: () => o.subcommandGroup ?? null,
+      getString: (name: string, required = false) => {
+        const value = o.strings?.[name];
+        if (value === undefined && required) throw new Error(`No option ${name}`);
+        return value ?? null;
+      },
     },
+    values: o.values ?? [],
+    fields: {
+      fields: new Map(Object.entries(fields)),
+      getTextInputValue: (name: string) => field(name, "string"),
+      getStringSelectValues: (name: string) => field(name, "array"),
+    },
+    memberPermissions:
+      o.permissions === undefined
+        ? null
+        : { has: (p: PermissionsString) => o.permissions?.includes(p) ?? false },
     deferUpdate: async () => {
       record("deferUpdate");
       answered("deferred");
