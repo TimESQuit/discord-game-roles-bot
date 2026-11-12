@@ -18,12 +18,12 @@ import {
   gameListView,
   menuView,
   myGamesView,
-  noticeView,
   peopleListView,
   removeGamesView,
 } from "../views/index.ts";
+import { closeIfPresent, openMenus } from "./menus.ts";
 import { parseGameId } from "./parse.ts";
-import { forReply, noticePrivately, updateWith } from "./replies.ts";
+import { noticePrivately, showPrivately, updateWith } from "./replies.ts";
 import { autocomplete, button, chatInput, memberRoleIds, select, userContext } from "./router.ts";
 import { catalog, choices, gamePicker, joinedNotice } from "./shared.ts";
 
@@ -53,9 +53,9 @@ function summary(result: {
 function openMenu(
   ctx: AppContext,
   interaction: ButtonInteraction | ChatInputCommandInteraction,
-): Promise<unknown> {
+): Promise<void> {
   const admin = isAdmin(memberRoleIds(interaction), ctx.config.adminRoleId);
-  return interaction.reply(forReply(menuView({ isAdmin: admin })));
+  return showPrivately(interaction, menuView({ isAdmin: admin }));
 }
 
 async function addGames(ctx: AppContext, userId: string, page: number): Promise<Payload> {
@@ -178,18 +178,20 @@ export const memberHandlers: Handlers = {
   "pick-page-lfg": button(pickPage),
   "pick-page-edit": button(pickPage),
   "pick-page-remove": button(pickPage),
-  cancel: button(async (_ctx, interaction) => {
-    await updateWith(interaction, async () => noticeView("Cancelled."));
+  close: button(async (_ctx, interaction) => {
+    await interaction.deferUpdate();
+    await closeIfPresent(() => interaction.deleteReply());
+    openMenus.forget(interaction.user.id, interaction.message.id);
   }),
 
   "games-add": chatInput((ctx, interaction) => commandJoinLeave(ctx, interaction, "join")),
   "games-remove": chatInput((ctx, interaction) => commandJoinLeave(ctx, interaction, "leave")),
   "games-mine": chatInput(async (ctx, interaction) => {
-    await interaction.reply(forReply(await mine(ctx, interaction.user.id)));
+    await showPrivately(interaction, await mine(ctx, interaction.user.id));
   }),
   "games-who": chatInput(async (ctx, interaction) => {
     const gameId = gameIdOption(interaction);
-    await interaction.reply(forReply(await showWho(ctx, gameId)));
+    await showPrivately(interaction, await showWho(ctx, gameId));
   }),
 
   "autocomplete-games": autocomplete(async (ctx, interaction) => {
@@ -203,25 +205,23 @@ export const memberHandlers: Handlers = {
 
   "ctx-see-games": userContext(async (ctx, interaction) => {
     const games = await gamesOf(ctx, interaction.targetId);
-    await interaction.reply(
-      forReply(
-        gameListView(
-          `Games <@${interaction.targetId}> plays`,
-          games,
-          "They haven't picked any games.",
-        ),
+    await showPrivately(
+      interaction,
+      gameListView(
+        `Games <@${interaction.targetId}> plays`,
+        games,
+        "They haven't picked any games.",
       ),
     );
   }),
   "ctx-in-common": userContext(async (ctx, interaction) => {
     const games = await gamesInCommon(ctx, interaction.user.id, interaction.targetId);
-    await interaction.reply(
-      forReply(
-        gameListView(
-          `Games you share with <@${interaction.targetId}>`,
-          games,
-          "You have no games in common.",
-        ),
+    await showPrivately(
+      interaction,
+      gameListView(
+        `Games you share with <@${interaction.targetId}>`,
+        games,
+        "You have no games in common.",
       ),
     );
   }),

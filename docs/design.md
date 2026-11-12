@@ -151,6 +151,14 @@ The admin band appears only for members with the admin role; everyone else sees 
 - **Looking for group.** Opens the LFG form. The post goes in the channel the menu was opened from, or #game-roles when opened from the panel.
 - **Admin buttons** appear only for the admin role. Covered under Admin tools.
 
+**Private messages tidy themselves up**
+
+- **One menu at a time.** Opening a menu or list (the panel button, `/games`, `/games mine`, Who plays, a game picker and so on) deletes the person's previous one.
+- **Close and Cancel.** Every menu and list has a Close button; confirmations and pickers have Cancel. Both delete the message.
+- **Notices close themselves.** A one-line result ("You've joined X.", "Removed X.", "Posted in #…") disappears after 20 seconds and leaves any open menu alone.
+- **What stays.** Error messages, and the uninstall report, which carries the backup file.
+- **The 15-minute limit.** The bot can only delete a private message within 15 minutes of the person's last click on it (Discord's interaction token). After that it stays until the person dismisses it.
+
 **Slash commands**
 
 - `/games` opens the same menu.
@@ -398,7 +406,7 @@ None of these limits block the design at this size; each is handled as follows.
 | Components per message (newer layout) | 40 | Room for roughly 10 to 12 categories in one menu |
 | Autocomplete suggestions | 25 | The best 25 matches are shown |
 | Time to answer a click or command | 3 seconds | Acknowledge first, then do slow work. Autocomplete can't do this, so it answers from memory. |
-| Private (ephemeral) replies | Only in reply to an action | No DMs; "My suggestions" replaces notifications |
+| Private (ephemeral) replies | Only in reply to an action; the bot can delete one only for 15 minutes after the last click on it | No DMs; "My suggestions" replaces notifications. Older menus stay until the person dismisses them. |
 | Right-click commands | 5 per type | Uses 2 of the 5 member commands |
 | Bot role position | Must be above roles it manages | The template sits below the bot's role |
 | Rate limits | Role changes are throttled | discord.js queues requests |

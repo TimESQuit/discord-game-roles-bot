@@ -2,12 +2,20 @@ import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
 
 import { parseId } from "../domain/index.ts";
-import { customIdButtons, defined, findComponents, flagBits, textOf } from "../testing/index.ts";
+import {
+  buttonKinds,
+  customIdButtons,
+  defined,
+  findComponents,
+  flagBits,
+  textOf,
+} from "../testing/index.ts";
 import { countComponents, truncate } from "./limits.ts";
 import {
   addGamesPageCount,
   addGamesView,
   changedOptionIds,
+  gameListView,
   pickGamePageCount,
   menuView,
   myGamesView,
@@ -49,13 +57,13 @@ test("panel view has exactly one button with panel-open ID", () => {
   expect(p.allowedMentions).toEqual({ parse: [] });
 });
 
-test("menu: 7 member buttons; admin row only for admins", () => {
+test("menu: 7 member buttons and Close; admin row only for admins", () => {
   const member = menuView({ isAdmin: false });
-  expect(findComponents(member, ComponentType.Button)).toHaveLength(7);
+  expect(findComponents(member, ComponentType.Button)).toHaveLength(8);
   expect(flagBits(member) & MessageFlags.Ephemeral).toBeTruthy();
   expect(flagBits(member) & MessageFlags.IsComponentsV2).toBeTruthy();
   const admin = menuView({ isAdmin: true });
-  expect(findComponents(admin, ComponentType.Button)).toHaveLength(16);
+  expect(findComponents(admin, ComponentType.Button)).toHaveLength(17);
   for (const p of [member, admin]) {
     for (const row of findComponents(p, ComponentType.ActionRow)) {
       expect(row.components.length).toBeLessThanOrEqual(5);
@@ -102,7 +110,7 @@ test("12 categories x 25 games stays at 40 components per page and pages", () =>
   const count = addGamesPageCount(categories, games);
   expect(count).toBeGreaterThan(1);
   const pages = Array.from({ length: count }, (_, i) =>
-    addGamesView(categories, games, new Set(), i),
+    addGamesView(categories, games, new Set(), i, "Added X."),
   );
   for (const p of pages) expect(countComponents(p)).toBeLessThanOrEqual(40);
   expect(pages.flatMap(allSelects)).toHaveLength(12);
@@ -112,7 +120,7 @@ test("12 categories x 25 games stays at 40 components per page and pages", () =>
 
 test("a single page has no pager; the notice shows at the top", () => {
   const p = addGamesView([chill], [game(1, "Minecraft", 1)], new Set(), 0, "Added Minecraft.");
-  expect(findComponents(p, ComponentType.Button)).toHaveLength(0);
+  expect(buttonKinds(p)).toEqual(["close"]);
   expect(texts(p).startsWith("Added Minecraft.")).toBe(true);
 });
 
@@ -146,6 +154,7 @@ test("my games lists names with Add and Remove buttons; empty text", () => {
   expect(buttons(p).map((b) => parseId(b.custom_id))).toEqual([
     { kind: "menu", action: "add" },
     { kind: "menu", action: "remove" },
+    { kind: "close" },
   ]);
   expect(texts(myGamesView([]))).toContain("You haven't picked any games yet.");
 });
@@ -193,14 +202,14 @@ test("pick view pages: 24 chunks give 2+ pages, each within 40, every game reach
   });
   const ids0 = buttons(defined(pages[0])).map((b) => parseId(b.custom_id));
   expect(ids0).toContainEqual({ kind: "pick-page", purpose: "who", page: 1 });
-  expect(ids0).toContainEqual({ kind: "cancel" });
+  expect(ids0).toContainEqual({ kind: "close" });
   const last = buttons(defined(pages[count - 1])).map((b) => parseId(b.custom_id));
   expect(last).toContainEqual({ kind: "pick-page", purpose: "who", page: count - 2 });
 });
 
 test("pick view with one page has a cancel button and no pager", () => {
   const p = pickGameView("lfg", [chill], [game(1, "Minecraft", 1)], 0);
-  expect(buttons(p).map((b) => parseId(b.custom_id))).toEqual([{ kind: "cancel" }]);
+  expect(buttons(p).map((b) => parseId(b.custom_id))).toEqual([{ kind: "close" }]);
 });
 
 test("remove view with 60 games: three dropdowns, all games, within 40", () => {
@@ -208,6 +217,29 @@ test("remove view with 60 games: three dropdowns, all games, within 40", () => {
   const p = removeGamesView(games, "Removed X.");
   expect(allSelects(p).map((s) => s.options.length)).toEqual([25, 25, 10]);
   expect(countComponents(p)).toBeLessThanOrEqual(40);
+});
+
+test("every menu and list can be closed", () => {
+  const owned = [game(1, "Minecraft", 1)];
+  const views = [
+    menuView({ isAdmin: false }),
+    menuView({ isAdmin: true }),
+    addGamesView([chill], owned, new Set(), 0),
+    addGamesView(manyCategories, manyGames, new Set(), 1),
+    removeGamesView(owned),
+    removeGamesView([]),
+    myGamesView([]),
+    gameListView("Games", owned, "None."),
+    peopleListView("Who plays", [], "Nobody."),
+  ];
+  for (const view of views) expect(buttonKinds(view)).toContain("close");
+});
+
+test("remove view with more games than fit stays within 40 and says so", () => {
+  const games = Array.from({ length: 600 }, (_, i) => game(i + 1, `G${String(i + 1000)}`, 1));
+  const p = removeGamesView(games, "Removed X.");
+  expect(countComponents(p)).toBeLessThanOrEqual(40);
+  expect(texts(p)).toMatch(/Only the first \d+ of your games/);
 });
 
 test("changedOptionIds: only options whose tick differs from what was rendered", () => {

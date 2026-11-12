@@ -43,8 +43,9 @@ import {
   uninstallReportView,
   FIELD,
 } from "../views/index.ts";
+import { openMenus } from "./menus.ts";
 import { parseCategoryId } from "./parse.ts";
-import { forEdit, forReply, noticePrivately, replyPrivately, updateWith } from "./replies.ts";
+import { forEdit, noticePrivately, replyPrivately, showPrivately, updateWith } from "./replies.ts";
 import { buttonOrChatInput, autocomplete, button, chatInput, modal, select } from "./router.ts";
 import {
   categoriesById,
@@ -210,7 +211,7 @@ export const adminHandlers: Handlers = {
     await updateWith(interaction, () => pendingReview(ctx));
   }),
   "gameadmin-review": chatInput(async (ctx, interaction) => {
-    await interaction.reply(forReply(await pendingReview(ctx)));
+    await showPrivately(interaction, await pendingReview(ctx));
   }),
 
   "admin-add": button((ctx, interaction) => openGameModal(ctx, interaction)),
@@ -304,6 +305,8 @@ export const adminHandlers: Handlers = {
       enclosingChannelId(interaction),
       async (result) => {
         await interaction.editReply(forEdit(uninstallReportView(result, picked)));
+        // The report carries the backup, so opening another menu must not delete it.
+        openMenus.forget(interaction.user.id, interaction.message.id);
       },
     );
     // Last, once the report and backup have reached the admin.
@@ -383,7 +386,7 @@ export const adminHandlers: Handlers = {
   }),
   "gameadmin-remove": chatInput(async (ctx, interaction) => {
     const game = await resolvePickedGame(ctx, interaction.options.getString("game", true));
-    await interaction.reply(forReply(confirmRemove(ctx, game)));
+    await showPrivately(interaction, confirmRemove(ctx, game));
   }),
 
   "gameadmin-category-add": chatInput(async (ctx, interaction) => {

@@ -57,7 +57,7 @@ const CustomIdSchema = z.discriminatedUnion("kind", [
   id("lfg-in", {}),
   id("lfg-maybe", {}),
   id("lfg-join", {}),
-  id("cancel", {}),
+  id("close", {}),
   id("admin", { action: z.enum(ADMIN_ACTIONS) }),
   id("review-approve", { suggestionId: int }),
   id("review-edit", { suggestionId: int }),

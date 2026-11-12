@@ -14,8 +14,10 @@ export {
   templatePosition,
 } from "./context.ts";
 export type { TestContext } from "./context.ts";
+export { FAKE_USER_ID, deletedIds, fakeButton } from "./interactions.ts";
 export {
   allComponents,
+  buttonKinds,
   customIdButtons,
   defined,
   findComponents,

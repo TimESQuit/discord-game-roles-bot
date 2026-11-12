@@ -1,10 +1,12 @@
 import { MessageFlags } from "discord.js";
 
 import { noticeView } from "../views/index.ts";
+import { TOKEN_LIFETIME_MS, closeSoon, openMenus } from "./menus.ts";
 
 import type {
   InteractionEditReplyOptions,
   InteractionReplyOptions,
+  Message,
   MessageComponentInteraction,
   ModalMessageModalSubmitInteraction,
   RepliableInteraction,
@@ -35,13 +37,39 @@ export const forReply = (view: Payload): InteractionReplyOptions => ({
   allowedMentions: view.allowedMentions,
 });
 
+/**
+ * After `view` is shown in `message` (the interaction's original response): a notice closes
+ * itself soon, and a private menu becomes the person's open menu, closing the one before.
+ * Public messages are never tracked, so the bot never deletes one this way.
+ */
+async function track(
+  interaction: Pick<RepliableInteraction, "user" | "createdTimestamp" | "deleteReply">,
+  message: Pick<Message, "id" | "flags"> | null | undefined,
+  view: Payload,
+): Promise<void> {
+  if (!message?.flags.has(MessageFlags.Ephemeral)) return;
+  const userId = interaction.user.id;
+  if (view.notice) {
+    openMenus.forget(userId, message.id);
+    closeSoon(() => interaction.deleteReply());
+    return;
+  }
+  await openMenus.open(userId, {
+    messageId: message.id,
+    close: () => interaction.deleteReply(),
+    expiresAt: interaction.createdTimestamp + TOKEN_LIFETIME_MS,
+  });
+}
+
 /** Acknowledges a component (or a modal opened from one), then replaces its message with the view `render` builds. */
 export async function updateWith(
   interaction: MessageComponentInteraction | ModalMessageModalSubmitInteraction,
   render: () => Promise<Payload>,
 ): Promise<void> {
   await interaction.deferUpdate();
-  await interaction.editReply(forEdit(await render()));
+  const view = await render();
+  await interaction.editReply(forEdit(view));
+  await track(interaction, interaction.message, view);
 }
 
 /** Defers a private reply, then fills it with the view `render` builds. */
@@ -50,7 +78,17 @@ export async function replyPrivately(
   render: () => Promise<Payload>,
 ): Promise<void> {
   await interaction.deferReply({ flags: PRIVATE_V2_DEFER });
-  await interaction.editReply(forEdit(await render()));
+  const view = await render();
+  await track(interaction, await interaction.editReply(forEdit(view)), view);
+}
+
+/** Replies at once with a private view that is already built. */
+export async function showPrivately(
+  interaction: RepliableInteraction,
+  view: Payload,
+): Promise<void> {
+  const response = await interaction.reply({ ...forReply(view), withResponse: true });
+  await track(interaction, response.resource?.message, view);
 }
 
 /** Like `replyPrivately`, for a one-line notice. */
@@ -58,3 +96,12 @@ export const noticePrivately = (
   interaction: RepliableInteraction,
   run: () => Promise<string>,
 ): Promise<void> => replyPrivately(interaction, async () => noticeView(await run()));
+
+/** A one-line notice sent after the interaction was already answered; it closes itself too. */
+export async function followUpNotice(
+  interaction: RepliableInteraction,
+  content: string,
+): Promise<void> {
+  const message = await interaction.followUp(forReply(noticeView(content)));
+  closeSoon(() => interaction.deleteReply(message));
+}

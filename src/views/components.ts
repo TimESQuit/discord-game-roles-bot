@@ -45,6 +45,10 @@ export const button = (
   ...(disabled ? { disabled } : {}),
 });
 
+/** Deletes the private message it sits on: "Close" on menus and lists, "Cancel" on confirmations. */
+export const closeButton = (label: "Close" | "Cancel" = "Close"): APIButtonComponent =>
+  button({ kind: "close" }, label);
+
 export const buttonRow = (...buttons: APIButtonComponent[]): ButtonRow => ({
   type: ComponentType.ActionRow,
   components: buttons,

@@ -11,7 +11,7 @@ import {
 } from "../services/index.ts";
 import { LFG_FIELD, lfgModal } from "../views/index.ts";
 import { parseGameId } from "./parse.ts";
-import { forReply, noticePrivately } from "./replies.ts";
+import { noticePrivately, showPrivately } from "./replies.ts";
 import { autocomplete, button, chatInput, modal, select } from "./router.ts";
 import { choices, gamePicker, joinedNotice, resolvePickedGame } from "./shared.ts";
 
@@ -77,7 +77,7 @@ export const lfgHandlers: Handlers = {
   }),
 
   "menu-lfg": button(async (ctx, interaction) => {
-    await interaction.reply(forReply(await gamePicker(ctx, "lfg")));
+    await showPrivately(interaction, await gamePicker(ctx, "lfg"));
   }),
 
   "pick-lfg": select(async (ctx, interaction) => {

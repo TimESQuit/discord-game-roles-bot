@@ -11,6 +11,7 @@ import {
   gameModal,
   reviewListView,
   setupPreviewView,
+  setupReportView,
 } from "./admin.ts";
 import { countComponents } from "./limits.ts";
 
@@ -83,7 +84,7 @@ test("remove confirmation states the member count", () => {
   expect(texts(confirmRemoveView(game, 1))).toContain("1 member will lose the role.");
   const confirm = buttons(view).find((b) => b.style === ButtonStyle.Danger);
   expect(parseId(confirm?.custom_id ?? "")).toEqual({ kind: "confirm-remove", gameId: 4 });
-  expect(kinds(view)).toContain("cancel");
+  expect(kinds(view)).toContain("close");
 });
 
 test("categories view: no Up on first, no Down on last", () => {
@@ -98,14 +99,14 @@ test("categories view: no Up on first, no Down on last", () => {
     { kind: "category-move", categoryId: 3, dir: "up" },
   ]);
   expect(kinds(view).filter((k) => k === "category-rename")).toHaveLength(3);
-  expect(kinds(view).at(-1)).toBe("category-add");
+  expect(kinds(view).slice(-2)).toEqual(["category-add", "close"]);
 });
 
 test("categories view stays within 40 components and points to the command", () => {
   const view = categoriesView(Array.from({ length: 12 }, (_, i) => cat(i + 1, `C${String(i)}`)));
   expect(countComponents(view)).toBeLessThanOrEqual(40);
   expect(texts(view)).toContain("/gameadmin category");
-  expect(kinds(view).at(-1)).toBe("category-add");
+  expect(kinds(view).slice(-2)).toEqual(["category-add", "close"]);
 });
 
 test("review list caps at 40 components and says how many more", () => {
@@ -120,6 +121,17 @@ test("review list caps at 40 components and says how many more", () => {
 test("review list shows no 'more' line when everything fits", () => {
   const view = reviewListView([sugg(1), sugg(2)], new Map([[1, cat(1, "Chill")]]));
   expect(texts(view)).not.toContain("more in");
+});
+
+test("admin lists and reports can be closed", () => {
+  const categories = [cat(1, "Chill"), cat(2, "Party")];
+  const views = [
+    categoriesView(categories),
+    reviewListView([sugg(1)], new Map([[1, cat(1, "Chill")]])),
+    reviewListView([], new Map()),
+    setupReportView({ created: ["templateRole"], fine: [] }),
+  ];
+  for (const view of views) expect(kinds(view)).toContain("close");
 });
 
 test("game modal: add is empty, edit is prefilled", () => {

@@ -22,7 +22,7 @@ import {
   TEXT_INPUT_LIMIT,
 } from "../constants.ts";
 import { encodeId, text } from "../domain/index.ts";
-import { button, buttonRow, display, payload } from "./components.ts";
+import { button, buttonRow, closeButton, display, payload } from "./components.ts";
 import { FIELD, categoryLabel, inputLabel, textInput } from "./modals.ts";
 import { reviewCardParts } from "./suggestions.ts";
 
@@ -32,8 +32,8 @@ import type { Payload } from "../discord/index.ts";
 import type { SetupItem } from "../domain/index.ts";
 import type { Part } from "./components.ts";
 
-// container + the "and N more" line
-const REVIEW_BUDGET = COMPONENT_LIMIT - 2;
+// container + the "and N more" line + the Close row and its button
+const REVIEW_BUDGET = COMPONENT_LIMIT - 4;
 // Discord counts all text displays together; leave room for the "and N more" line.
 const REVIEW_TEXT_BUDGET = TEXT_DISPLAY_LIMIT - 40;
 
@@ -42,7 +42,9 @@ export function reviewListView(
   pending: readonly Suggestion[],
   categoriesById: ReadonlyMap<number, Category>,
 ): Payload {
-  if (pending.length === 0) return payload([display("No suggestions waiting for review.")], true);
+  if (pending.length === 0) {
+    return payload([display("No suggestions waiting for review."), buttonRow(closeButton())], true);
+  }
   const parts: Part[] = [];
   let used = 0;
   let chars = 0;
@@ -66,6 +68,7 @@ export function reviewListView(
   }
   const more = pending.length - shown;
   if (more > 0) parts.push(display(`…and ${String(more)} more in #${ADMIN_CHANNEL_NAME}`));
+  parts.push(buttonRow(closeButton()));
   return payload(parts, true);
 }
 
@@ -133,15 +136,15 @@ export function confirmRemoveView(game: Game, memberCount: number): Payload {
       display(`Remove ${text(game.name)}? ${members} will lose the role.`),
       buttonRow(
         button({ kind: "confirm-remove", gameId: game.id }, "Confirm", ButtonStyle.Danger),
-        button({ kind: "cancel" }, "Cancel"),
+        closeButton("Cancel"),
       ),
     ],
     true,
   );
 }
 
-// container + header + note + the Add category row and its button
-const CATEGORIES_SHOWN = Math.floor((COMPONENT_LIMIT - 5) / 5);
+// container + header + note + the last row with Add category and Close
+const CATEGORIES_SHOWN = Math.floor((COMPONENT_LIMIT - 6) / 5);
 
 export function categoriesView(categories: readonly Category[]): Payload {
   const shown = categories.slice(0, CATEGORIES_SHOWN);
@@ -161,7 +164,9 @@ export function categoriesView(categories: readonly Category[]): Payload {
       display(`Showing the first ${String(shown.length)}. Use /gameadmin category for the rest.`),
     );
   }
-  parts.push(buttonRow(button({ kind: "category-add" }, "Add category", ButtonStyle.Primary)));
+  parts.push(
+    buttonRow(button({ kind: "category-add" }, "Add category", ButtonStyle.Primary), closeButton()),
+  );
   return payload(parts, true);
 }
 
@@ -195,7 +200,7 @@ export function setupPreviewView(
       display(lines.join("\n")),
       buttonRow(
         button({ kind: "confirm-setup" }, "Confirm", ButtonStyle.Primary, blocked),
-        button({ kind: "cancel" }, "Cancel"),
+        closeButton("Cancel"),
       ),
     ],
     true,
@@ -216,6 +221,7 @@ export function setupReportView(result: {
           "Next: set the template role's color.",
         ].join("\n"),
       ),
+      buttonRow(closeButton()),
     ],
     true,
   );

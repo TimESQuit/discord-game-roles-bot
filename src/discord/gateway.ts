@@ -31,6 +31,8 @@ export interface Payload {
     | MessageFlags.Ephemeral
     | MessageFlags.SuppressNotifications
   )[];
+  /** A one-line private result that closes itself shortly after it is shown. */
+  notice?: true;
 }
 export interface OwnMessage {
   id: string;

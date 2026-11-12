@@ -15,6 +15,7 @@ import { UserFacingError } from "../errors.ts";
 import { ADMIN_ROLE_ID as ADMIN, makeContext } from "../testing/index.ts";
 import { noticeView } from "../views/index.ts";
 import { commandDefinitions } from "./commands.ts";
+import { forReply } from "./replies.ts";
 import {
   autocomplete,
   button,
@@ -274,7 +275,7 @@ function fake(o: FakeOpts): { i: BaseInteraction; calls: { method: string; arg: 
   return { i, calls };
 }
 
-const reply = (content: string) => noticeView(content);
+const reply = (content: string) => forReply(noticeView(content));
 
 const expiredError = () =>
   new DiscordAPIError({ code: 10062, message: "Unknown interaction" }, 10062, 404, "POST", "/", {});
@@ -332,7 +333,7 @@ describe("handleInteraction", () => {
     expect(a.calls).toEqual([
       { method: "reply", arg: reply("That button has expired. Open the menu again.") },
     ]);
-    const b = fake({ type: "button", customId: encodeId({ kind: "cancel" }) });
+    const b = fake({ type: "button", customId: encodeId({ kind: "close" }) });
     await handleInteraction(ctx, {}, b.i);
     expect(b.calls[0]?.arg).toEqual(reply("That button has expired. Open the menu again."));
     const c = fake({ type: "autocomplete", commandName: "nothing" });
@@ -343,14 +344,14 @@ describe("handleInteraction", () => {
   test("UserFacingError replies before defer and follows up after", async () => {
     const ctx = await makeContext();
     const handlers = {
-      cancel: async () => {
+      close: async () => {
         throw new UserFacingError("Nope, that is full.");
       },
     };
-    const a = fake({ type: "button", customId: encodeId({ kind: "cancel" }) });
+    const a = fake({ type: "button", customId: encodeId({ kind: "close" }) });
     await handleInteraction(ctx, handlers, a.i);
     expect(a.calls).toEqual([{ method: "reply", arg: reply("Nope, that is full.") }]);
-    const b = fake({ type: "button", customId: encodeId({ kind: "cancel" }), deferred: true });
+    const b = fake({ type: "button", customId: encodeId({ kind: "close" }), deferred: true });
     await handleInteraction(ctx, handlers, b.i);
     expect(b.calls).toEqual([{ method: "followUp", arg: reply("Nope, that is full.") }]);
     expect(ctx.errorReports).toEqual([]);
@@ -359,11 +360,11 @@ describe("handleInteraction", () => {
   test("unexpected error gives a generic reply and an admin notice", async () => {
     const ctx = await makeContext({ setup: true });
     vi.spyOn(console, "error").mockImplementation(() => {});
-    const { i, calls } = fake({ type: "button", customId: encodeId({ kind: "cancel" }) });
+    const { i, calls } = fake({ type: "button", customId: encodeId({ kind: "close" }) });
     await handleInteraction(
       ctx,
       {
-        cancel: async () => {
+        close: async () => {
           throw new Error("boom secret detail");
         },
       },
@@ -372,7 +373,7 @@ describe("handleInteraction", () => {
     expect(calls.map((c) => c.method)).toEqual(["reply"]);
     expect(JSON.stringify(calls[0]?.arg)).not.toContain("boom secret detail");
     expect(ctx.errorReports).toHaveLength(1);
-    expect(ctx.errorReports[0]).toContain("cancel");
+    expect(ctx.errorReports[0]).toContain("close");
     expect(ctx.errorReports[0]).toContain("boom secret detail");
     expect(ctx.errorReports[0]).not.toContain("router.test.ts");
   });
@@ -416,11 +417,11 @@ describe("handleInteraction", () => {
     vi.spyOn(ctx.audit, "reportError").mockImplementation(async () => {
       log.push("report");
     });
-    const { i } = fake({ type: "button", customId: encodeId({ kind: "cancel" }), log });
+    const { i } = fake({ type: "button", customId: encodeId({ kind: "close" }), log });
     await handleInteraction(
       ctx,
       {
-        cancel: async () => {
+        close: async () => {
           throw new Error("boom");
         },
       },
@@ -435,14 +436,14 @@ describe("handleInteraction", () => {
     const log = vi.spyOn(ctx.audit, "log");
     const { i, calls } = fake({
       type: "button",
-      customId: encodeId({ kind: "cancel" }),
+      customId: encodeId({ kind: "close" }),
       createdAt: Date.now() - 5000,
     });
     const expired = expiredError();
     await handleInteraction(
       ctx,
       {
-        cancel: async () => {
+        close: async () => {
           throw expired;
         },
       },
@@ -455,7 +456,7 @@ describe("handleInteraction", () => {
     expect(event).toMatchObject({
       kind: "interaction-expired",
       userId: USER,
-      handler: "cancel",
+      handler: "close",
       handlerRan: true,
     });
     if (event?.kind !== "interaction-expired") throw new Error("Expected an expiry event");
@@ -467,7 +468,7 @@ describe("handleInteraction", () => {
     const ctx = await makeContext({ setup: true });
     vi.spyOn(console, "error").mockImplementation(() => {});
     const log = vi.spyOn(ctx.audit, "log");
-    const { i } = fake({ type: "button", customId: encodeId({ kind: "cancel" }) });
+    const { i } = fake({ type: "button", customId: encodeId({ kind: "close" }) });
     Object.assign(i, {
       reply: async () => {
         throw expiredError();
@@ -476,7 +477,7 @@ describe("handleInteraction", () => {
     await handleInteraction(
       ctx,
       {
-        cancel: async () => {
+        close: async () => {
           throw new UserFacingError("Too slow.");
         },
       },
@@ -484,10 +485,10 @@ describe("handleInteraction", () => {
     );
     await handleInteraction(ctx, {}, i);
     expect(log.mock.calls.map(([e]) => e)).toEqual([
-      expect.objectContaining({ kind: "interaction-expired", handler: "cancel", handlerRan: true }),
+      expect.objectContaining({ kind: "interaction-expired", handler: "close", handlerRan: true }),
       expect.objectContaining({
         kind: "interaction-expired",
-        handler: "cancel",
+        handler: "close",
         handlerRan: false,
       }),
     ]);
@@ -507,7 +508,7 @@ describe("handleInteraction", () => {
     const ctx = await makeContext();
     const { i, calls } = fake({
       type: "button",
-      customId: encodeId({ kind: "cancel" }),
+      customId: encodeId({ kind: "close" }),
       deferred: true,
     });
     await handleInteraction(ctx, {}, i);
@@ -521,13 +522,13 @@ describe("handleInteraction", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     const { i } = fake({
       type: "button",
-      customId: encodeId({ kind: "cancel" }),
+      customId: encodeId({ kind: "close" }),
       failReplies: true,
     });
     await handleInteraction(
       ctx,
       {
-        cancel: async () => {
+        close: async () => {
           throw new Error("boom");
         },
       },
@@ -542,14 +543,14 @@ describe("handleInteraction", () => {
     const err = vi.spyOn(console, "error").mockImplementation(() => {});
     const { i } = fake({
       type: "button",
-      customId: encodeId({ kind: "cancel" }),
+      customId: encodeId({ kind: "close" }),
       failReplies: true,
     });
     await expect(
       handleInteraction(
         ctx,
         {
-          cancel: async () => {
+          close: async () => {
             throw new UserFacingError("x");
           },
         },

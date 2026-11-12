@@ -9,7 +9,7 @@ import {
   SELECT_OPTION_LIMIT,
 } from "../constants.ts";
 import { encodeId, text } from "../domain/index.ts";
-import { button, buttonRow, display, payload } from "./components.ts";
+import { button, buttonRow, closeButton, display, payload } from "./components.ts";
 import { FIELD, categoryLabel, inputLabel, textInput } from "./modals.ts";
 
 import type { Category, Game, Suggestion } from "../db/index.ts";
@@ -111,7 +111,7 @@ export function duplicatePromptView(matches: {
   parts.push(
     buttonRow(
       button({ kind: "dup-submit" }, "Submit anyway", ButtonStyle.Secondary),
-      button({ kind: "cancel" }, "Cancel", ButtonStyle.Secondary),
+      closeButton("Cancel"),
     ),
   );
   return payload(parts, true);
@@ -138,7 +138,10 @@ export function mySuggestionsView(
   const pending = sorted.filter((s) => s.status === "pending").slice(0, PENDING_SHOWN);
   const decided = sorted.filter((s) => s.status !== "pending").slice(0, DECIDED_SHOWN);
   if (pending.length === 0 && decided.length === 0) {
-    return payload([display("You haven't suggested any games yet.")], true);
+    return payload(
+      [display("You haven't suggested any games yet."), buttonRow(closeButton())],
+      true,
+    );
   }
   const parts: Part[] = [display("### My suggestions")];
   if (pending.length > 0) {
@@ -155,6 +158,7 @@ export function mySuggestionsView(
       display(`**Decided**\n${decided.map((s) => decidedLine(s, categoriesById)).join("\n")}`),
     );
   }
+  parts.push(buttonRow(closeButton()));
   return payload(parts, true);
 }
 

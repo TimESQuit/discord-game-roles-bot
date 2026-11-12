@@ -8,7 +8,15 @@ import {
   TEXT_LIMIT,
 } from "../constants.ts";
 import { byName, chunk, encodeId, text } from "../domain/index.ts";
-import { button, buttonRow, display, payload, separator, shownPeople } from "./components.ts";
+import {
+  button,
+  buttonRow,
+  closeButton,
+  display,
+  payload,
+  separator,
+  shownPeople,
+} from "./components.ts";
 import { truncate } from "./limits.ts";
 
 import type {
@@ -23,7 +31,7 @@ import type { Part } from "./components.ts";
 
 /** A one-line private message in the new layout (e.g. "Cancelled."). */
 export function noticeView(message: string): Payload {
-  return payload([display(message)], true);
+  return { ...payload([display(message)], true), notice: true };
 }
 
 export function panelView(): Payload {
@@ -55,7 +63,7 @@ export function menuView({ isAdmin }: { isAdmin: boolean }): Payload {
       m("mine", "My games"),
       m("who", "Who plays…?"),
     ),
-    buttonRow(m("mysug", "My suggestions"), m("lfg", "Looking for group")),
+    buttonRow(m("mysug", "My suggestions"), m("lfg", "Looking for group"), closeButton()),
   ];
   if (isAdmin) {
     parts.push(
@@ -81,9 +89,10 @@ export function menuView({ isAdmin }: { isAdmin: boolean }): Payload {
 
 /**
  * The remove menu fits this many dropdowns: each takes two components (row + select), and the
- * container, notice, header and cut-off note take the other four of the per-message component limit.
+ * container, notice, header, cut-off note and the Close row with its button take the other six
+ * of the per-message component limit.
  */
-const REMOVE_DROPDOWNS = Math.floor((COMPONENT_LIMIT - 4) / 2);
+const REMOVE_DROPDOWNS = Math.floor((COMPONENT_LIMIT - 6) / 2);
 
 /** The games of one category in the order shown, in chunks of up to the select-option limit. Handlers recompute chunks with this. */
 export function categoryChunks(games: readonly Game[], categoryId: number): Game[][] {
@@ -171,8 +180,8 @@ function unitsOf(
   });
 }
 
-// container + notice + header + pager row with its two buttons
-const ADD_BODY_BUDGET = COMPONENT_LIMIT - 1 - 1 - 1 - 3;
+// container + notice + header + the last row with Previous, Next and Close
+const ADD_BODY_BUDGET = COMPONENT_LIMIT - 1 - 1 - 1 - 4;
 
 function addPages(categories: readonly Category[], games: readonly Game[]): Unit[][] {
   let current: Unit[] = [];
@@ -247,13 +256,11 @@ export function addGamesView(
     }
     previous = unit;
   }
-  if (pages.length > 1) {
-    parts.push(
-      buttonRow(
-        ...pagerButtons((target) => ({ kind: "add-page", page: target }), current, pages.length),
-      ),
-    );
-  }
+  const pager =
+    pages.length > 1
+      ? pagerButtons((target) => ({ kind: "add-page", page: target }), current, pages.length)
+      : [];
+  parts.push(buttonRow(...pager, closeButton()));
   return payload(parts, true);
 }
 
@@ -281,6 +288,7 @@ export function removeGamesView(ownedGames: readonly Game[], notice?: string): P
     const listed = REMOVE_DROPDOWNS * SELECT_OPTION_LIMIT;
     parts.push(display(`Only the first ${String(listed)} of your games are listed here.`));
   }
+  parts.push(buttonRow(closeButton()));
   return payload(parts, true);
 }
 
@@ -313,10 +321,7 @@ export function pickGameView(
   const header = total > 1 ? `${title}\n(Page ${String(current + 1)} of ${String(total)})` : title;
   const nav =
     total > 1 ? pagerButtons((p) => ({ kind: "pick-page", purpose, page: p }), current, total) : [];
-  return payload(
-    [display(header), ...rows, buttonRow(...nav, button({ kind: "cancel" }, "Cancel"))],
-    true,
-  );
+  return payload([display(header), ...rows, buttonRow(...nav, closeButton("Cancel"))], true);
 }
 
 function listBody(lines: readonly string[], empty: string): string {
@@ -347,6 +352,7 @@ export function myGamesView(games: readonly Game[], notice?: string): Payload {
     buttonRow(
       button({ kind: "menu", action: "add" }, "Add games", ButtonStyle.Primary),
       button({ kind: "menu", action: "remove" }, "Remove games"),
+      closeButton(),
     ),
   );
   return payload(parts, true);
@@ -358,7 +364,7 @@ export function gameListView(title: string, games: readonly Game[], empty: strin
     games.toSorted(byName).map((g) => `- ${text(g.name)}`),
     empty,
   );
-  return payload([display(`### ${title}\n${body}`)], true);
+  return payload([display(`### ${title}\n${body}`), buttonRow(closeButton())], true);
 }
 
 /** A list of people as mentions (they do not ping), capped at 50. */
@@ -368,5 +374,5 @@ export function peopleListView(title: string, userIds: readonly string[], empty:
     userIds.length === 0
       ? empty
       : [mentions.join("\n"), ...(more === null ? [] : [more])].join("\n");
-  return payload([display(`### ${title}\n${body}`)], true);
+  return payload([display(`### ${title}\n${body}`), buttonRow(closeButton())], true);
 }

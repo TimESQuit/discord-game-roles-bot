@@ -2,7 +2,14 @@ import { ComponentType, MessageFlags } from "discord.js";
 import { expect, test } from "vitest";
 
 import { parseId } from "../domain/index.ts";
-import { customIdButtons, defined, findComponents, flagBits, textOf } from "../testing/index.ts";
+import {
+  buttonKinds,
+  customIdButtons,
+  defined,
+  findComponents,
+  flagBits,
+  textOf,
+} from "../testing/index.ts";
 import { countComponents } from "./limits.ts";
 import {
   announcementView,
@@ -96,7 +103,7 @@ test("duplicate prompt: one Join per game (max 5), Submit anyway and Cancel", ()
   const view = duplicatePromptView({ games, pending: [{ id: 3, name: "Valhalla" }] });
   const ids = buttons(view).map((b) => parseId(b.custom_id));
   expect(ids.filter((i) => i?.kind === "dup-join")).toHaveLength(5);
-  expect(ids.map((i) => i?.kind).slice(-2)).toEqual(["dup-submit", "cancel"]);
+  expect(ids.map((i) => i?.kind).slice(-2)).toEqual(["dup-submit", "close"]);
   expect(texts(view)).toContain("Did you mean");
   expect(texts(view)).toContain("Valhalla");
   expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
@@ -113,14 +120,18 @@ test("my suggestions: Withdraw only on pending; rejected shows reason; within 40
     }),
   );
   const view = mySuggestionsView([...pending, ...decided], new Map(cats.map((c) => [c.id, c])));
-  const withdraw = buttons(view).map((b) => parseId(b.custom_id));
-  expect(withdraw).toHaveLength(10);
-  expect(withdraw.every((i) => i?.kind === "withdraw")).toBe(true);
+  expect(buttonKinds(view).filter((kind) => kind === "withdraw")).toHaveLength(10);
   expect(countComponents(view)).toBeLessThanOrEqual(40);
   expect(texts(view)).toContain("not a game");
   expect(texts(view)).toContain("D4");
   expect(texts(view)).not.toContain("D3");
   expect(flagBits(view)).toBe(MessageFlags.IsComponentsV2 | MessageFlags.Ephemeral);
+});
+
+test("my suggestions can be closed, with or without suggestions", () => {
+  const byId = new Map(cats.map((c) => [c.id, c]));
+  expect(buttonKinds(mySuggestionsView([sugg({ id: 1, name: "P" })], byId))).toContain("close");
+  expect(buttonKinds(mySuggestionsView([], byId))).toContain("close");
 });
 
 test("suggest modal offers every category in the select", () => {

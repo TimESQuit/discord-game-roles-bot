@@ -1,5 +1,3 @@
-import { MessageFlags } from "discord.js";
-
 import { MESSAGES } from "../constants.ts";
 import { text, parseId } from "../domain/index.ts";
 import { UserFacingError } from "../errors.ts";
@@ -23,7 +21,13 @@ import {
   reviewEditModal,
   suggestModal,
 } from "../views/index.ts";
-import { forReply, noticePrivately, replyPrivately, updateWith } from "./replies.ts";
+import {
+  followUpNotice,
+  noticePrivately,
+  replyPrivately,
+  showPrivately,
+  updateWith,
+} from "./replies.ts";
 import { button, buttonOrChatInput, chatInput, modal } from "./router.ts";
 import { categoriesById, joinedNotice, modalCategory } from "./shared.ts";
 
@@ -39,7 +43,7 @@ export const DRAFT_TTL_MS = 15 * 60 * 1000;
 
 /**
  * One pending suggestion draft per person, held while they answer "Did you mean…?".
- * Expired drafts are swept on every write. The Cancel button is the shared `cancel` kind and
+ * Expired drafts are swept on every write. The Cancel button is the shared `close` kind and
  * cannot reach this store, so a cancelled draft simply expires.
  */
 export const draftStore = {
@@ -111,7 +115,7 @@ export const suggestHandlers: Handlers = {
     await updateWith(interaction, () => mySuggestions(ctx, interaction.user.id));
   }),
   "games-suggestions": chatInput(async (ctx, interaction) => {
-    await interaction.reply(forReply(await mySuggestions(ctx, interaction.user.id)));
+    await showPrivately(interaction, await mySuggestions(ctx, interaction.user.id));
   }),
 
   "suggest-modal": modal(async (ctx, interaction) => {
@@ -171,11 +175,7 @@ export const suggestHandlers: Handlers = {
     const id = suggestionId(interaction.customId, "review-approve");
     await interaction.deferUpdate();
     const game = await approveSuggestion(ctx, id, interaction.user.id);
-    await interaction.followUp({
-      content: `Approved ${text(game.name)}.`,
-      flags: MessageFlags.Ephemeral,
-      allowedMentions: { parse: [] },
-    });
+    await followUpNotice(interaction, `Approved ${text(game.name)}.`);
   }),
   "review-edit": button(async (ctx, interaction) => {
     const s = await requirePendingSuggestion(

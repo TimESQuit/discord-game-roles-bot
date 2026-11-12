@@ -2,7 +2,7 @@ import { ButtonStyle, ComponentType } from "discord.js";
 
 import { ADMIN_CATEGORY_NAME, NEWS_CHANNEL_NAME, PANEL_CHANNEL_NAME } from "../constants.ts";
 import { UNINSTALL_OPTIONS, choicesToBits, deletesHere, encodeId } from "../domain/index.ts";
-import { button, buttonRow, display, payload } from "./components.ts";
+import { button, buttonRow, closeButton, display, payload } from "./components.ts";
 
 import type { APIActionRowComponent, APIStringSelectComponent } from "discord.js";
 import type { Payload } from "../discord/index.ts";
@@ -96,7 +96,7 @@ export function uninstallPreviewView(
           ButtonStyle.Danger,
           blocked,
         ),
-        button({ kind: "cancel" }, "Cancel"),
+        closeButton("Cancel"),
       ),
     ],
     true,

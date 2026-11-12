@@ -6,6 +6,8 @@ Run on the test server with the dev bot before each production deploy. Do everyt
 
 - [ ] Admin: `/gameadmin setup` on a fresh server shows the plan, asks to confirm, creates everything. Running it again reports nothing to do.
 - [ ] Both: the panel button opens a private menu. The non-admin sees no admin buttons; the admin does.
+- [ ] Both: open the menu, then open it again (panel button or `/games`): the first menu disappears. Close on a menu deletes it; Cancel on a picker deletes it.
+- [ ] Both: a one-line result ("You've joined X.") disappears after about 20 seconds; an open menu stays. An error message ("That button has expired") stays.
 - [ ] Both: join and leave a game from a category dropdown; the role changes and `#game-roles-log` gets one line.
 - [ ] Both: game autocomplete finds games by name and alias.
 - [ ] Non-admin: every admin button, modal and `/gameadmin` command is refused.

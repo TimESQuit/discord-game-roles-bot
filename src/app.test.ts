@@ -47,7 +47,7 @@ describe("buildHandlers", () => {
   });
 
   test("a duplicate key across handler maps throws", () => {
-    expect(() => buildHandlers([{ cancel: noop }, { cancel: noop }])).toThrow("cancel");
+    expect(() => buildHandlers([{ close: noop }, { close: noop }])).toThrow("close");
   });
 });
 

@@ -32,7 +32,7 @@ const samples: CustomId[] = [
   { kind: "lfg-in" },
   { kind: "lfg-maybe" },
   { kind: "lfg-join" },
-  { kind: "cancel" },
+  { kind: "close" },
   { kind: "admin", action: "review" },
   { kind: "admin", action: "add" },
   { kind: "admin", action: "edit" },

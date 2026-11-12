@@ -1,5 +1,7 @@
 import { ComponentType, isJSONEncodable, MessageFlagsBitField } from "discord.js";
 
+import { parseId } from "../domain/index.ts";
+
 import type {
   APIButtonComponentWithCustomId,
   APIMessageComponent,
@@ -7,6 +9,7 @@ import type {
   APITextDisplayComponent,
 } from "discord.js";
 import type { Payload } from "../discord/index.ts";
+import type { CustomIdKind } from "../domain/index.ts";
 
 /** Any component a message or a modal can hold, as the API sends it. */
 export type AnyComponent = APIMessageComponent | APIModalComponent;
@@ -66,6 +69,11 @@ export function findComponents<T extends ComponentType>(
 /** The buttons that carry a custom ID (all of the bot's own buttons do). */
 export function customIdButtons(source: ComponentSource): APIButtonComponentWithCustomId[] {
   return findComponents(source, ComponentType.Button).filter((b) => "custom_id" in b);
+}
+
+/** The custom-ID kind of each of the bot's buttons, in order (undefined for an ID it can't parse). */
+export function buttonKinds(source: ComponentSource): (CustomIdKind | undefined)[] {
+  return customIdButtons(source).map((b) => parseId(b.custom_id)?.kind);
 }
 
 /** All text-display content, joined with newlines. */
