@@ -44,9 +44,16 @@ import {
   FIELD,
 } from "../views/index.ts";
 import { parseCategoryId } from "./parse.ts";
-import { forReply, noticePrivately, replyPrivately, updateWith } from "./replies.ts";
+import { forEdit, forReply, noticePrivately, replyPrivately, updateWith } from "./replies.ts";
 import { buttonOrChatInput, autocomplete, button, chatInput, modal, select } from "./router.ts";
-import { categoriesById, choices, gamePicker, modalCategory, resolvePickedGame } from "./shared.ts";
+import {
+  categoriesById,
+  choices,
+  enclosingChannelId,
+  gamePicker,
+  modalCategory,
+  resolvePickedGame,
+} from "./shared.ts";
 
 import type {
   ButtonInteraction,
@@ -277,23 +284,27 @@ export const adminHandlers: Handlers = {
 
   "gameadmin-uninstall": chatInput(async (ctx, interaction) => {
     await replyPrivately(interaction, () =>
-      uninstallPreview(ctx, interaction.channelId, new Set()),
+      uninstallPreview(ctx, enclosingChannelId(interaction), new Set()),
     );
   }),
   "uninstall-options": select(async (ctx, interaction) => {
     await updateWith(interaction, () =>
-      uninstallPreview(ctx, interaction.channelId, choicesFromValues(interaction.values)),
+      uninstallPreview(ctx, enclosingChannelId(interaction), choicesFromValues(interaction.values)),
     );
   }),
   "uninstall-confirm": button(async (ctx, interaction) => {
     const id = parseId(interaction.customId);
     if (id?.kind !== "uninstall-confirm") throw new UserFacingError(MESSAGES.menuExpired);
     const picked = choicesFromBits(id.choices);
-    await updateWith(interaction, async () =>
-      uninstallReportView(
-        await applyUninstall(ctx, interaction.user.id, picked, interaction.channelId),
-        picked,
-      ),
+    await interaction.deferUpdate();
+    await applyUninstall(
+      ctx,
+      interaction.user.id,
+      picked,
+      enclosingChannelId(interaction),
+      async (result) => {
+        await interaction.editReply(forEdit(uninstallReportView(result, picked)));
+      },
     );
     // Last, once the report and backup have reached the admin.
     if (picked.has("leave")) await leaveServer(ctx);

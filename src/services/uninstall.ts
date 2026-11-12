@@ -22,20 +22,21 @@ const ADMIN_CHANNELS = [
   "adminCategoryId",
 ] as const satisfies SetupKey[];
 
-async function existingChannels(
+type Recorded = Awaited<ReturnType<AppContext["repos"]["setup"]["all"]>>;
+
+function existingChannels(
   ctx: AppContext,
+  recorded: Recorded,
   keys: readonly SetupKey[],
-): Promise<{ key: SetupKey; id: string }[]> {
-  const recorded = await ctx.repos.setup.all();
+): { key: SetupKey; id: string }[] {
   return keys.flatMap((key) => {
     const id = recorded[key];
     return id !== undefined && ctx.gateway.channelExists(id) ? [{ key, id }] : [];
   });
 }
 
-async function groupOf(ctx: AppContext, channelId: string | null): Promise<ChannelGroup | null> {
+function groupOf(recorded: Recorded, channelId: string | null): ChannelGroup | null {
   if (channelId === null) return null;
-  const recorded = await ctx.repos.setup.all();
   if (MEMBER_CHANNELS.some((key) => recorded[key] === channelId)) return "member";
   if (ADMIN_CHANNELS.some((key) => recorded[key] === channelId)) return "admin";
   return null;
@@ -50,13 +51,14 @@ export async function previewUninstall(
     .map((g) => g.roleId)
     .filter((id) => ctx.gateway.role(id) !== undefined);
   const members = new Set(roles.flatMap((id) => ctx.gateway.roleMemberIds(id)));
-  const admin = await existingChannels(ctx, ADMIN_CHANNELS);
+  const recorded = await ctx.repos.setup.all();
+  const admin = existingChannels(ctx, recorded, ADMIN_CHANNELS);
   return {
     gameRoles: roles.length,
     members: members.size,
-    memberChannels: (await existingChannels(ctx, MEMBER_CHANNELS)).length,
+    memberChannels: existingChannels(ctx, recorded, MEMBER_CHANNELS).length,
     adminChannels: admin.filter((c) => c.key !== "adminCategoryId").length,
-    here: await groupOf(ctx, fromChannelId),
+    here: groupOf(recorded, fromChannelId),
   };
 }
 
@@ -76,8 +78,12 @@ async function runUninstall(
   actorId: string,
   choices: UninstallChoices,
   fromChannelId: string | null,
+  /** Sends the report and backup to the admin. The data is wiped only once this succeeds. */
+  deliver: (result: UninstallResult) => Promise<void>,
 ): Promise<UninstallResult> {
-  if (deletesHere(await groupOf(ctx, fromChannelId), choices)) {
+  // Nothing below changes the setup table until the wipe, so one read serves the whole run.
+  const recorded = await ctx.repos.setup.all();
+  if (deletesHere(groupOf(recorded, fromChannelId), choices)) {
     throw new UserFacingError(
       "Run this from a channel you're keeping, so the report and backup can reach you.",
     );
@@ -93,7 +99,7 @@ async function runUninstall(
       id: g.roleId,
       what: `the ${g.name} role`,
     }));
-    const template = await repos.setup.get("templateRoleId");
+    const template = recorded.templateRoleId;
     if (template !== undefined) roles.push({ id: template, what: "the template role" });
     for (const role of roles) {
       if (gateway.role(role.id) === undefined) continue;
@@ -103,7 +109,7 @@ async function runUninstall(
   }
 
   const deleteChannels = async (keys: readonly SetupKey[]): Promise<void> => {
-    for (const { id } of await existingChannels(ctx, keys)) {
+    for (const { id } of existingChannels(ctx, recorded, keys)) {
       await step(`<#${id}>`, () => gateway.deleteChannel(id, reason));
       deletedChannels += 1;
     }
@@ -111,8 +117,7 @@ async function runUninstall(
 
   if (choices.has("keepMemberChannels")) {
     // The panel's buttons stop working once the data is gone, so the message goes.
-    const panel = await repos.setup.get("panelChannelId");
-    const message = await repos.setup.get("panelMessageId");
+    const { panelChannelId: panel, panelMessageId: message } = recorded;
     if (
       panel !== undefined &&
       message !== undefined &&
@@ -135,8 +140,18 @@ async function runUninstall(
       detail: `deleted ${String(deletedRoles)} roles and ${String(deletedChannels)} channels`,
     });
   }
+  const result = { deletedRoles, deletedChannels, backup };
+  // The backup is the only copy of the data, so it must reach the admin before the wipe. If
+  // delivery fails, the data stays and running uninstall again finishes the job.
+  try {
+    await deliver(result);
+  } catch (error) {
+    throw new UserFacingError(
+      `Uninstall couldn't send you the report and backup: ${messageOf(error)}. The bot's data is untouched; run /gameadmin uninstall again to finish.`,
+    );
+  }
   clearData(ctx.db);
-  return { deletedRoles, deletedChannels, backup };
+  return result;
 }
 
 export const applyUninstall = exclusive("Uninstall is already running.", runUninstall);

@@ -6,7 +6,7 @@ import { addGame } from "./games.ts";
 import { applyUninstall, leaveServer, previewUninstall } from "./uninstall.ts";
 
 import type { SetupKey } from "../db/index.ts";
-import type { UninstallOption } from "../domain/index.ts";
+import type { UninstallOption, UninstallResult } from "../domain/index.ts";
 import type { TestContext } from "../testing/index.ts";
 
 const OUTSIDE = "100000000000009999";
@@ -32,8 +32,12 @@ const id = async (ctx: TestContext, key: SetupKey): Promise<string> =>
 const deleted = (ctx: TestContext, method: "deleteRole" | "deleteChannel"): string[] =>
   ctx.gateway.calls.flatMap((c) => (c.method === method ? [c.args[0]] : []));
 
-const run = (ctx: TestContext, keep: UninstallOption[] = [], from = OUTSIDE) =>
-  applyUninstall(ctx, A1, new Set(keep), from);
+const run = (
+  ctx: TestContext,
+  keep: UninstallOption[] = [],
+  from = OUTSIDE,
+  deliver: (result: UninstallResult) => Promise<void> = async () => {},
+) => applyUninstall(ctx, A1, new Set(keep), from, deliver);
 
 const MEMBER_KEYS = ["panelChannelId", "newsChannelId"] as const;
 const ADMIN_KEYS = ["adminChannelId", "logChannelId", "backupsChannelId"] as const;
@@ -142,6 +146,34 @@ describe("applyUninstall", () => {
     expect(deleted(ctx, "deleteRole")).toHaveLength(rolesDeletedFirstTime);
     expect(result.deletedRoles).toBe(0);
     expect(await ctx.repos.setup.all()).toEqual({});
+  });
+
+  test("the data is wiped only after the report and backup have been delivered", async () => {
+    const ctx = await seeded();
+    let gamesWhenDelivered = -1;
+    await run(ctx, [], OUTSIDE, async () => {
+      gamesWhenDelivered = (await ctx.repos.games.list()).length;
+    });
+    expect(gamesWhenDelivered).toBe(2);
+    expect(await ctx.repos.games.list()).toEqual([]);
+  });
+
+  test("if the backup can't be delivered, the data is kept and a second run finishes", async () => {
+    const ctx = await seeded();
+    const failed = run(ctx, [], OUTSIDE, () =>
+      Promise.reject(new Error("Request entity too large")),
+    );
+    await expect(failed).rejects.toBeInstanceOf(UserFacingError);
+    await expect(failed).rejects.toThrow("Request entity too large");
+    expect(await ctx.repos.games.list()).toHaveLength(2);
+    expect(await ctx.repos.setup.get("logChannelId")).toBeDefined();
+
+    let delivered: UninstallResult | undefined;
+    await run(ctx, [], OUTSIDE, async (result) => {
+      delivered = result;
+    });
+    expect(delivered?.backup.attachment.length).toBeGreaterThan(0);
+    expect(await ctx.repos.games.list()).toEqual([]);
   });
 
   test("things already deleted by hand are skipped", async () => {

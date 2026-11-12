@@ -4,7 +4,11 @@ import { requireGame } from "../services/index.ts";
 import { FIELD, pickGameView, truncate } from "../views/index.ts";
 import { parseCategoryId, parseGameId } from "./parse.ts";
 
-import type { ApplicationCommandOptionChoiceData, ModalSubmitInteraction } from "discord.js";
+import type {
+  ApplicationCommandOptionChoiceData,
+  BaseInteraction,
+  ModalSubmitInteraction,
+} from "discord.js";
 import type { Category, Game } from "../db/index.ts";
 import type { Payload } from "../discord/index.ts";
 import type { PickPurpose } from "../domain/index.ts";
@@ -51,3 +55,12 @@ export const choices = (
   items: readonly { id: number; name: string }[],
 ): ApplicationCommandOptionChoiceData<string>[] =>
   items.map((item) => ({ name: truncate(item.name, TEXT_LIMIT), value: String(item.id) }));
+
+/**
+ * The channel the user is in, or a thread's parent channel: deleting a channel deletes its
+ * threads, so a thread counts as being in its parent.
+ */
+export function enclosingChannelId(interaction: BaseInteraction): string | null {
+  const { channel } = interaction;
+  return channel?.isThread() ? channel.parentId : interaction.channelId;
+}
