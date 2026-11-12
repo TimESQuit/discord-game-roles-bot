@@ -1,4 +1,4 @@
-import { mkdtempSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "vitest";
@@ -75,5 +75,28 @@ test("clearData empties every table but keeps the migration history", async () =
       empty: table !== "__drizzle_migrations",
     });
   }
+  await closeDatabase(db);
+});
+
+test("clearData leaves no trace of deleted rows in the database files", async () => {
+  const path = join(mkdtempSync(join(tmpdir(), "gr-")), "bot.sqlite");
+  const db = openDatabase(path);
+  const repos = createRepos(db.kysely);
+  const secret = "Zzyzx-secret-suggestion-note";
+  const { id: categoryId } = await repos.categories.add(secret);
+  await repos.games.add({
+    name: `${secret} game`,
+    categoryId,
+    roleId: "100000000000000001",
+    aliases: [],
+    addedBy: "100000000000000002",
+    addedAt: "2026-01-01T00:00:00Z",
+  });
+
+  clearData(db);
+
+  // Read while still open, as the files sit on disk while the bot keeps running.
+  const files = [path, `${path}-wal`].filter((f) => existsSync(f));
+  for (const file of files) expect(readFileSync(file).includes(secret)).toBe(false);
   await closeDatabase(db);
 });

@@ -54,4 +54,8 @@ export function clearData(db: Db): void {
     db.sqlite.pragma("defer_foreign_keys = ON");
     for (const table of tables) db.sqlite.prepare(`DELETE FROM "${table}"`).run();
   })();
+  // DELETE only marks pages free, so the rows could still be read from the file. VACUUM rewrites
+  // the file with live data only, and the checkpoint empties the WAL, which held the old pages too.
+  db.sqlite.exec("VACUUM");
+  db.sqlite.pragma("wal_checkpoint(TRUNCATE)");
 }

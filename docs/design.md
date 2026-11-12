@@ -114,7 +114,7 @@ Manage Channels is only needed for setup, repair and uninstalling.
 - A red Uninstall button runs it. It's disabled while the admin is in a channel that would be deleted, or in a thread inside one, so the report can reach them.
 - Deletes what isn't kept. Kept member channels lose the panel message, since its buttons would stop working. Anything already deleted by hand is skipped.
 - If a deletion fails, it stops and says why, without touching the bot's data; running it again finishes the job.
-- Once everything is deleted, it attaches a backup of the database to the private report. Only once the report has been sent does it wipe the data. If the report can't be sent, the data is kept and running uninstall again finishes the job. Kept roles and channels become ordinary ones the bot no longer manages; setup afterwards starts fresh and creates new ones.
+- Once everything is deleted, it attaches a backup of the database to the private report. Only once the report has been sent does it wipe the data, leaving no deleted rows recoverable from the database files. If the report can't be sent, the data is kept and running uninstall again finishes the job. Kept roles and channels become ordinary ones the bot no longer manages; setup afterwards starts fresh and creates new ones.
 - If chosen, the bot then removes its slash commands and leaves the server, which also deletes its own role. Its container should then be stopped.
 - LFG posts made outside #game-roles stay behind, with buttons that no longer work.
 
