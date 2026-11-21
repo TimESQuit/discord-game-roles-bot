@@ -29,7 +29,7 @@
     "drizzle-kit": "~0.31.11",
     "oxfmt": "~0.77.0",
     "oxlint": "^1.92.0",
-    "oxlint-tsgolint": "^7.0.2006",
+    "oxlint-tsgolint": "^7.0.2007",
     "typescript": "~7.0.2",
     "vitest": "^5.1.0"
   },
